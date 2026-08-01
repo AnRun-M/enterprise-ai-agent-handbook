@@ -71,20 +71,20 @@
 
 ## 正在进行
 
-- Runtime Architecture Map（2026-08-01，TASK-0006，分支 feature/runtime-architecture-map，待架构审查）：
+- PR #10（Runtime Architecture Map）已通过 Architecture Review（四个 Blocker：Memory 边界 / 总图控制流 / Checkpoint-Audit / State 引用策略——全部修复并复审通过），squash merge 到 main（2026-08-01，commit 48bca0e）；TASK-0006 标记 completed；Map 最终完成
   - .ai/principles/architecture-map.md：八层总览（Goal / Execution State / Model Context / Memory / Checkpoint / Runtime Control Plane / Tool / Observability）+ 总 Mermaid 图 + 8 概念边界表 + 7 判定问题 + Part 01-03 章节归属 + T01-T12 挂载映射 + 单一事实源规则
   - principles index 增加阅读规则：涉及 Runtime/State/Context/Memory/Checkpoint 的任务必须继续阅读 architecture-map.md
   - 明确未决项：Memory 不选型、Checkpointer 未启用、Human Stop 暂停语义待 v0.6.0、Part 02 清单与 ROADMAP 差异待对齐
+  - 顺手修复：content-map 第 0 章状态漂移（实现完成/待架构审查 → 最终完成）
   - 非出版内容，不进 MkDocs
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 Runtime Architecture Map 架构审查通过后 Merge（TASK-0006）
-2. 之后正式写 Chapter 02（Map Review 与 Merge 后开始）
-3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-5. 选择许可证
+1. 正式写 Chapter 02（Runtime Architecture Map 已 Review 并 Merge，坐标系就绪）
+2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+4. 选择许可证
 
 ## 当前阻塞
 
