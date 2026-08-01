@@ -9,7 +9,7 @@
 | Prompt Builder | Part 02 | Chapter 04 ✅ |
 | Tool Registry | Part 02 | Chapter 05 ✅ |
 | Scheduler / Orchestration | Part 02 | Chapter 06 ✅ |
-| Memory 与 Context / Context Management | Part 02 | Chapter 07（规划） |
+| Memory 与 Context / Context Management | Part 02 | Chapter 07 ✅（draft，待架构审查） |
 | Agent Loop | Part 01 | Chapter 01 ✅（本 Part 引用） |
 | Retry | Part 05（生产级） | 概念边界见 Chapter 01（Retry ≠ Loop） |
 | Checkpoint | Part 03（Checkpointer 机制）+ Part 05（生产恢复语义） | 边界见 architecture-map |
@@ -24,5 +24,6 @@
 - [第 4 章：Prompt Builder](ch04-prompt-builder.md)
 - [第 5 章：Tool Registry](ch05-tool-registry.md)
 - [第 6 章：Runtime Scheduler & Runtime Orchestration](ch06-runtime-scheduler.md)
+- [第 7 章：Memory、Context 与 Context Management](ch07-memory-context-management.md)
 
 后续章节待规划，见 [章节—示例—测试映射](../00-introduction/content-map.md)。

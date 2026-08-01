@@ -102,12 +102,18 @@
 - PR #22（Part 02 范围对齐）已通过 Architecture Review（五项修正全部复审通过），squash merge 到 main（2026-08-01，commit 51dcaa9）；TASK-0012 标记 completed
   - 结论：Chapter 01-06 保持最终完成；Part 02 还需 Chapter 07；Retry/Timeout/Trace 移 Part 05；Checkpoint/Interrupt/Streaming 拆两处；手写 Runtime 已满足；Part 02 暂不收官
   - 修改：ROADMAP / Part 02 index / content-map 三源对齐
+- Chapter 07：Memory、Context 与 Context Management（2026-08-01，TASK-0013，分支 feature/chapter-07-memory-context-management，draft 待架构审查）：
+  - 7.1-7.11 结构，回答 Q1-Q10（四概念边界 / 跨轮次≠Memory / History vs Memory / Window vs Budget / Pipeline / Injection 治理 / Memory 写入流程 / 五类测试与审计）
+  - 6 张 Mermaid 图（四概念关系 / 跨轮 vs 跨执行判定 / Pipeline / Builder-Manager 边界 / Memory 写入生命周期 / Injection 来源）
+  - 主线：State 服务执行、Context 服务调用、Memory 跨执行、Checkpoint 是快照；Context Management 是受预算/权限/事实边界约束的输入治理
+  - 诚实标注：Demo 无跨执行 Memory / 无独立 Context Manager / 无 Compression-Summarization-Injection；双 Runtime 等价测试不验证 Memory 与 Context Management
+  - 零向量库/检索算法/LangGraph Memory API；零新增代码
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. **Chapter 07：Memory、Context 与 Context Management**（Part 02 收官前置；只讲边界与基础语义：Memory vs State/Context/Checkpoint、Context Window、History、Compression/Trimming/Summarization、Injection；不写向量库/检索算法）
-2. **Part 02 收官检查**（Chapter 07 完成后执行，全部满足才标 Part 02 最终完成）：
+1. 等待 Chapter 07 架构审查通过后 Merge
+2. **Part 02 收官检查**（Merge 后的 Memory PR 中执行，四项全部满足才标 Part 02 最终完成）：
    - Chapter 02-07 全部最终完成
    - ROADMAP v0.3.0 全部完成
    - Part 02 index 与 content-map 一致

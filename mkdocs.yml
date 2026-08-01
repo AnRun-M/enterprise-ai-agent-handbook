@@ -49,6 +49,7 @@ nav:
       - 第 4 章: 02-agent-runtime/ch04-prompt-builder.md
       - 第 5 章: 02-agent-runtime/ch05-tool-registry.md
       - 第 6 章: 02-agent-runtime/ch06-runtime-scheduler.md
+      - 第 7 章: 02-agent-runtime/ch07-memory-context-management.md
   - LangGraph Core:
       - 概览: 03-langgraph-core/index.md
       - 手写 vs LangGraph: 03-langgraph-core/manual-vs-langgraph.md

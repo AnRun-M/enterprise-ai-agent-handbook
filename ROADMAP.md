@@ -40,7 +40,7 @@
 - [x] Tool Registry（Chapter 05）
 - [x] Prompt Builder（Chapter 04）
 - [x] 手写 Runtime（已满足：manual_agent_loop Demo + Chapter 01-06 + Runtime Architecture Map）
-- [ ] Chapter 07：Memory、Context 与 Context Management（含 Memory 与 Context 概念边界；Part 02 收官前置）
+- [x] Chapter 07：Memory、Context 与 Context Management（draft，待架构审查；Part 02 收官前置）
 
 ## v0.4.0：LangGraph Core
 
