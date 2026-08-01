@@ -45,6 +45,7 @@ nav:
   - Agent Runtime:
       - 概览: 02-agent-runtime/index.md
       - 第 2 章: 02-agent-runtime/ch02-execution-state.md
+      - 第 3 章: 02-agent-runtime/ch03-model-context.md
   - LangGraph Core:
       - 概览: 03-langgraph-core/index.md
       - 手写 vs LangGraph: 03-langgraph-core/manual-vs-langgraph.md
