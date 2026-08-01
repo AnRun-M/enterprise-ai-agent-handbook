@@ -20,7 +20,7 @@
 - [x] 骨架收敛重构（ADR 单一事实源、canonical 流程、协作规范、命名与目录收敛）
 - [x] 第 0 章
 - [x] 手写 Agent Loop Demo
-- [x] LangGraph 等价 Demo（实现完成 / 待架构审查）
+- [x] LangGraph 等价 Demo
 - [ ] 官方参考索引
 
 ## v0.3.0：Agent 与 Runtime 基础

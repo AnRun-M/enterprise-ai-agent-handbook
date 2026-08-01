@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -46,7 +46,7 @@
 - [x] `ruff check .` 通过
 - [x] `mkdocs build --strict` 通过
 - [x] `langgraph` 版本验证输出 1.2.9
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR #4 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（Blocker 全部修复并复审通过：decide 节点恢复模型决策语义、节点级异常转换保留异常前 State、终止状态守卫）
+- [x] PR #4 squash merge 到 main（commit 5c1d627），远程 feature/basic-langgraph 已删除
+- 合并后方可标记 completed（本次已合并）
