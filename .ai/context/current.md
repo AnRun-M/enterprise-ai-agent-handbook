@@ -39,6 +39,7 @@
   - 五要素标注为本书工程分析模型，非行业唯一标准
   - 移除 StateGraph/Node/Edge/Pregel 细节，LangGraph 机制统一指向 Part 3
   - MCP/A2A/RAG/Memory 小节改为「外围能力」框架：Agent 是控制系统，外围能力提供输入/连接/协作
+- PR #1（第 0 章）经 Architecture Review 通过，merge 到 main（2026-08-01）
 
 ## 正在进行
 
