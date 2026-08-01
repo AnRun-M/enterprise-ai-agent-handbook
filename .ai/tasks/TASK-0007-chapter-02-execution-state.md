@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -41,7 +41,7 @@
 - [x] 章节结构 2.1-2.9 完成，Q1-Q10 全部回答
 - [x] 4 张 Mermaid 图（生命周期 / State 演化 / 边界关系 / 进入与不进入）
 - [x] `mkdocs build --strict`、`pytest`、`ruff check .` 通过
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR #12 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（五项修正：State 更新机制 / Prompt 与执行语义 / 单一事实源职责划分 / 默认排除规则与例外 / 测试表述）
+- [x] PR #12 squash merge 到 main（commit d535de0），远程 feature/chapter-02-execution-state 已删除
+- 合并后方可标记 completed（本次已合并）

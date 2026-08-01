@@ -28,7 +28,7 @@
 - [x] Agent Runtime Design Principles（.ai/principles/ 内部规范，待架构审查）
 - [x] Runtime Architecture Map（.ai/principles/ 内部规范）
 - [x] Chapter 01：Agent Loop
-- [x] Chapter 02：Execution State（draft，待架构审查）
+- [x] Chapter 02：Execution State
 - [ ] LLM 与 Agent
 - [ ] Agent Loop
 - [ ] Runtime
