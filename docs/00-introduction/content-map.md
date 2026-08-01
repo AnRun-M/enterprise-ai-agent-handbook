@@ -10,6 +10,7 @@
 | 第 3 章：Model Context | 一次调用可见输入、State→Context 切片、Prompt 是 Context 组件、Context Builder 归属 | `examples/manual_agent_loop`、`examples/basic_langgraph` | 等价对照 | 最终完成 | v0.3.0 |
 | 第 4 章：Prompt Builder | 组装为最终 Model Context、Template→Instance→Context、Prompt 版本契约、Builder 属于 Runtime | `examples/manual_agent_loop`、`examples/basic_langgraph` | 等价对照 | 最终完成 | v0.3.0 |
 | 第 5 章：Tool Registry | 能力描述与执行映射、Definition/Handler 分离、Dispatch 三职责、权限纵深防御、schema 版本、Result Contract | `examples/manual_agent_loop`、`examples/basic_langgraph` | 等价对照 | 最终完成 | v0.3.0 |
+| 第 6 章：Runtime Scheduler & Orchestration | Loop vs Scheduler、State Transition 调度、Control Plane 编排、Scheduler/Policy/LLM 边界、Runtime 可替换 | `examples/manual_agent_loop`、`examples/basic_langgraph` | 路由纯函数、等价对照、max_iterations | 实现完成 / 待架构审查 | v0.3.0 |
 | Part 2：Agent Runtime（LLM 与 Agent / Agent Loop / Runtime / State / Tool Registry / Prompt Builder / Memory 与 Context / 手写 Runtime） | Runtime 概念、State 生命周期 | `examples/manual_agent_loop` | State reducer、Tool adapter | 进行中（Execution State 已完成） | v0.3.0 |
 | Part 3：LangGraph Core（StateGraph / Node / Edge / Conditional Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream / Subgraph） | 图运行时、恢复、流式 | `examples/basic_langgraph` | Graph path、Checkpoint recovery | 进行中（示例与等价 Demo 已完成，正文待写） | v0.4.0 |
 | Part 4：Text-to-SQL 重构（Text2SQLState / 意图识别 / 元数据与业务规则检索 / SQL 生成 / SQL 校验 / 权限检查 / 引擎路由 / SQL 修复循环 / Python 分析 / 结构化输出） | 全流程落地 | `examples/text2sql_state`、`examples/sql_validation` | SQL validator、Router、Text-to-SQL regression | 规划 | v0.5.0 |

@@ -95,14 +95,21 @@
   - 5.1-5.10 结构，回答 Q1-Q10；5 张 Mermaid 图
   - 主线：Registry = 能力描述与执行映射的注册表，不是工具集合、不是模型决策器
   - 诚实标注：Demo 无 Registry（架构抽象）
+- Chapter 06：Runtime Scheduler & Orchestration（2026-08-01，TASK-0011，分支 feature/chapter-06-runtime-scheduler，draft 待架构审查）：
+  - 6.1-6.10 结构，回答 Q1-Q10（Loop=重复执行结构 / Routing 与 Lifecycle Guard 共同维持 / 调度对象是可执行步骤 / Workflow 与 Scheduler 非对立 / Control Plane 职责与可能路径 / Routing Decision 纯函数 vs Scheduling Execution / 替换契约收窄）
+  - 4 张 Mermaid 图（Control Plane 总图 / 调度循环 / 组件编排 / Scheduler-Policy-LLM 职责边界）
+  - **Part 02 阶段性编排总览**（不提前宣布 Part 02 收官——是否结束待 Merge 后对齐 ROADMAP / Part index / 剩余主题）
+  - 诚实标注：Demo 无独立 Scheduler；TASK-0003 仅验证教学 Demo 范围
+  - 零 LangGraph API 泄漏；零新增代码
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Chapter 06：Scheduler 与 Runtime Orchestration（用户 2026-08-01 指定；Part 02 Runtime 语义继续，暂不进入 Part 3）
-2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-4. 选择许可证
+1. 等待 Chapter 06 架构审查通过后 Merge
+2. Merge 后单独对齐：Part 02 剩余语义（Context Management / Retry / Memory 与 Context）与 ROADMAP v0.3.0 / Part 02 index 差异，决定是否正式结束 Part 02
+3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+5. 选择许可证
 
 ## 当前阻塞
 
