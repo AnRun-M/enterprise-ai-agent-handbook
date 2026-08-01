@@ -30,31 +30,39 @@
 
 ```mermaid
 flowchart TD
-    subgraph RCP["Runtime Control Plane：Loop / Dispatch / Lifecycle / Error Boundary / Retry-Resume 挂载点"]
+    G["User Goal / Request（查询昨天的 GMV）"] --> RCP
+    subgraph RCP["Runtime Control Plane：Observe / 调度组件 / Update State / Route"]
         O["Observe State"]
-        C["Build Model Context"]
-        D["Model Decision"]
-        P["Deterministic Policy"]
-        T["Tool Execution"]
+        P0["Deterministic Policy（可选：模型前检查）"]
+        D["Model Decision（按需调用）"]
+        R{"模型决策路由：Tool / Clarify / Reject / Finish"}
+        P1["Deterministic Policy（Tool 前授权）"]
+        T["Tool Execution（按需动作）"]
+        P2["Deterministic Policy（Tool 后校验 / 模型后约束，可选）"]
         U["Update State"]
         L{"Loop / Terminate / Interrupt"}
     end
-    G["User Goal / Request（查询昨天的 GMV）"] --> O
-    O --> C
-    C --> D
-    D --> P
-    P --> T
-    T --> U
+    O --> P0
+    P0 -- "通过" --> D
+    P0 -. "独立决定：拒绝 / 暂停 / 终止" .-> L
+    D --> R
+    R -- "Tool" --> P1
+    P1 --> T
+    T --> P2
+    P2 --> U
+    R -- "Clarify / Reject / Finish" --> U
     U --> L
     L -- "继续下一轮" --> O
     L -- "终止" --> E["SUCCESS / FAILED / MAX_ITERATIONS_REACHED"]
     ST["Execution State（单次执行控制事实源）"] -. "读写（Observe / Update）" .-> RCP
-    CTX["Model Context（一次调用可见）"] -. "构造输入" .-> C
-    MEM["Memory（跨执行保留，未实现）"] -. "按需检索入 Context" .-> C
+    CTX["Model Context（一次调用可见）"] -. "构造输入" .-> D
+    MEM["Memory（跨执行边界，未实现）"] -. "检索入 Context / 以引用进入 State" .-> CTX
     CK["Checkpoint（State 持久化快照，未启用）"] -. "恢复 / 重放" .-> RCP
     EXT["Tool / External Systems（语义层 / 权限 / 元数据 / 数据库）"] -. "能力与事实源" .-> T
     OBS["Observability（history / trace / metric / audit）"] -. "记录" .-> RCP
 ```
+
+> 本图表达职责与可能的数据流，**不规定每个 Agent 每轮必须执行同一条线性流水线**：Model Decision 与 Tool Execution 是按需调用，不是每轮必经；Deterministic Policy 可以在模型前检查、模型后约束、Tool 前授权、Tool 后校验，或独立决定拒绝 / 暂停 / 终止；模型决策可能路由到 Tool / Clarify / Reject / Finish。Runtime 统一负责 Observe、调度上述组件、Update State，并 Route 到 Loop / Terminate / Interrupt。
 
 ### 一、Goal / Request
 
@@ -66,9 +74,10 @@ flowchart TD
 
 必须明确：
 
-- State 是**单次执行控制状态**的事实源（"对一次 Agent 执行中的控制状态，State 是唯一事实来源"）
+- State 是**单次执行控制状态**的事实源（"对一次 Agent 执行中的控制状态，State 是唯一事实来源"）；State 服务于**一次 Agent 执行**，在该执行的多轮状态转换之间持续存在
 - State **不应复制所有外部业务事实**（权限规则、元数据、语义层、数据库数据留在外部事实源）
 - State **不等于** Memory（跨执行）、Checkpoint（快照）、模型 Context（单次调用可见）
+- **与 Memory 的区分轴：是否跨越单次执行边界**（见第四节）
 
 ### 三、Model Context
 
@@ -78,10 +87,12 @@ flowchart TD
 
 ### 四、Memory
 
-跨轮次、跨任务或跨会话被保留，并在需要时检索的信息。必须区分：
+**跨越单次执行边界**、跨任务或跨会话被保留，并在需要时被检索并注入 Context 或以引用进入 State 的信息。
 
-- 当前执行内的短期状态：**State**
-- 跨执行保留的信息：**Memory**
+**区分轴：是否跨越单次执行边界。**
+
+- **Execution State**：服务于一次 Agent 执行，在该执行的多轮状态转换之间持续存在
+- **Memory**：跨越单次执行边界，跨任务或跨会话保留；**"跨轮次"不是 Memory 的定义判据**——Memory 可以在一次执行中被多次读取，但读取行为不改变它的定义
 - 仓库 AI 协作记忆（`.ai/context/`）：**项目级类比，不是 Agent Runtime 实现**
 
 本项目当前**未实现** Memory（v0.3.0 里程碑）。本文不提前确定 Memory 的数据库或向量存储方案。
@@ -92,7 +103,7 @@ Execution State 在某个执行时刻的**持久化快照**。必须明确：
 
 - Checkpoint **持久化 State**（是 State 的序列化副本，不是 State 本身）
 - Checkpoint 不等于 Memory（Memory 是跨执行信息，Checkpoint 是执行快照）
-- Checkpoint 支持恢复、重放、审计或中断续跑
+- Checkpoint 支持恢复、重放、中断续跑，并可为审计提供执行快照；**完整审计事实由 Audit System 负责**（Observability 层）
 - 当前 `examples/basic_langgraph` **尚未启用 Checkpointer**（graph.py 无 checkpointer 参数）——语义留待 Part 03 / v0.6.0
 
 ### 六、Runtime Control Plane
@@ -125,26 +136,28 @@ Execution State 在某个执行时刻的**持久化快照**。必须明确：
 
 | 概念 | 生命周期 | 是否持久化（默认语义） | 谁读取 | 谁写入 | 主要用途 | 不是什么 |
 |---|---|---|---|---|---|---|
-| **State** | 一次执行 | 运行中存在；持久化与否**取决于 Checkpoint** | Runtime（Observe）、Policy、Tool 调用方；模型经 Context 切片 | Runtime（`apply_*` / 节点返回部分更新） | 下一轮决策的控制事实（iteration / status / 校验结果 / failure_reason / history） | 不是 Memory、不是 Context、不是 Checkpoint |
+| **State** | 一次执行（多轮状态转换之间持续存在） | 运行中存在；持久化与否**取决于 Checkpoint** | Runtime（Observe）、Policy、Tool 调用方；模型经 Context 切片 | Runtime（`apply_*` / 节点返回部分更新） | 下一轮决策的控制事实（iteration / status / 校验结果 / failure_reason / history） | 不是 Memory、不是 Context、不是 Checkpoint |
 | **Context** | 一次模型调用 | 通常不持久化 | 模型 | Runtime 组装（State 切片 + Prompt + 请求 + Tool 结果 + 检索 + Memory 检索） | 本次调用可见输入 | 不是长期存储 |
-| **Memory** | 跨执行（跨任务 / 跨会话） | 跨执行持久化 | Runtime（检索后入 Context） | Runtime / Memory 服务 | 跨执行复用信息 | 不是 State、不是 Checkpoint、不是 `.ai/context/`（项目级类比） |
-| **Checkpoint** | 快照时刻 | 持久化快照 | Runtime（恢复 / 重放 / 续跑） | Runtime / Checkpointer | 崩溃恢复、中断续跑、审计、重放 | 不是 State 本身、不是 Memory |
+| **Memory** | 跨越单次执行边界（跨任务 / 跨会话） | 跨执行持久化 | Runtime（检索后注入 Context，或以引用进入 State） | Runtime / Memory 服务 | 跨执行复用信息；"跨轮次"不是判据 | 不是 State、不是 Checkpoint、不是 `.ai/context/`（项目级类比） |
+| **Checkpoint** | 快照时刻 | 持久化快照 | Runtime（恢复 / 重放 / 续跑） | Runtime / Checkpointer | 崩溃恢复、中断续跑、重放；为审计提供执行快照（完整审计事实由 Audit System 负责） | 不是 State 本身、不是 Memory |
 | **History** | 一次执行（当前项目） | 属 State；生产可同时外发 Trace / Audit | Runtime、测试断言 | Runtime（`record_round` / reducer 追加） | 事件序列：行为判断与测试（`test_history_records_key_events`） | 不是 Trace（外部观测，不参与行为判断） |
 | **Trace** | 执行期间及之后 | 外部持久化（生产） | 可观测系统 | Runtime 埋点 | 排障、性能 | 不是 History |
 | **Prompt** | 一次模型调用 | 不持久化 | 模型 | Runtime / 业务规则摘要 | 单次调用输入约束（TERMINOLOGY） | 不是业务规则存储（ADR-005：规则分层） |
 | **Tool Result** | 一次调用后 | 控制信息入 State；完整数据留外部 | 调用方（Runtime） | Tool | 动作输出 | 不把完整业务数据复制进 State |
+
+**State 引用策略**：影响后续控制决策的信息需要进入 State；对于大对象或外部事实，只保存 **ID / URI / version / digest / summary** 引用，不复制完整数据（例如 T09 执行结果只保存控制信息，完整数据集留在外部）。
 
 ## 3. 判定问题
 
 为作者与 AI 协作者提供概念判定：
 
 1. 这个信息**只服务当前一次模型调用**吗？→ **Context**
-2. 它必须在**当前执行的下一轮**继续可用吗？→ **State**
-3. 它需要**跨任务或跨会话**保留吗？→ **Memory**
+2. 当前一次执行的**后续轮次**仍需使用吗？→ **State**（服务于一次执行，在多轮状态转换之间持续存在）
+3. 需要在**新的执行、任务或会话**中再次使用吗？→ **Memory**（区分轴：是否跨越单次执行边界；"跨轮次"不是 Memory 判据）
 4. 它是为了**崩溃恢复或中断续跑**保存的执行快照吗？→ **Checkpoint**
 5. 它来自**权限、语义层、元数据或数据库**吗？→ **External Source of Truth**，不要无条件复制进 State
 6. 它**只用于排障和指标**吗？→ **Trace / Log / Metric**，不一定进入 State
-7. 它**影响下一轮控制决策**吗？→ 需要进入 State，或以明确引用进入 State
+7. 它**影响下一轮控制决策**吗？→ 需要进入 State，或以明确引用进入 State；大对象 / 外部事实只保存 **ID / URI / version / digest / summary** 引用，不复制完整数据
 
 ## 4. Part 01 ~ Part 03 章节归属
 
