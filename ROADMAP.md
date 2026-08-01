@@ -32,7 +32,7 @@
 - [x] Chapter 03：Model Context
 - [x] Chapter 04：Prompt Builder
 - [x] Chapter 05：Tool Registry
-- [x] Chapter 06：Runtime Scheduler & Orchestration（draft，待架构审查）
+- [x] Chapter 06：Runtime Scheduler & Orchestration
 - [ ] LLM 与 Agent
 - [ ] Agent Loop
 - [ ] Runtime

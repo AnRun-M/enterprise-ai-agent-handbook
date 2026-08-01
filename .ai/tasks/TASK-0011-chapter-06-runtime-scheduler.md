@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -42,7 +42,7 @@
 - [x] 章节结构 6.1-6.10 完成，Q1-Q10 全部回答（Q10 由本章补定义为收官问题：Part 02 Runtime 全景统一）
 - [x] 4 张 Mermaid 图（Control Plane 总图 / 调度循环 / 组件编排 / 职责边界）
 - [x] `mkdocs build --strict`、`pytest`、`ruff check .` 通过
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR #20 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（八项修正：Loop/Scheduler/Lifecycle 关系 / 调度对象=可执行步骤 / Workflow 非对立 / Routing Decision vs Scheduling Execution / 替换结论收窄 / 总图重画 / Part 02 定位修正 / PR 描述同步）
+- [x] PR #20 squash merge 到 main（commit c50247a），远程 feature/chapter-06-runtime-scheduler 已删除
+- 合并后方可标记 completed（本次已合并）
