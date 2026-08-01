@@ -70,16 +70,20 @@
 
 ## 正在进行
 
-- LangGraph 等价 Demo（`examples/basic_langgraph`）——实现完成，PR #4 待架构审查（TASK-0003）
+- Chapter 01：Agent Loop（2026-08-01，TASK-0005，分支 feature/chapter-01-agent-loop，draft 待架构审查）：
+  - 1.1-1.9 结构，回答 Q1-Q10（LLM 不循环 / Loop 属于 Runtime / 四阶段 / State 是循环对象 / 终止 / Retry vs Loop / Workflow vs Agent / 双 Runtime 等价）
+  - 4 张 Mermaid 图（四阶段闭环 / pipeline 位置 / Manual↔Graph 映射 / 终止状态机）
+  - 零 LangGraph API、零新增代码，全部引用已有 Demo 与 principles
+  - 写作目标：读者能不看框架自写 Agent Loop
+  - mkdocs nav / Part 01 index / ROADMAP v0.3.0 draft 勾选 / content-map 行 已更新
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 PR #4（basic_langgraph）架构审查通过后 Merge
-2. 正式进入 Chapter 01（docs/01-agent-foundations/ch01-*，主题以任务书为准）
-3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-5. 选择许可证
+1. 等待 Chapter 01 架构审查通过后 Merge
+2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+4. 选择许可证
 
 ## 当前阻塞
 
