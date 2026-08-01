@@ -13,7 +13,7 @@
 
 - `FakeLLM.generate_sql()` 生成一条 SQL（`examples/manual_agent_loop/models.py`）
 - `FakeSQLValidator.validate()` 校验它（`tools.py`）——**校验器在模型之外**
-- 模型**不知道**校验结果。它不会自发地再次调用自己说"让我看看哪里错了"
+- **除非应用把校验结果放入下一次模型调用输入，否则模型无法获得该结果**——它不会自发地再次调用自己说"让我看看哪里错了"
 
 让模型"看到"校验结果的唯一方式，是**有人把校验结果交给它**。谁来做这件事？下一次循环的 Observe 阶段。而"下一次调用"这件事，模型自己永远不会发起——发起权在 Runtime。
 
@@ -52,12 +52,18 @@ flowchart LR
 
 不是模型。同一个模型实例跨轮次不保留记忆（1.1），模型在每一轮都是"新的"。
 
-**循环的是 State。** 每一轮的模式是固定的：从 State 读出事实 → 模型决策 → 执行动作 → 把结果写回 State。两个证据：
+严格来说，循环的是围绕 State 展开的**状态转换过程**：
+
+```text
+State -> Observe -> Decide -> Act -> State'
+```
+
+"循环的是 State"是**教学简写**——State 是执行控制事实的载体（`.ai/principles/state-design.md`），**不是主动循环主体**：它不会自己"转"，是调度者（Runtime）围绕它转。每一轮的模式是固定的：从 State 读出事实 → 模型决策 → 执行动作 → 把结果写回 State。两个证据：
 
 1. **修复循环的机制**：`FakeLLM.fix_sql()` 读 `state.validation_rule` 决定怎么修复（`models.py`）——校验错误存在于 State，不依赖模型记忆。如果校验结果只存在于模型输出里，第二轮就没有依据。
 2. **两个 Runtime 行为等价**：manual 与 LangGraph 版本共享同一个 `FakeLLM`，行为等价测试逐字段断言 State（`test_direct_equivalence_with_manual`）——**循环的是同一个 State 语义**，载体怎么变都不影响。
 
-推论（也是 `.ai/principles/state-design.md` 的结论）：**谁拥有 State 的更新权，谁就拥有循环。** 本项目的 State 更新权在 Runtime 手里（`apply_*` 方法 / 节点返回部分更新）——所以下一节的问题有了答案。
+推论：**谁负责调度状态转换、决定是否进入下一轮，谁就拥有 Loop**；State 更新是闭环的必要条件，但**不等于控制权**。本项目里，调度与轮次判定在 Runtime（`run()` 的循环条件 / `route_decide_or_max`），State 更新也在 Runtime（`apply_*` 方法 / 节点返回部分更新）——所以 Loop 属于 Runtime（1.4 展开）。
 
 ## 1.4 为什么 Loop 必须属于 Runtime
 
@@ -93,7 +99,8 @@ flowchart TD
     S1 --> E["END"]
     S2 --> E
     S3 --> E
-    S0 -. "Human Stop（未实现，v0.6.0 Interrupt）" .-> H["中断等待人工"]
+    S0 -. "Human Stop（暂停态，未实现）" .-> H["INTERRUPTED / WAITING_FOR_HUMAN"]
+    H -. "人工确认后恢复" .-> S0
 ```
 
 | 终止方式 | 触发条件 | 由谁保证 |
@@ -101,7 +108,7 @@ flowchart TD
 | **Success** | finalize 成功：执行通过 + 生成最终回答 | 确定性代码（`complete_success`） |
 | **Failure** | 执行失败 / 模型或工具异常 / 未知动作 | 确定性代码（`fail` + `failure_reason` 入 State，PR #2 Review Blocker 1） |
 | **Max Iteration** | `iteration >= max_iterations` | 确定性兜底：manual 循环顶部检查（`runtime.py`）；graph 的 `route_decide_or_max` **先于模型决策执行**（`routing.py`） |
-| **Human Stop** | 人工审批 / 中断 | 未实现——v0.6.0 里程碑（Interrupt 挂载点） |
+| **Human Stop** | 人工审批 / 中断 | **暂停态，不是终止态**：RUNNING → INTERRUPTED / WAITING_FOR_HUMAN → RUNNING；当前 Demo 未实现，留待 Interrupt 章节（v0.6.0） |
 
 Max Iteration 是专门设计过的兜底：在 graph 版本中，即使第 2 轮校验已经通过，只要 `iteration >= max_iterations`，也不会执行 finalize——与手写版本语义一致（测试 `test_max_iterations_2_stops_before_finalize` 固化了这个 off-by-one 契约）。**终止条件越早检查、越确定，Runtime 就越安全。**
 
@@ -124,16 +131,28 @@ Text-to-SQL 场景中的例子：
 
 `TERMINOLOGY.md`：Workflow 是预定义步骤和控制关系的流程，可以包含 LLM，也可以不包含。
 
-固定 ETL、固定审批流、固定 DAG——它们没有 Loop，因为：步骤顺序预定义、决策点被确定性规则覆盖（或没有决策点）、终止条件预定义。Workflow 的每一步"下一步去哪"在运行前就确定了。
+**Workflow 可以有 Loop，也可以没有 Loop。** 固定 ETL、固定审批流、固定 DAG 没有 Loop；而"T05 校验失败后由固定规则进入 T07 修复"就是**带循环的 Workflow**——循环由预定义规则驱动。
 
-**Workflow 不是 Agent。** `.ai/principles/llm-vs-runtime.md`：Agent = Runtime + Decision——关键在模型是否拥有开放式语义决策（第 0 章 0.2 的控制流判据）。Workflow 里模型（如果有）只做被编排的那一步，不拥有控制流。
+**Agent 可以只执行一轮，也可以多轮。** 一次"决策 → 执行 → 返回"也是 Agent（第 0 章 0.2：循环是复杂 Agent 的典型能力，不是必要条件）。
 
-对照 canonical pipeline（`docs/04-text2sql/canonical-pipeline.md`）：
+**区别不在"有没有回路"，而在下一步动作由谁决定：**
 
-- 单程 T01 → T02 → … → T12，没有回路——这是 **Workflow**
-- 加上 T04 → T05 → T07 的修复回路——系统成为 **Agent**
+- 下一步动作由**预定义规则完全决定** → Workflow（无论有没有循环）
+- 下一步动作包含**运行时开放式语义决策**（模型根据 State 决定）→ Agentic control flow
 
-**同一个 pipeline，有没有回路决定它是 Workflow 还是 Agent。** 这不是文字游戏：回路意味着"下一步去哪"在运行中可能改变（模型重新决策），这正是控制流归属的转移。读者现有的"固定流程系统"很可能就是 Workflow——不是所有系统都需要 Loop，需要的时候，才知道 Loop 长什么样（1.2-1.5）。
+Text-to-SQL 三层对照（canonical pipeline，`docs/04-text2sql/canonical-pipeline.md`）：
+
+| 形态 | 控制流 | 分类 |
+|---|---|---|
+| 固定 T01 → T02 → … → T12，单程 | 预定义 | **Workflow** |
+| T05 失败后由固定规则进入 T07 修复，再回 T05 | 预定义规则驱动的循环 | **带循环的 Workflow** |
+| T05 失败后，模型根据 State 决定修复 / 澄清 / 拒绝 / 终止 | 运行时开放式语义决策 | **Agentic control flow** |
+
+所以：
+
+> **预定义 Workflow 本身不等于 Agent；Agent 可以使用 Workflow 作为 Runtime 载体。**
+
+（`.ai/principles/llm-vs-runtime.md`：Agent = Runtime + Decision——关键在模型是否拥有开放式语义决策，第 0 章 0.2 的控制流判据。）读者现有的"固定流程系统"很可能就是 Workflow——不是所有系统都需要 Loop；需要的时候，才知道 Loop 长什么样（1.2-1.5）。
 
 ## 1.8 Manual Runtime → LangGraph Runtime
 
@@ -178,19 +197,19 @@ flowchart LR
 | Q3 | Loop 每一轮发生什么？ | Observe → Decide → Act → Update State |
 | Q4 | 为什么 while 不是重点？ | 只是循环的一种表示；重点是职责归属 |
 | Q5 | 为什么 Graph Cycle 不是重点？ | 同一循环的另一种表示；先有循环，后有图 |
-| Q6 | 真正重要的是什么？ | Observe / Decide / Act / Update State——动作结果回到下一轮决策输入，形成闭环 |
+| Q6 | 真正重要的是什么？ | 状态转换闭环 State → Observe → Decide → Act → State'——动作结果回到下一轮决策输入 |
 | Q7 | Loop 为什么一定要终止？ | 不终止 = 无限调用 = 成本失控；终止由确定性代码保证（ADR-004） |
 | Q8 | Retry 和 Loop 有什么区别？ | Retry 重放同一动作；Loop 进入下一轮决策 |
-| Q9 | Workflow 为什么可以没有 Loop？ | 步骤预定义、决策点确定；Workflow 不是 Agent（Agent = Runtime + Decision） |
+| Q9 | Workflow 为什么可以没有 Loop？ | 区别不在回路，而在下一步是否包含运行时开放式语义决策；预定义 Workflow 不等于 Agent，Agent 可使用 Workflow 作为载体 |
 | Q10 | 为什么两个 Runtime 行为等价？ | 共享组件 + 同一 State 语义 + 对照测试证明契约 |
 
 **本章验收标准：**
 
 - [ ] 能解释为什么模型不会自己循环、循环从哪来
 - [ ] 能画出四阶段闭环，并说明 Update State 为什么是闭环的关键
-- [ ] 能说明"循环的是 State"及其两个证据
+- [ ] 能说明"循环的是 State"是教学简写，严格说法是围绕 State 的状态转换过程（State → Observe → Decide → Act → State'）
 - [ ] 能不借助任何框架，写出自己的 Agent Loop（第 0 章 0.5 的伪代码即最小形态）
-- [ ] 能区分四种终止方式，并说明为什么 Max Iteration 必须由确定性代码保证
+- [ ] 能区分三种终止方式与 Human Stop 暂停态，并说明为什么 Max Iteration 必须由确定性代码保证
 - [ ] 能用 Text-to-SQL 例子区分 Retry 与 Loop、Workflow 与 Agent
 - [ ] 能解释两个 Runtime 行为等价的测试依据
 - [ ] 术语与 `TERMINOLOGY.md` 一致；流程引用 `canonical-pipeline.md`
