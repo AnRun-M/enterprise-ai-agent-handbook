@@ -1,0 +1,56 @@
+site_name: Enterprise AI Agent Handbook
+site_description: 从手写 Agent Loop 到企业级 Agent Runtime
+site_author: AnRun-M
+docs_dir: docs
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+nav:
+  - 首页: index.md
+  - Introduction:
+      - 概览: 00-introduction/index.md
+  - Agent Foundations:
+      - 第 0 章: 01-agent-foundations/00-you-already-built-an-agent.md
+  - Agent Runtime:
+      - 概览: 02-agent-runtime/index.md
+  - LangGraph Core:
+      - 概览: 03-langgraph-core/index.md
+  - Text-to-SQL:
+      - 概览: 04-text2sql/index.md
+  - Production:
+      - 概览: 05-production/index.md
+  - MCP and A2A:
+      - 概览: 06-mcp-a2a/index.md
+  - AI Coding:
+      - 概览: 07-ai-coding/index.md
+  - ADR:
+      - Architecture First: adr/ADR-0001-architecture-first.md
+      - Text-to-SQL Main Case: adr/ADR-0002-text2sql-main-case.md
