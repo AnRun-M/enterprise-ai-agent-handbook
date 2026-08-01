@@ -25,7 +25,7 @@
 
 ## v0.3.0：Agent 与 Runtime 基础
 
-- [x] Agent Runtime Design Principles（.ai/principles/ 内部规范，待架构审查）
+- [x] Agent Runtime Design Principles（.ai/principles/ 内部规范）
 - [x] Runtime Architecture Map（.ai/principles/ 内部规范）
 - [x] Chapter 01：Agent Loop
 - [x] Chapter 02：Execution State
@@ -33,14 +33,14 @@
 - [x] Chapter 04：Prompt Builder
 - [x] Chapter 05：Tool Registry
 - [x] Chapter 06：Runtime Scheduler & Orchestration
-- [ ] LLM 与 Agent
-- [ ] Agent Loop
-- [ ] Runtime
-- [ ] State
-- [ ] Tool Registry
-- [ ] Prompt Builder
-- [ ] Memory 与 Context
-- [ ] 手写 Runtime
+- [x] LLM 与 Agent（由 Chapter 00 / 03 覆盖）
+- [x] Agent Loop（Chapter 01）
+- [x] Runtime（Chapter 02-06 体系 + Chapter 06 编排总览）
+- [x] State（Chapter 02）
+- [x] Tool Registry（Chapter 05）
+- [x] Prompt Builder（Chapter 04）
+- [x] 手写 Runtime（已满足：manual_agent_loop Demo + Chapter 01-06 + Runtime Architecture Map）
+- [ ] Chapter 07：Memory、Context 与 Context Management（含 Memory 与 Context 概念边界；Part 02 收官前置）
 
 ## v0.4.0：LangGraph Core
 

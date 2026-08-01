@@ -1,15 +1,21 @@
 # Part 2：Agent Runtime
 
-- Agent Loop
-- State
-- Tool Registry
-- Prompt Builder
-- Scheduler
-- Retry
-- Checkpoint
-- Interrupt
-- Streaming
-- Trace
+## 主题覆盖与归属（TASK-0012 范围对齐）
+
+| 主题 | 归属 | 状态 |
+|---|---|---|
+| Execution State | Part 02 | Chapter 02 ✅ |
+| Model Context | Part 02 | Chapter 03 ✅ |
+| Prompt Builder | Part 02 | Chapter 04 ✅ |
+| Tool Registry | Part 02 | Chapter 05 ✅ |
+| Scheduler / Orchestration | Part 02 | Chapter 06 ✅ |
+| Memory 与 Context / Context Management | Part 02 | Chapter 07（规划） |
+| Agent Loop | Part 01 | Chapter 01 ✅（本 Part 引用） |
+| Retry | Part 05（生产级） | 概念边界见 Chapter 01（Retry ≠ Loop） |
+| Checkpoint | Part 03（Checkpointer 机制）+ Part 05（生产恢复语义） | 边界见 architecture-map |
+| Interrupt | Part 03（原语）+ Part 05（HITL 语义） | 边界见 Chapter 01（Human Stop 暂停态） |
+| Streaming | Part 03（Stream API）+ Part 05（生产传输协议） | — |
+| Trace | Part 05（Observability） | — |
 
 ## 章节
 
