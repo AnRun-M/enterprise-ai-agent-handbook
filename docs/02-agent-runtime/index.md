@@ -17,5 +17,6 @@
 - [第 3 章：Model Context](ch03-model-context.md)
 - [第 4 章：Prompt Builder](ch04-prompt-builder.md)
 - [第 5 章：Tool Registry](ch05-tool-registry.md)
+- [第 6 章：Runtime Scheduler & Runtime Orchestration](ch06-runtime-scheduler.md)
 
 后续章节待规划，见 [章节—示例—测试映射](../00-introduction/content-map.md)。
