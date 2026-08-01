@@ -11,7 +11,6 @@
 | Part 5：生产级能力（Checkpoint / HITL / 幂等 / Retry / Timeout / Compensation / Observability / Cost Control / Evaluation / Regression Test） | 可靠性、可观测、评测 | `examples/checkpoint_hitl` | Checkpoint recovery | 规划 | v0.6.0 |
 | Part 6：MCP 与 A2A（MCP 边界 / MCP Tool 接入 / A2A 边界 / Agent Card / Task / Artifact / 服务化） | 能力连接与 Agent 协作标准 | 待规划 | Tool adapter | 规划 | v0.7.0 |
 | Part 7：AI Coding | 审查 AI 生成的 Agent 代码 | 待规划 | 待规划 | 规划 | v1.0.0 |
-| Design Principles（docs/99-design-principles/） | 项目宪法：Runtime / State / LLM 边界 / 测试 / Review 清单 | — | — | 实现完成 / 待架构审查 | v0.3.0 |
 
 ## 约定
 

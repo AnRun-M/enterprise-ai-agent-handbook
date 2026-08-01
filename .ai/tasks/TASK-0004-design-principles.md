@@ -19,14 +19,14 @@
 
 ## 需要新增
 
-- `docs/99-design-principles/`：index / 01-runtime-design / 02-state-design / 03-llm-vs-runtime / 04-testing-agent / 05-review-checklist
+- `.ai/principles/`：index / runtime-design / state-design / llm-vs-runtime / testing-agent / review-checklist（PR #5 Review 后由 docs/99-design-principles/ 迁入：内部规范，不属于出版内容，不进 MkDocs）
 - `.ai/tasks/TASK-0004-design-principles.md`（本文件）
 
 ## 需要修改
 
-- `mkdocs.yml`（Design Principles 导航）
-- `docs/00-introduction/content-map.md`（Design Principles 行）
-- `ROADMAP.md`（v0.3.0 新增 Design Principles 里程碑项）
+- `AGENTS.md`（强制读取顺序加入 `.ai/principles/index.md`）
+- `ARCHITECTURE.md`（内容边界：`.ai/principles/` 为内部设计规范）
+- `ROADMAP.md`（v0.3.0 新增 Design Principles 里程碑项，描述为内部规范）
 - `.ai/context/current.md`
 
 ## 约束

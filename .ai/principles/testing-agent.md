@@ -22,11 +22,11 @@ Prompt 是单次模型调用的输入约束（`TERMINOLOGY.md`）。ADR-005 的�
 
 - 真实 LLM 输出不可复现 → 测试 flaky → CI 失去信号价值，红灯无法归因
 - `langgraph==1.2.9` 精确固定（`pyproject.toml`，TASK-0003）→ 依赖版本不漂移
-- 全仓 pytest：`tests/manual_agent_loop`（31）+ `tests/basic_langgraph`（26）= **57 passed**，全部无网络、无真实数据库、无 API Key
+- 测试集全部无网络、无真实数据库、无 API Key；**当前测试集在 CI 中全部通过，具体数量以最新 CI 为准**（不在此处记录易漂移的数字）
 
 ## 测试层次（本项目已验证的结构）
 
-1. **组件规则测试**：`test_validator.py`（12 个，含参数化拒绝用例——SELECT 首 token 严格匹配）
+1. **组件规则测试**：`test_validator.py`（含参数化拒绝用例——SELECT 首 token 严格匹配）
 2. **Loop 行为测试**：`test_agent_loop.py`（状态迁移 / 三种终止 / history 事件序列 / failure_reason 三场景）
 3. **Graph 行为测试**：`test_langgraph_agent.py`（路由纯函数 / reducer 无重复 / 异常保状态 / 决策路由）
 4. **等价对照测试**：`test_direct_equivalence_with_manual`（两个 Runtime 同一断言集）

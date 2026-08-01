@@ -6,6 +6,7 @@
 enterprise-ai-agent-handbook/
 ├── .ai/                    # AI 项目记忆（不属于书籍正文）
 │   ├── context/            # project / current / decisions 索引
+│   ├── principles/         # 内部设计规范（Runtime / State / LLM 边界 / 测试 / Review 清单）
 │   ├── tasks/
 │   └── templates/
 ├── docs/                   # 正式出版内容（MkDocs 文档站）
@@ -34,6 +35,7 @@ enterprise-ai-agent-handbook/
 - `docs/`：正式出版内容，由 MkDocs 构建发布。
 - `references/`：未发布的研究素材与官方资料索引，不属于书籍正文。
 - `.ai/`：AI 项目记忆，帮助 AI 跨会话保持上下文，不属于书籍正文。
+- `.ai/principles/`：内部设计规范（项目宪法），不属于出版内容，不进入 MkDocs 文档站。
 
 ## AI 协作流程
 

@@ -15,7 +15,8 @@
 5. `ROADMAP.md`
 6. `ARCHITECTURE.md`
 7. `TERMINOLOGY.md`
-8. 当前任务相关文件
+8. `.ai/principles/index.md`
+9. 当前任务相关文件
 
 禁止仅依赖聊天上下文直接修改仓库。
 
