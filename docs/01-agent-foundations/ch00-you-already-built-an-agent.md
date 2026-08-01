@@ -19,7 +19,7 @@
 7. 哪些能力必须由业务系统自己实现？
 8. 什么时候不应该使用 LangGraph？
 9. 什么时候开始值得使用 LangGraph？
-10. MCP、A2A、RAG、Memory 与本章内容的关系是什么？
+10. MCP、A2A、RAG、Memory 作为外围能力，与 Agent（控制系统）是什么关系？
 
 **一句话结论：你已经写了一个 Agent——一个 Runtime 手写的 Agent。框架不会给你一个循环，它只负责把你已经写出来的循环显式化、可恢复化、可观测化。**
 
@@ -27,16 +27,16 @@
 
 ## 0.2 LLM 与 Agent 的区别
 
-**LLM 是一个无状态函数。** 给它一段输入文本，它返回一段输出文本；它不记得上一次调用，没有目标，不会主动执行任何外部动作。无论叫 Claude、GPT 还是别的模型，单次调用本质上都是「文本进，文本出」的变换。
+**基础模型推理通常不会自动管理应用级状态。** 给它一段输入文本，它返回一段输出文本；单次推理不保留跨调用记忆，也不会主动执行外部动作。应用级状态（如用户会话、任务进度）由 Runtime 或应用层维护，不依赖模型内部记忆——「模型有没有状态」取决于上层系统怎么设计，而不是模型本身。
 
-**Agent 是一个有状态、有循环的系统。** Anthropic 在《Building effective agents》中给出了业界广泛采用的区分方式：**Workflow 是「LLM 与工具被预定义的代码路径编排」，工程师拥有控制流；Agent 是「LLM 动态指导自己的过程与工具使用」，模型拥有控制流** [^anthropic-agents]。也就是说，判断一个系统是不是 Agent，看的不是「用没用模型」，而是**控制流在谁手里、是否存在循环**。
+**Agent 是一个有状态、有循环的系统。** Anthropic 在《Building effective agents》中给出了业界广泛采用的区分方式：**Workflow 是「LLM 与工具被预定义的代码路径编排」，工程师拥有控制流；Agent 是「LLM 动态指导自己的过程与工具使用」，模型拥有控制流** [^anthropic-agents]。也就是说，判断一个系统是不是 Agent，看的不是「用没用模型」，而是**控制流归属（下一步由谁决定）、是否自主决策、是否使用工具**。循环（Agent Loop）是复杂 Agent 的典型能力，但不是 Agent 的必要条件——简单 Agent 可以只迭代一次就结束。
 
-| 维度 | LLM（单次调用） | Agent（循环系统） |
+| 维度 | 基础模型（单次推理） | Agent（控制系统） |
 |---|---|---|
-| 状态 | 无，调用即忘 | 跨步骤维护状态（State） |
-| 控制流 | 没有 | 循环：决策 → 执行 → 更新 → 判断 |
+| 状态 | 不自动管理应用级状态（由 Runtime / 应用层维护） | 跨步骤维护状态（State） |
+| 控制流 | 单次调用即结束 | 自主决策，复杂形态以循环推进 |
 | 外部能力 | 不会调用 | 通过工具（Tool）执行动作 |
-| 目标 | 无 | 围绕目标循环直至完成或停止 |
+| 目标 | 不自主设定或追求目标 | 围绕目标决策直至完成或停止 |
 | 失败处理 | 返回错误文本 | 重试、修复、恢复、人工介入 |
 
 在 Text-to-SQL 语境下：一次「把用户问题交给模型生成 SQL」的调用只是 LLM；一个「生成 SQL → 校验失败 → 修复 → 再校验 → 通过后执行」的过程才是 Agent。
@@ -57,6 +57,8 @@
 
 注意区分三个概念（`TERMINOLOGY.md`）：**状态（State）** 是本次任务中显式保存的数据；**上下文（Context）** 是当前这一次模型调用可见的信息；**记忆（Memory）** 是跨步骤、跨任务或跨会话保存的信息。最小 Agent 只要有 State 就够了，Memory 是后加的（Part 2 展开）。
 
+> 说明：五要素模型是**本书采用的工程分析框架**，用来统一后续章节的讨论语言，它不是行业唯一标准——不同框架和教材对 Agent 的定义各有侧重（例如 Anthropic 以「模型是否拥有控制流」区分 Workflow 与 Agent [^anthropic-agents]）。本书采用它的原因与 ADR-002 一致：让每个抽象都能回到 Text-to-SQL 场景。
+
 ```mermaid
 flowchart LR
     U["目标 / 用户问题"] --> L["Agent Loop"]
@@ -67,7 +69,7 @@ flowchart LR
     L --> R["返回结果"]
 ```
 
-**最小闭环 = 目标 + 循环 + 决策 + 动作 + 状态。** 这个闭环里只有「决策」可以交给模型，其余都是确定性机制（见 `AGENTS.md`：能确定性完成的步骤，不交给模型自由决策）。
+**最小闭环 = 目标 + 决策 + 动作 + 状态**——循环是该闭环的典型实现形态：复杂 Agent 反复迭代直到目标达成，简单形态只迭代一次（0.2 已说明循环不是 Agent 的必要条件）。这个闭环里只有「决策」可以交给模型，其余都是确定性机制（见 `AGENTS.md`：能确定性完成的步骤，不交给模型自由决策）。
 
 ## 0.4 你的 Text-to-SQL 系统为什么已经是 Agent
 
@@ -161,15 +163,15 @@ def run_agent(user_question: str, session: Session) -> QueryResult:
 
 | 维度 | 手写 Runtime（现状） | LangGraph 等框架 |
 |---|---|---|
-| 循环载体 | while + if/else（隐式，散落在业务代码里） | 图：Node / Edge / Conditional Edge（显式） |
-| 状态 | 内存 dict / 数据库，更新规则自己维护 | State + Reducer，更新规则声明式定义 |
-| 恢复 | 进程死亡即丢失，重启重来 | Checkpoint 持久化，可断点续跑 |
-| 中断 / 人工 | 手写阻塞与审批分支 | Interrupt 原语 + Human-in-the-loop 支持 |
-| 可观测 | 自己拼日志 | 内建流式（Stream）与调用追踪（Trace） |
-| 结构演化 | 加 if、加函数，控制流扩散 | 加节点、加边，控制流集中 |
+| 循环载体 | while + if/else（隐式，散落在业务代码里） | 显式的执行结构（节点 / 边机制见 Part 3） |
+| 状态 | 内存 dict / 数据库，更新规则自己维护 | 状态声明式定义，更新规则集中管理 |
+| 恢复 | 进程死亡即丢失，重启重来 | 检查点（Checkpoint）持久化，可断点续跑 |
+| 中断 / 人工 | 手写阻塞与审批分支 | 中断原语 + Human-in-the-loop 支持 |
+| 可观测 | 自己拼日志 | 内建流式输出与调用追踪 |
+| 结构演化 | 加 if、加函数，控制流扩散 | 加执行单元、加路由，控制流集中 |
 | 引入成本 | 无依赖 | 依赖 + 抽象 + 学习成本 |
 
-LangGraph 官方对图的定义与本循环一一对应：**StateGraph** 以你定义的 State 为参数，**Node** 是执行逻辑的函数，**Edge** 决定下一个执行的节点，**Conditional Edge** 根据状态动态路由 [^langgraph-graph-api]。它的执行模型源自 Pregel：离散的 super-step 消息传递，节点在收到消息时激活，全部节点静止时终止 [^langgraph-graph-api]——换句话说，**框架把「循环」表述为「图」**。
+框架要解决的是同一个问题的工程化：**把隐式的循环变成显式、可恢复、可中断、可观测的结构**。你的 `while` 循环换成框架的执行结构后，恢复、人工中断、流式输出与调用追踪不再是手写的日志和分支，而是运行时提供的基础设施。框架把循环表述为图结构的具体机制——节点、边、路由——是 Part 3 的内容，本章只回答「为什么需要框架」。
 
 所以本质区别可以压缩成一句话：
 
@@ -187,17 +189,17 @@ flowchart TD
         M3["if validate_sql(sql) 通过 → done"]
         M4["else: llm.fix_sql(state)"]
     end
-    subgraph GRAPH["LangGraph（显式控制流）"]
-        N1["Node(generate_sql)"]
-        N2["Node(fix_sql)"]
-        E1["Conditional Edge(validate)"]
+    subgraph GRAPH["框架（显式控制流）"]
+        N1["节点：生成 SQL"]
+        N2["节点：修复 SQL"]
+        E1["条件路由：校验结果"]
     end
     M2 -. 对应 .-> N1
     M4 -. 对应 .-> N2
     M3 -. 对应 .-> E1
 ```
 
-你的 `while` 变成图的执行循环，你的 `if validate_sql` 变成 Conditional Edge，你的两个分支函数变成 Node——**语义没有变，仍然是「生成 → 校验 → 修复 → 再生成」的循环，只是载体变了**。模型依然在循环里做决策；框架只是在循环外面套上了 Checkpoint、Interrupt、Streaming 等基础设施（Part 3、Part 5 展开）。
+你的 `while` 变成框架的执行循环，你的 `if validate_sql` 变成一条条件路由，你的两个分支函数变成两个执行单元——**语义没有变，仍然是「生成 → 校验 → 修复 → 再生成」的循环，只是载体变了**。模型依然在循环里做决策；框架只是在循环外面提供恢复、中断、流式与追踪等基础设施（具体机制见 Part 3 与 Part 5）。
 
 这也是为什么本书说「框架不会消灭 Loop，只会把状态、控制流和恢复机制显式化」。**从手写到框架是「表示迁移」，不是「能力获得」**——能力（循环、状态、校验）你已经有了，框架给的是工程化外壳。
 
@@ -240,12 +242,12 @@ Text-to-SQL 语境下的例子：内部固定报表工具（问题固定、模�
 
 | 信号 | 在 Text-to-SQL 中的表现 | 框架对应能力 |
 |---|---|---|
-| 循环变复杂 | 修复循环嵌套质量检查循环、多分支路由 | Conditional Edge、Subgraph |
-| 需要 HITL | 高风险查询人工审批、结果人工确认 | Interrupt |
-| 需要恢复 | 长任务中断后续跑、幂等（Idempotency）重试 | Checkpoint |
-| 需要可观测性（Observability） | 标准化的调用追踪、流式输出 | Stream、Trace |
+| 循环变复杂 | 修复循环嵌套质量检查循环、多分支路由 | 条件路由、子图复用（机制见 Part 3） |
+| 需要 HITL | 高风险查询人工审批、结果人工确认 | 中断原语（Interrupt） |
+| 需要恢复 | 长任务中断后续跑、幂等（Idempotency）重试 | 检查点（Checkpoint） |
+| 需要可观测性（Observability） | 标准化的调用追踪、流式输出 | 流式输出与调用追踪 |
 | 团队协作 | 多人维护、需要一致的运行时语义 | 图结构即文档 |
-| 状态更新规则复杂 | 多节点并发写同一字段 | Reducer |
+| 状态更新规则复杂 | 多执行单元并发写同一状态 | 集中式状态更新规则 |
 
 决策启发式：
 
@@ -256,9 +258,9 @@ Text-to-SQL 语境下的例子：内部固定报表工具（问题固定、模�
 
 **注意时机**：先把手写版本跑通（本书 Part 2 的路径），再在复杂度信号出现时迁移——迁移成本远低于从零用框架的成本，因为届时你已经知道自己的 State 边界、循环边界和恢复点在哪儿（0.5、0.8 的答案）。这正是本书「手写 → 显式 State → 可测试 Workflow → LangGraph Runtime」主线（`README.md`）的设计原因。
 
-## 0.11 MCP、A2A、RAG、Memory 的边界（本章只做边界说明）
+## 0.11 外围能力：MCP、A2A、RAG、Memory 的边界
 
-这四个概念经常与「Agent 本身」混淆。本章只划边界，不展开（展开位置见右列）：
+**Agent 是控制系统**：循环、状态、决策、工具调用都在它的控制范围之内。RAG、MCP、Memory、A2A 都是**外围能力**——它们为控制系统提供输入、连接与协作，不改变控制本身。本章只划边界，不展开（展开位置见右列）：
 
 | 术语 | 是什么 | 不是什么 | 展开位置 |
 |---|---|---|---|
@@ -283,11 +285,11 @@ flowchart LR
     A2A -. 对外协作 .-> AGENT
 ```
 
-一句话记忆：**MCP 是「你的 Agent 与工具之间」的标准，A2A 是「你的 Agent 与别的 Agent 之间」的标准，RAG 是「给模型喂什么」的机制，Memory 是「模型之外还存什么」的策略——它们都不是 Agent 本身，也都不替你实现 Agent Loop。**
+一句话记忆：**Agent 是控制系统；RAG 给它喂料，MCP 让它调工具，Memory 让它有记忆，A2A 让它与别的控制系统协作。它们都是外围能力——不是 Agent 本身，也不替代控制系统。**
 
 ## 0.12 常见误区
 
-1. **「调了 LLM 就是 Agent。」** 单次调用是无状态函数；Agent 必须有循环、状态与目标。判别法：控制流在谁手里（0.2）。
+1. **「调了 LLM 就是 Agent。」** 单次推理没有自主决策与工具使用，控制权也没有转移给系统；判别法：控制流在谁手里、是否自主决策与使用工具（0.2）。
 2. **「注册了几个函数就是多 Agent。」** 多 Tool 只是能力扩展，仍然是一个 Agent；多 Agent 是多个自主决策单元之间协作（Part 6 的 A2A 才涉及）。`AGENTS.md` 禁止「把多个函数简单称为多 Agent」。
 3. **「把所有规则都塞进 Prompt。」** 业务规则应按层拆分（ADR-005）：系统约束、检索规则、语义层、程序校验、会话上下文。塞进 Prompt 的规则不可测试、不可审计。
 4. **「MCP 是 Agent Runtime。」** MCP 是连接协议；你的循环、状态、调度仍然自己实现。`AGENTS.md` 禁止「把 MCP 解释为 Agent Runtime」。
@@ -313,18 +315,18 @@ flowchart LR
 
 ## 0.14 本章验收标准
 
-- [ ] 能一句话说清 LLM 与 Agent 的区别（控制流归属 + 是否循环）。
+- [ ] 能一句话说清 LLM 与 Agent 的区别（控制流归属 + 自主决策 + 工具使用）。
 - [ ] 能指出自己系统中 Agent Loop 的具体位置（对照 canonical pipeline 步骤编号）。
 - [ ] 能说出手写 Runtime 与框架的本质区别（显式化，不是获得循环）。
 - [ ] 能列出至少 3 项框架不提供、必须业务系统自建的能力。
 - [ ] 能根据 0.13 清单判断自己的系统是否该引入 LangGraph。
-- [ ] 能区分 MCP / A2A / RAG / Memory 的边界，且不把 MCP 当 Runtime、不把 A2A 当 LLM API。
+- [ ] 能说明「Agent 是控制系统、MCP / A2A / RAG / Memory 是外围能力」，且不把 MCP 当 Runtime、不把 A2A 当 LLM API。
 - [ ] 术语与 `TERMINOLOGY.md` 一致；流程引用 `canonical-pipeline.md`，未自行定义另一套流程。
 - [ ] 官方来源已核验；无法核验处已标注 TODO（见下节）。
 
 ## 官方来源与 TODO
 
-- LangGraph 官方文档（Graph API：State / Node / Edge / Conditional Edge / Pregel 执行模型）——https://docs.langchain.com/oss/python/langgraph/graph-api ，核验于 2026-08-01。
+- LangGraph 官方文档（机制细节在 Part 3 展开）——https://docs.langchain.com/oss/python/langgraph/graph-api ，核验于 2026-08-01。
 - MCP 官方规范（v2025-11-25）——https://modelcontextprotocol.io/specification/2025-11-25 ，核验于 2026-08-01。TODO：规范版本会演进，发布前需复查最新版本号。
 - A2A 官方规范（v1.0.0）——https://a2a-protocol.org/v1.0.0/specification ，核验于 2026-08-01。TODO：确认发布时 v1.0.0 仍为最新版本。
 - Anthropic《Building effective agents》——https://www.anthropic.com/research/building-effective-agents 。TODO：2026-08-01 搜索核验了文章内容（Workflow vs Agent 定义、augmented LLM、guardrail、start simple、错误复合），但该 URL 本身未经直接抓取确认，发布前需复核。
@@ -334,6 +336,5 @@ flowchart LR
 ---
 
 [^anthropic-agents]: Anthropic《Building effective agents》：Agent 是「LLM 动态指导自己的过程与工具使用」，Workflow 是「LLM 与工具被预定义代码路径编排」；建议「先找最简单的方案，只在需要时增加复杂度」；循环中每一步都需要环境中的「ground truth」；错误会随循环复合。见官方来源与 TODO 节。
-[^langgraph-graph-api]: LangGraph Graph API 文档：State 由 schema 与 Reducer 定义；Node 是执行逻辑的函数；Edge / Conditional Edge 决定执行顺序；StateGraph 编译后执行，执行模型受 Pregel 启发（super-step 消息传递）。
 [^mcp-spec]: MCP 规范：开放协议，JSON-RPC 2.0，Host / Client / Server 三组件，Server 提供 Tools / Resources / Prompts。
 [^a2a-spec]: A2A 规范：Agent 间发现（Agent Card）、任务（Task）、结果交换（Artifact）标准；Agent 之间不共享内部状态与工具（不透明）；与 MCP 互补而非替代。

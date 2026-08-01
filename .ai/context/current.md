@@ -33,6 +33,12 @@
   - 官方来源核验：LangGraph（docs.langchain.com）、MCP（v2025-11-25）、A2A（v1.0.0）、Anthropic Building effective agents（URL 待复核）；OpenAI practical guide 未核验（TODO）
   - 流程严格引用 canonical-pipeline.md，未另立流程
   - content-map 第 0 章状态更新为正文初稿；ROADMAP v0.2.0 第 0 章勾选
+- 第 0 章 Architecture Review 修订（2026-08-01，PR #1）：
+  - 「LLM = 无状态函数」改为「基础模型推理通常不会自动管理应用级状态，状态由 Runtime 或应用层维护」
+  - 「Agent 判断必须存在循环」改为循环是复杂 Agent 典型能力而非必要条件，保留控制流归属/自主决策/工具使用
+  - 五要素标注为本书工程分析模型，非行业唯一标准
+  - 移除 StateGraph/Node/Edge/Pregel 细节，LangGraph 机制统一指向 Part 3
+  - MCP/A2A/RAG/Memory 小节改为「外围能力」框架：Agent 是控制系统，外围能力提供输入/连接/协作
 
 ## 正在进行
 
