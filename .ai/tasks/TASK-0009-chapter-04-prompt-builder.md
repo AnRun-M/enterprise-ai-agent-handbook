@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -41,7 +41,7 @@
 - [x] 章节结构 4.1-4.9 完成，Q1-Q10 全部回答
 - [x] 4 张 Mermaid 图（Builder 位置 / 输入来源 / 输出到 Context / Version 生命周期）
 - [x] `mkdocs build --strict`、`pytest`、`ruff check .` 通过
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR #16 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（六项修正：Builder 输出表述 / Policy-Builder 边界 / 行为契约与数据契约区分 / 两类测试分离 / 审计最小集合 / RAG 挂载点收窄）
+- [x] PR #16 squash merge 到 main（commit 4be82e2），远程 feature/chapter-04-prompt-builder 已删除
+- 合并后方可标记 completed（本次已合并）
