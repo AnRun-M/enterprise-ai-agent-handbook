@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -40,7 +40,7 @@
 - [x] 六份文档完成，全部原则可溯源到已有产物
 - [x] `mkdocs build --strict` 通过
 - [x] `ruff check .`、`pytest` 通过
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR #5 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（边界迁移 / 三层职责边界 / State 范围收窄 / 待验证方向降级 / Checklist 按影响范围——全部修复并复审通过）
+- [x] PR #5 squash merge 到 main（commit 6b93d19），远程 feature/design-principles 已删除
+- 合并后方可标记 completed（本次已合并）

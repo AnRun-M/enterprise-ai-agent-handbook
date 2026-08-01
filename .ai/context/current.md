@@ -55,7 +55,7 @@
   - 全部原则可溯源：第 0 章、两个 Runtime 代码、PR #2 / PR #4 Review、ADR-0003~0006
   - PR #5 Review 修正：目录从 docs/99-design-principles 移至 .ai/principles（内部规范，不进 MkDocs）；三层职责边界（模型=开放式语义决策 / 确定性策略层=安全与治理 / Runtime=控制机制）；State 范围收窄为"执行控制状态"；Temporal 等降级为待验证方向；Checklist 按影响范围应用
   - ROADMAP v0.3.0 里程碑项保留（描述为内部规范，非读者章节）
-  - 待架构审查，不 Merge
+- PR #5（Agent Runtime Design Principles）已通过 Architecture Review，squash merge 到 main（2026-08-01，commit 6b93d19），远程 feature/design-principles 已删除；TASK-0004 标记 completed
 
 ## 正在进行
 
@@ -64,10 +64,11 @@
 
 ## 下一步
 
-1. 等待 PR #4（basic_langgraph）与 PR（Design Principles）架构审查通过后 Merge
-2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-4. 选择许可证
+1. 等待 PR #4（basic_langgraph）架构审查通过后 Merge
+2. 正式进入 Chapter 01（docs/01-agent-foundations/ch01-*，主题以任务书为准）
+3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+5. 选择许可证
 
 ## 当前阻塞
 
