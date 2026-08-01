@@ -35,37 +35,53 @@
 | 概念 | 承载什么 | 谁消费 |
 |---|---|---|
 | **Tool Name** | 唯一标识 | 模型（Tool Call 引用）、Runtime（查找） |
-| **Tool Definition** | 能力描述：name / description / input schema | 模型（经 Context）、Runtime（校验与文档） |
+| **Canonical Tool Definition** | 能力描述的单一事实：name / description / input schema | 模型（经 Tool View）、Runtime（校验与文档） |
 | **Input Schema** | 参数结构（字段、类型、约束） | 模型（生成参数）、Dispatcher（校验） |
-| **Output Contract** | 结果结构约定（5.8） | Runtime（归一化）、State（摘要） |
-| **Tool Handler** | 真正执行业务逻辑的函数或适配器 | 仅 Runtime（Dispatcher） |
+| **Output Contract** | 结果结构约定（5.8） | Dispatcher（归一化）、State（摘要） |
+| **Tool Handler** | 单个 Tool 的具体执行入口或业务适配器 | 仅 Dispatcher |
 | **Metadata** | 版本、归属、成本、审计信息 | Runtime、审计 |
-| **Availability** | 当前是否可用（含策略过滤结果） | Runtime（暴露与调度时检查） |
+| **Deployment-level enabled / disabled** | 全局启停状态（Registry 内的稳定信息） | Registry 暴露时 |
+| **Tool View** | 本次模型调用可见的 Definition 子集（请求级派生产物） | Prompt Builder（组装） |
+
+**四个状态必须区分（请求级权限状态不得污染全局 Registry）：**
+
+- **registered**：已注册（在 Catalog 中）
+- **globally enabled**：全局启用（deployment 级）
+- **available for this request**：本次请求可用（Request Context + Policy 计算）
+- **exposed to model**：暴露给模型（Tool View 中的 Definition）
+
+前两个属于全局 Registry（稳定）；后两个是**请求级派生产物，不回写全局 Registry**。
 
 ```mermaid
 flowchart LR
-    subgraph REG["Tool Registry（能力描述 + 执行映射的注册表）"]
-        SPEC["ToolSpec（name / definition / input schema / output contract / metadata / availability）"]
-        MAP["name → handler 映射"]
+    subgraph REG["Tool Registry / Catalog（稳定注册信息）"]
+        SPEC["ToolSpec（canonical definition / input-output contract / handler binding / metadata / deployment enabled-disabled）"]
+        MAP["name → handler binding 映射"]
+    end
+    subgraph REQ["Request Context + Policy（请求级）"]
+        AV["可用性计算（user / tenant / role / session / request）"]
+        VIEW["Tool View（Definition 子集，派生产物，不回写 Registry）"]
     end
     SPEC --> MAP
     MAP --> H["Tool Handler（业务执行）"]
-    SPEC --> D["Tool Definition（暴露给模型 / Runtime）"]
+    SPEC --> AV
+    AV --> VIEW
+    VIEW --> B["Prompt Builder（组装进模型请求）"]
 ```
 
 ## 5.3 Definition 与 Handler
 
 **必须清楚区分（Q3 / Q4 / Q5 的回答）：**
 
-- **Tool Definition**：给模型和 Runtime 描述"这个能力是什么、怎么调用"——name / description / input schema
-- **Tool Handler**：真正执行业务逻辑的函数或适配器
+- **Canonical Tool Definition**：给模型和 Runtime 描述"这个能力是什么、怎么调用"——name / description / input schema。**Registry 内维护的是 canonical definition（单一事实）**；不同模型协议格式（OpenAI / Anthropic / Gemini 等）由 **Provider / Protocol Adapter** 转换，不应产生多套独立业务定义（本章只说明边界，不展开具体供应商 API）
+- **Tool Handler**：单个 Tool 的具体执行入口或业务适配器——`run_sql` Handler 可以选择 Athena、Spark 或 Trino **Execution Engine**，但 **Handler 不等于 Engine**
 
 Text-to-SQL 例子：
 
-- `run_sql` **definition**：name="run_sql"、description="执行只读 SQL 并返回摘要"、input schema（sql: string, limit: int）
-- `run_sql` **handler**：Athena / Spark / Trino / Database 的执行逻辑
+- `run_sql` **canonical definition**：name="run_sql"、description="执行只读 SQL 并返回摘要"、input schema（sql: string, limit: int）
+- `run_sql` **handler**：执行入口；底层可选 Athena / Spark / Trino / Database Engine
 
-**模型只能消费 Definition；Runtime 才能调用 Handler。**
+**模型只能消费 Definition（经 Tool View）；Runtime 才能调用 Handler。**
 
 ```mermaid
 flowchart LR
@@ -81,7 +97,7 @@ flowchart LR
     H -. "Runtime 才能调用执行" .-> R
 ```
 
-**为什么必须分离（Q5）**：模型需要的是**描述**（可进 Context、可校验参数）；执行需要的是**实现**（绝不能进 Context——实现细节与安全边界）。分离使三件事成为可能：schema 独立演进（5.7）、多模型协议适配（同一 handler 多种 definition 形态）、安全边界清晰（Definition 可过滤，Handler 受保护）。
+**为什么必须分离（Q5）**：模型需要的是**描述**（可进 Context、可校验参数）；执行需要的是**实现**（绝不能进 Context——实现细节与安全边界）。分离使三件事成为可能：schema 独立演进（5.7）、多模型协议适配（由 Provider Adapter 转换 canonical definition，不产生多套业务定义）、安全边界清晰（Definition 可过滤，Handler 受保护）。
 
 ## 5.4 Registry 如何进入 Agent Loop
 
@@ -89,18 +105,22 @@ Tool Call 的完整路径（Q6 / Q7 的回答）：
 
 ```mermaid
 flowchart LR
-    B["Prompt Builder（第 4 章）"] --> TD["Tool Definitions（允许暴露的子集）"]
+    B["Prompt Builder（第 4 章）"] --> TD["Tool View（允许暴露的 Definition 子集）"]
     TD --> C["Model Context"]
     C --> CALL["Model Tool Call（tool name / arguments / call id）"]
-    CALL --> P["Runtime Parse（解析 + schema validation）"]
-    P --> L["Registry Lookup（name → handler 映射）"]
-    L --> E["Handler Execute（业务执行）"]
-    E --> R["Tool Result（归一化）"]
-    R --> S["State（控制信息 / 摘要）"]
+    CALL --> P1["Dispatcher Parse"]
+    P1 --> P2["Input Schema Validation"]
+    P2 --> P3["Authorization / Policy Check（即使未暴露也再次鉴权）"]
+    P3 --> L["Registry Lookup（返回 handler binding / ToolSpec）"]
+    L --> E["Dispatcher Invoke Handler"]
+    E --> R1["Handler Result"]
+    R1 --> N["Dispatcher Normalize"]
+    N --> R["Tool Result Contract"]
+    R --> S["State / Context（控制信息 / 摘要）"]
     S --> B
 ```
 
-**强调**：模型决定 Tool Call（是否调用、调用哪个、生成什么参数——开放式语义决策，第 1 章 1.4）；**Registry 只负责 lookup 与 dispatch mapping**——它不决定调用哪个 Tool，只回答"这个名字对应哪个执行器"。
+**强调**：模型决定 Tool Call（是否调用、调用哪个、生成什么参数——开放式语义决策，第 1 章 1.4）；**Registry 只负责 lookup，不自动执行 Handler**——它只返回 handler binding / ToolSpec；Dispatcher 持有解析、校验、鉴权、调用、错误边界与归一化的完整流程（5.5）。
 
 Tool Definition 进入 Context 的路径依赖第 3/4 章：Builder 组装**允许暴露**的 Definition（ch04 4.6：Builder 执行、Policy 决定）；Tool Result 的控制信息进入 State（ch02 2.5）、摘要可回流下一轮 Context（ch03 3.2）。
 
@@ -108,45 +128,54 @@ Tool Definition 进入 Context 的路径依赖第 3/4 章：Builder 组装**允�
 
 Tool Call 至少包含：**tool name、arguments、call id**。
 
-Runtime 负责（Dispatcher 的职责，Q7 的展开）：
+**Tool Dispatcher**（单次 Tool Call 的 Runtime 调度组件）持有完整流程（Q7 的回答）：
 
-- **解析**：从模型输出中提取 tool call（协议适配）
-- **schema validation**：arguments 是否符合 Input Schema
-- **lookup**：Registry 查找 name → handler 映射
-- **调用**：执行 handler（含超时 / 错误边界——实现细节属后续章节）
-- **result normalization**：把 handler 返回归一化为 Output Contract（5.8）
+1. **Parse**：从模型输出中提取 tool call
+2. **Input Schema Validation**：arguments 是否符合 Input Schema
+3. **Authorization / Policy Check**：即使 Tool 未暴露，模型伪造调用也必须再次鉴权
+4. **Registry Lookup**：Registry 返回 handler binding / ToolSpec
+5. **Invoke Handler**：执行 handler（超时 / 错误边界属 Tool Execution Infrastructure，后续章节）
+6. **Normalize**：handler 结果归一化为 Tool Result Contract（5.8）
 
-**三个概念必须拆清（不可混为一个）：**
+**四个概念必须拆清（不可混为一个）：**
 
 | 概念 | 职责 |
 |---|---|
-| **Registry** | 查找映射（name → handler） |
-| **Dispatcher** | 执行调度（解析、校验、调用、归一化） |
-| **Handler** | 业务执行（真正干活） |
+| **Tool Registry / Catalog** | 保存稳定注册信息与查找映射（name → handler binding）；不自动执行 Handler |
+| **Tool Dispatcher** | 单次 Tool Call 的调度流程（解析、校验、鉴权、调用、归一化） |
+| **Tool Handler** | 单个 Tool 的具体执行入口或业务适配器（真正干活） |
+| **Tool Execution Infrastructure** | timeout / retry / concurrency / sandbox / isolation / metrics 等后续生产能力（本章不展开） |
+| **Execution Engine** | Athena / Spark / Trino / Database 等底层执行引擎（Handler 可选择，不等于 Handler） |
 
 这和第 4 章"Policy 决定、Builder 执行"是同一类分工：**注册表不调度、调度器不执行业务、执行器不决定暴露什么**。
 
 ## 5.6 权限与可用性
 
-Q8 的回答：**Tool Registry 不负责权限、安全和业务策略——但它接收 Policy 输出并过滤可用 Tool。**
+Q8 的回答：**Tool Registry 不负责权限、安全和业务策略。** 请求级可用性由 **Request Context + Policy** 计算（user / tenant / role / session / request 等信息）；Registry 只保存全局注册与部署级启停状态。
+
+分层：
+
+- **registered / globally enabled**：全局 Registry（稳定，注册与部署级启停）
+- **available for this request**：Request Context + Policy 计算（请求级）
+- **exposed to model**：Tool View（派生 Definition 子集，**不回写全局 Registry**）
 
 ```mermaid
 flowchart TD
-    P["Policy（确定性策略层）：用户 A 不允许 run_admin_sql"] --> V["Tool View（本次调用暴露的 Definition 子集）"]
+    P["Request Context + Policy（请求级可用性计算：user / tenant / role / session / request）"] --> V["Tool View（暴露的 Definition 子集，派生产物）"]
     V --> C["Model Context（暴露前过滤）"]
     C --> CALL["Model Tool Call"]
-    CALL --> D1["Dispatcher：Dispatch 前再校验权限"]
-    D1 --> H["Handler：内部最终防御"]
+    CALL --> D1["Dispatcher：Authorization / Policy Check（即使未暴露，伪造调用也再次鉴权）"]
+    D1 --> E["最终受保护资源：不可绕过的执行边界再次执行授权或安全约束"]
     D1 -. "校验失败 → 拒绝（即使模型已调用）" .-> X["拒绝 / 错误结果"]
 ```
 
 纵深防御三层：
 
-1. **Context 暴露前过滤**：不允许的 Tool 不出现在 Definition 集合里（模型"看不到"它）
-2. **Dispatch 前再校验**：即使模型恶意或错误地调用了未授权 Tool，Dispatcher 仍校验权限并拒绝
-3. **Handler 内部最终防御**：Handler 自身再校验一次（防御前面两层被绕过）
+1. **Context 暴露前过滤**：不允许的 Tool 不出现在 Tool View 里（模型"看不到"它）
+2. **Dispatcher 再鉴权**：即使模型恶意或错误地调用了未授权 Tool，Dispatcher 仍校验并拒绝
+3. **最终受保护资源边界**：**不强制所有 Handler 重复实现完整权限系统**——最终受保护资源必须在**不可绕过的执行边界**再次执行授权或安全约束，该边界可以是：Handler、Tool adapter、downstream service、database / IAM permission、SQL validator / read-only 执行账号
 
-**Registry 的角色**：接收 Policy 输出，更新 Availability，影响 Tool View——它是策略的**执行通道**，不是策略的**制定者**（三层边界：策略属于确定性策略层，`.ai/principles/runtime-design.md`）。
+**Registry 的角色**：保存稳定注册信息；请求级可用性由 Request Context + Policy 计算——Registry 是**查找与暴露的执行通道**，不是策略的**制定者**（三层边界：策略属于确定性策略层，`.ai/principles/runtime-design.md`）。
 
 ## 5.7 Tool Schema 与版本
 
@@ -178,14 +207,22 @@ flowchart LR
 
 ## 5.8 Tool Result Contract
 
-Tool Result **不应随意返回任意对象**（Q7 的归一化部分）。至少需要：
+Tool Result **不应随意返回任意对象**（Q7 的归一化部分）。采用**判别式语义**——成功态与失败态互斥、可编程判断（不锁定具体 JSON 类或字段名）：
 
-- **success / error**：执行是否成功
-- **structured data**：结构化结果
-- **error code**：可编程处理的错误标识
-- **human-readable message**：给人看的说明
-- **metadata / provenance**：来源、版本、耗时
-- **optional references**：可选引用（ID / URI / digest）
+**成功结果**：
+
+- `status = success`
+- `data`（结构化结果）
+- `metadata / provenance`（来源、版本、耗时）
+- `references`（可选引用：ID / URI / digest）
+
+**失败结果**：
+
+- `status = error`
+- `error_code`（可编程处理的错误标识）
+- `human-readable message`（给人看的说明）
+- `retryable`（如适用）
+- `metadata / provenance`
 
 结合 Text-to-SQL：`run_sql` 的结果**不要把整个超大结果集直接塞进 State 或 Context**——优先返回：
 
@@ -218,25 +255,26 @@ Tool Result **不应随意返回任意对象**（Q7 的归一化部分）。至�
 | Q1 | 为什么 Runtime 需要 Tool Registry？ | 工具增长后硬编码 dispatch 失控（if/elif 膨胀 / 定义散落 / schema 漂移 / 测试权限适配困难） |
 | Q2 | 与普通 dict 有什么区别？ | dict 只有映射；Registry 管理描述、执行映射、元数据、可用性、版本与查找语义 |
 | Q3 | Tool Definition 是什么？ | 能力描述：name / description / input schema——给模型和 Runtime 看 |
-| Q4 | Tool Handler / Executor 是什么？ | 真正执行业务逻辑的函数或适配器（run_sql → Athena / Spark / Trino / Database） |
-| Q5 | 为什么 Definition 与 Handler 必须分离？ | 模型只需要描述（可进 Context），实现绝不能进 Context；分离使 schema 演进 / 多协议适配 / 安全边界可行 |
-| Q6 | 模型如何知道有哪些 Tool？ | 经 Builder 组装的 Tool View（允许暴露的 Definition 子集）进入 Model Context（ch03/ch04） |
-| Q7 | Runtime 如何从 Tool Call 找到执行器？ | 解析 → schema validation → Registry lookup → Dispatcher 调用 → 归一化（5.5） |
-| Q8 | Registry 负责权限安全策略吗？ | 不制定；接收 Policy 输出过滤 Availability，纵深防御三层（暴露前 / Dispatch 前 / Handler 内） |
+| Q4 | Tool Handler 是什么？ | 单个 Tool 的具体执行入口或业务适配器；可选底层 Execution Engine（Athena / Spark / Trino / Database），Handler ≠ Engine |
+| Q5 | 为什么 Definition 与 Handler 必须分离？ | 模型只需要描述（可进 Context），实现绝不能进 Context；分离使 schema 演进 / 多协议适配（Provider Adapter）/ 安全边界可行 |
+| Q6 | 模型如何知道有哪些 Tool？ | 经 Builder 组装的 Tool View（请求级允许暴露的 Definition 子集）进入 Model Context（ch03/ch04） |
+| Q7 | Runtime 如何从 Tool Call 找到执行器？ | Dispatcher 完整流程：Parse → Schema Validation → Authorization / Policy Check → Registry Lookup → Invoke Handler → Normalize（Registry 只返回 binding，不自动执行 Handler） |
+| Q8 | Registry 负责权限安全策略吗？ | 不制定；请求级可用性由 Request Context + Policy 计算（Tool View 派生产物，不回写 Registry）；纵深防御：暴露前过滤 / Dispatcher 再鉴权 / 最终受保护资源边界 |
 | Q9 | Tool schema 变化为什么需要版本管理？ | 影响模型参数 / Context / 校验 / Handler / 测试 / Trace 重放；破坏性变更必须版本标识或兼容策略 |
-| Q10 | 与 Prompt Builder / MCP / Executor 的边界？ | Builder=组装 Definition 进 Context；MCP=工具连接标准（外部协议）；Executor=业务执行；Registry=能力管理（注册 / 描述 / 映射 / 查找 / 过滤入口） |
+| Q10 | 与 Prompt Builder / MCP / Handler 的边界？ | Builder=组装 Tool View 进 Context；MCP=工具连接标准（外部协议）；Handler=业务执行入口；Dispatcher=调度流程；Execution Infrastructure / Engine=后续生产能力与底层引擎；Registry=能力管理（注册 / 描述 / 映射 / 查找） |
 
-**本章不会讨论什么**（边界声明）：Tool Executor 生产实现、MCP 协议、Tool Retry / Timeout、Sandbox、LangGraph ToolNode、权限系统实现、新增 Tool Demo——均属后续章节或明确不在本书范围。
+**本章不会讨论什么**（边界声明）：Tool Execution Infrastructure 生产实现（timeout / retry / concurrency / sandbox / isolation / metrics）、MCP 协议、LangGraph ToolNode、权限系统实现、Provider Adapter 具体 API、新增 Tool Demo——均属后续章节或明确不在本书范围。
 
 **本章验收标准：**
 
 - [ ] 能复述本章主线（Registry = 能力描述与执行映射的注册表，不是工具集合、不是决策器）
-- [ ] 能区分 ToolSpec / ToolHandler / ToolRegistry 三个概念与 Registry / Dispatcher / Handler 三种职责
-- [ ] 能说明 Definition 与 Handler 分离的原因与"模型只消费描述、Runtime 才调用实现"
-- [ ] 能画出 Tool Call 完整路径并指出 Registry 只负责 lookup
-- [ ] 能说明权限纵深防御三层与 Registry 的角色（执行通道，非制定者）
+- [ ] 能区分四个状态（registered / globally enabled / available for this request / exposed to model）与 Tool View 的请求级派生性质（不回写 Registry）
+- [ ] 能区分 Tool Registry / Dispatcher / Handler / Execution Infrastructure / Execution Engine 五种职责
+- [ ] 能说明 canonical definition 与 Provider Adapter 边界（不产生多套业务定义）
+- [ ] 能画出 Dispatcher 完整调用路径（含 Authorization 步骤）并指出 Registry 只返回 binding
+- [ ] 能说明权限纵深防御三层与"最终受保护资源边界"（不强制 Handler 重复实现完整权限系统）
 - [ ] 能区分兼容 / 破坏性 schema 变更及其影响面
-- [ ] 能说明 Tool Result Contract 与 Text-to-SQL 的摘要引用策略（与 ch02/03/04 一致）
+- [ ] 能说明判别式 Tool Result Contract 与 Text-to-SQL 的摘要引用策略（与 ch02/03/04 一致）
 - [ ] 能诚实标注 Demo 未实现 Registry（架构抽象）
 
 **与前三章的关系**（引用不复制）：Tool Call 是 Loop 中的 Act（ch01 1.2）；Tool Result 控制信息进 State（ch02 2.5）；Definition 与 Result 摘要可进 Context（ch03 3.2-3.3）；Builder 组装允许暴露的 Definition（ch04 4.6）。
