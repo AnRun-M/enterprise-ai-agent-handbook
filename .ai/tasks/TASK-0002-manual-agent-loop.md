@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -46,6 +46,6 @@
 - [x] `ruff check .` 通过
 - [x] `mkdocs build --strict` 通过
 - [x] PR #2 已创建并推送（https://github.com/AnRun-M/enterprise-ai-agent-handbook/pull/2），tests/docs CI 双绿
-- [ ] Architecture Review 通过（Blocker：failure_reason、Executor 加固——已修复待复审）
-- [ ] PR #2 Merge 到 main
-- 合并前不得标记 completed
+- [x] Architecture Review 通过（Blocker 全部修复并复审通过：failure_reason、Executor 加固、SELECT 首 token 严格匹配）
+- [x] PR #2 squash merge 到 main（commit 2d94239），远程 feature/manual-agent-loop 已删除
+- 合并后方可标记 completed（本次已合并）

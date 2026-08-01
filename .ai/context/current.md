@@ -48,26 +48,24 @@
   - tests/manual_agent_loop/ 19 个测试通过；CI 新增 tests.yml（pytest + ruff）
   - ROADMAP v0.2.0 勾选「手写 Agent Loop Demo」；content-map 状态更新
   - 修复过程记录：validation_error（消息）与 validation_rule（规则名）分离；Windows 控制台 UTF-8 输出
-- PR #2 已创建（https://github.com/AnRun-M/enterprise-ai-agent-handbook/pull/2），tests/docs CI 双绿；当前处于 Architecture Review 修改阶段
-  - Review Blocker 修复：AgentState.failure_reason（Executor 失败 / 运行时异常 / 未知 Action 均记录原因）、FakeSQLExecutor 最小安全检查加固（空 SQL / 非 SELECT / 多语句）
+- PR #2（手写 Agent Loop Demo）已通过 Architecture Review，squash merge 到 main（2026-08-01，commit 2d94239），远程 feature/manual-agent-loop 已删除
+  - Review Blocker 全部修复并复审通过：AgentState.failure_reason（Executor 失败 / 运行时异常 / 未知 Action 均记录原因）、FakeSQLExecutor 最小安全检查加固（空 SQL / 非 SELECT / 多语句）、SELECT 首 token 严格匹配（拒绝 SELECTED / SELECTevil / CTE）
 
 ## 正在进行
 
-- 手写 Agent Loop Demo（`examples/manual_agent_loop`）——PR #2 已创建，CI 双绿，Architecture Review 修改阶段（Blocker 已修复，待复审）
 - LangGraph 等价 Demo（`examples/basic_langgraph`）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 PR #2 Architecture Review 复审通过后 Merge
-2. 完成 LangGraph 最小等价实现（`examples/basic_langgraph`，固定 LangGraph 版本）
-3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-5. 选择许可证
+1. 完成 LangGraph 最小等价实现（`examples/basic_langgraph`，固定 LangGraph 版本）
+2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+4. 选择许可证
 
 ## 当前阻塞
 
 - 尚未固定 LangGraph 依赖版本
 - 尚未确定真实 LLM 供应商
 - GitHub Connector 当前不可直接写入
-- v0.2.0 里程碑未完成（两个 Demo、官方索引），按版本规则 CHANGELOG 暂处 Unreleased
+- v0.2.0 里程碑未完成（basic_langgraph 等价 Demo、官方参考索引），按版本规则 CHANGELOG 暂处 Unreleased
