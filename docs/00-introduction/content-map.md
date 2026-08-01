@@ -4,7 +4,7 @@
 
 | 章节 | 核心概念 | 对应示例 | 对应测试 | 当前状态 | 目标版本 |
 |---|---|---|---|---|---|
-| 第 0 章：你已经写了一个 Agent | Agent 最小闭环、手写 Runtime、框架价值 | `examples/manual_agent_loop`、`examples/basic_langgraph` | 手写 Loop 测试 | 实现完成 / 待架构审查 | v0.2.0 |
+| 第 0 章：你已经写了一个 Agent | Agent 最小闭环、手写 Runtime、框架价值 | `examples/manual_agent_loop`、`examples/basic_langgraph` | 手写 Loop 测试 | 最终完成 | v0.2.0 |
 | 第 1 章：Agent Loop | Observe / Decide / Act / Update State、终止（Success/Failure/Max Iteration/Human Stop）、Retry vs Loop、Workflow vs Agent | `examples/manual_agent_loop`、`examples/basic_langgraph` | 手写 Loop 测试、max_iterations off-by-one | 最终完成 | v0.3.0 |
 | Part 2：Agent Runtime（LLM 与 Agent / Agent Loop / Runtime / State / Tool Registry / Prompt Builder / Memory 与 Context / 手写 Runtime） | Runtime 概念、State 生命周期 | `examples/manual_agent_loop` | State reducer、Tool adapter | 规划 | v0.3.0 |
 | Part 3：LangGraph Core（StateGraph / Node / Edge / Conditional Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream / Subgraph） | 图运行时、恢复、流式 | `examples/basic_langgraph` | Graph path、Checkpoint recovery | 最终完成 | v0.4.0 |

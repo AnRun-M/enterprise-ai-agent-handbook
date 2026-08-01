@@ -37,3 +37,6 @@
 | [llm-vs-runtime.md](llm-vs-runtime.md) | LLM 与 Runtime 的边界在哪 | 第 0 章 / TASK-0003 / PR #4 Review |
 | [testing-agent.md](testing-agent.md) | 为什么必须测 State Transition | tests/ 全部代码 / CI（tests.yml） |
 | [review-checklist.md](review-checklist.md) | 每个 PR 按影响范围必须审查什么 | PR #2 / PR #4 的真实 Review 结论 |
+| [architecture-map.md](architecture-map.md) | Part 01-03 全局坐标系：Runtime 分层、State/Context/Memory/Checkpoint 边界、章节归属、canonical 挂载 | 全部已有代码 / ADR / 本集文档 / 第 0-1 章 |
+
+**阅读规则**：涉及 Runtime / State / Context / Memory / Checkpoint 的章节或代码任务，在阅读本 index 后**必须继续阅读 [architecture-map.md](architecture-map.md)**——它是 Part 01 ~ Part 03 的全局坐标系，防止概念边界漂移。
