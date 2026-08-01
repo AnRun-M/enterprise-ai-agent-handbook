@@ -2,7 +2,7 @@
 
 > 状态：draft（2026-08-01）
 > 前置阅读：第 0 / 1 章、`TERMINOLOGY.md`、`.ai/principles/state-design.md`、`.ai/principles/architecture-map.md`
-> 本章是**全书关于 State 的唯一权威定义**（Part 02 第一章）。Memory / Checkpoint / Reducer / Interrupt / Streaming / Trace / LangGraph API 属后续章节（归属见 architecture-map 第 4 节），本章不展开。
+> 本章是**面向读者关于 Execution State 的核心讲解**（Part 02 第一章）；内部 State 设计约束以 `.ai/principles/state-design.md` 为准；State 与 Context / Memory / Checkpoint 的关系边界以 `.ai/principles/architecture-map.md` 为准。Memory / Checkpoint / Reducer / Interrupt / Streaming / Trace / LangGraph API 属后续章节（归属见 architecture-map 第 4 节），本章不展开。
 
 **整章围绕一句话展开：**
 
@@ -85,7 +85,12 @@ flowchart LR
 | `status` | 生命周期 | 终止判定与外部观察 |
 | `history` | 事件序列 | 可观测 + 测试断言（2.7） |
 
-演化规律（Q10 的回答）：**每一轮 = 读 State → 决策 → 动作 → 写回 State → State 前进一格**。State 从不"被修改"（没有原地突变语义），而是"被替换为下一版本"——manual 通过 `apply_*` 方法、graph 通过 channel 合并（Reducer 机制属 Part 03），两种载体下演化序列一致（`test_direct_equivalence_with_manual` 断言 iteration 与 history 动作序列逐轮相等）。
+演化规律（Q10 的回答）：**每一轮 = 读 State → 决策 → 动作 → 写回 State → State 前进一格**。从**逻辑语义**看，每一轮产生一个新的 State 快照；从**实现机制**看，两者不同：
+
+- **Manual Runtime**：同一个 `AgentState` 对象（可变 dataclass）经过显式 API（`apply_candidate` / `apply_validation` / `apply_execution` / `fail` / `complete_success` / `record_round`）**受控原地更新**
+- **LangGraph Runtime**：节点返回部分更新，由 Graph 合并（Reducer 机制属 Part 03）
+
+两者等价的是**字段语义、状态转换结果和行为契约**，不是对象可变性或更新机制——`test_direct_equivalence_with_manual` 断言 iteration 与 history 动作序列逐轮相等。
 
 ## 2.5 哪些信息必须进入 State
 
@@ -100,9 +105,9 @@ flowchart LR
 | **生命周期状态** | `status` | 三种终止的判据 |
 | **History** | `history`（每轮事件） | 可观测与测试断言（2.7） |
 
-## 2.6 哪些信息绝不能进入 State
+## 2.6 哪些信息默认不应直接进入 State
 
-**绝不放行：完整的外部事实与可观测数据。** 举例（Q7 的回答）：
+**默认不直接复制：完整的外部事实、大对象、日志和可观测数据。** 举例（Q7 的回答）：
 
 - 完整 Metadata、整个 Schema
 - 全部历史 SQL 语料
@@ -132,23 +137,32 @@ flowchart LR
     OUT -. "只保存 ID / URI / version / digest / summary 引用" .-> IN
 ```
 
-**为什么**：① 大对象复制进 State = 内存与序列化成本失控；② 与外部事实源双写 = 两份副本必然漂移（单一事实源原则，`.ai/principles/architecture-map.md` 的 State 引用策略）。**保存引用即可**：ID / URI / version / digest / summary——例如 T09 执行结果只保存控制信息（成功与否、行数），完整数据集留在数据库 / 结果集。
+**为什么**：① 大对象复制进 State = 内存与序列化成本失控；② 与外部事实源双写 = 两份副本必然漂移（单一事实源原则，`.ai/principles/architecture-map.md` 的 State 引用策略）。**默认优先保存引用**：ID / URI / version / digest / summary——例如 T09 执行结果只保存控制信息（成功与否、行数），完整数据集留在数据库 / 结果集。
+
+**例外（确需保存小型快照）必须满足全部条件**：明确影响控制或可恢复语义；大小受限；版本明确；不形成双写事实源；有生命周期和测试。（Checkpoint 机制属后续章节，此处不展开。）
 
 ## 2.7 State 为什么必须可以测试
 
-当前全仓测试 **57 passed**（`tests/manual_agent_loop` + `tests/basic_langgraph`）。它们断言的是什么？
+当前全量测试在 CI 中通过，具体数量以最新 CI 为准（`tests/manual_agent_loop` + `tests/basic_langgraph`）。它们断言的是什么？
 
 - `test_direct_equivalence_with_manual`：两个 Runtime 的 **State 字段**逐项相等（status / current_sql / execution_result / final_answer / iteration / history 动作序列）
 - `test_history_records_key_events`：**history 事件序列**（GENERATE_SQL → FIX_SQL → FINALIZE）
 - `test_max_iterations_2_stops_before_finalize`：**迭代语义**（off-by-one 契约）
 - `test_execution_failure_saves_failure_reason`：**失败路径的状态**（failure_reason 精确匹配）
 
-测试的是 **State Transition，不是 Prompt**（`.ai/principles/testing-agent.md`）：模型输出不可复现，State 演化完全可复现。这是"Agent 不能只测 Prompt"的直接后果——**可测试性是 State 作为事实源的定义性特征**（Q8 的回答）。
+测试的是 **State Transition，不是 Prompt**（`.ai/principles/testing-agent.md`）：模型输出不可复现，State 演化完全可复现。这是"Agent 不能只测 Prompt"的直接后果——**可测试性是 State 作为 Runtime Contract 的关键工程要求**（Q8 的回答）。
 
 ## 2.8 State Schema 为什么比 Prompt 更稳定
 
-- **Prompt 可以不断演进**：它是单次模型调用的输入约束，修改只影响模型输出质量，不改变执行语义。
-- **State 属于 Runtime Contract**：两个 Runtime 的行为等价依赖 State 字段语义对齐（TASK-0003 要求 `GraphState` 与 `AgentState` 字段一一对应）。字段改名、改类型、改语义 = 修改契约 → 必须同步更新两个 Runtime、全部测试、所有读写方。
+**Prompt 是模型行为策略的一部分**，不是"只影响输出质量"的附属物：
+
+- Prompt 变化可能改变：`next_action`、Tool 参数、修复 / 澄清 / 拒绝 / 结束路径、最终 SQL 与结果
+- Prompt 通常比 State Schema **更容易迭代**（它是单次调用输入约束，修改不要求其他组件同步），但仍必须做**回归测试**——测试断言的是 State Transition，Prompt 变化若改变 State 演化，测试会暴露
+
+**State 属于 Runtime Contract**，更稳定的原因是它是**跨 Runtime / Node / Tool / Test 的数据契约**：
+
+- 两个 Runtime 的行为等价依赖 State 字段语义对齐（TASK-0003 要求 `GraphState` 与 `AgentState` 字段一一对应）
+- 字段名、类型、语义和生命周期被多个组件依赖——字段改名、改类型、改语义 = 修改契约 → 必须同步更新两个 Runtime、全部测试、所有读写方
 
 证据（PR #2 Review 教训）：`validation_error`（消息）与 `validation_rule`（规则名）曾被混淆——只存消息导致 `FakeLLM.fix_sql` 的修复分支永不命中，测试立即暴露。**字段设计错误是契约错误，不是实现错误。**
 
@@ -166,9 +180,9 @@ flowchart LR
 | Q4 | State 为什么不是 Memory？ | 区分轴：是否跨越单次执行边界。State 只跨同一次执行的轮次 |
 | Q5 | State 为什么不是 Checkpoint？ | Checkpoint 是 State 的持久化快照；不是 State 本身（Part 03 / v0.6.0） |
 | Q6 | 什么必须进入 State？ | 影响下一轮控制决策的信息：控制信息 / 决策结果 / 执行摘要 / 错误 / 生命周期 / history |
-| Q7 | 什么绝不能进入 State？ | 完整外部事实与可观测数据：Metadata / 全量 SQL / 完整 Tool 输出 / 日志 / Trace / 权限规则 / 向量 |
-| Q8 | State 为什么必须可测试？ | 可复现性是事实源的定义性特征；测试断言 State Transition（57 passed），不测 Prompt |
-| Q9 | 为什么 State Schema 比 Prompt 更重要？ | Schema 是 Runtime Contract，修改代价高；Prompt 只是单次调用输入约束 |
+| Q7 | 什么默认不应直接进入 State？ | 完整外部事实与可观测数据（Metadata / 全量 SQL / 完整 Tool 输出 / 日志 / Trace / 权限规则 / 向量）；例外须满足五条件（控制影响 / 大小受限 / 版本明确 / 无双写 / 有生命周期与测试） |
+| Q8 | State 为什么必须可测试？ | 可测试性是 State 作为 Runtime Contract 的关键工程要求；测试断言 State Transition，不测 Prompt（数量以最新 CI 为准） |
+| Q9 | 为什么 State Schema 比 Prompt 更重要？ | Schema 是跨 Runtime / Node / Tool / Test 的数据契约；Prompt 是模型行为策略，更易迭代但仍需回归测试 |
 | Q10 | State 怎样随每轮 Loop 演化？ | 读 → 决策 → 动作 → 写回 → State 前进一格；演化序列可断言、双 Runtime 一致 |
 
 **本章验收标准：**
