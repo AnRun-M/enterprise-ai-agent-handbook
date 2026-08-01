@@ -62,18 +62,29 @@ flowchart LR
     MD --> B
 ```
 
-Builder 的工作是**选择与组装**：哪些输入进、按什么顺序、受哪些策略约束——这是第 3 章"最小充分上下文原则"（完成本次决策所需且允许暴露）的执行者。
+**Policy / Runtime Configuration 决定，Builder 执行**：
+
+- Policy / Runtime Configuration 决定：哪些字段允许暴露、哪些内容必须脱敏、Token 预算、模板或版本选择规则
+- Builder 负责执行：筛选、渲染、脱敏、裁剪、读取并应用已选版本
+- **Builder 不制定策略，不拥有权限与治理判断权**（4.6 展开）
+
+Builder 是第 3 章"最小充分上下文原则"（完成本次决策所需且允许暴露）的**执行者**——"所需"与"允许暴露"由 Policy 判定，Builder 只执行。
 
 ## 4.3 Prompt Builder 输出
 
-**输出不是 Prompt。输出是 Model Context**——发送给模型的一次完整输入（Q7 的回答，第 3 章定义：最终对模型可见的完整输入快照）。
+推荐表述：
+
+> **Prompt Builder 产出可发送给模型的输入结构；从架构语义看，它构成这次调用的 Model Context。**
+
+直接产物可以是（实现形态，不锁死为单一对象）：**Prompt Instance**、**messages**、**model request payload**。从架构语义看，这些产物构成一次调用的 Model Context（第 3 章定义：最终对模型可见的完整输入快照）。
+
+Model Context 还可能包括：**tool definitions**、**model call configuration**（参数、温度等）、**policy-derived metadata**（策略层附加的元数据）——不要把实现锁死成一个叫 `ModelContext` 的对象。
 
 ```mermaid
 flowchart LR
-    B["Prompt Builder（Runtime Control Plane）"] --> C["Model Context（一次完整调用输入）"]
-    C --> D["Model Decision"]
-    D --> A["执行动作"]
-    A -. "Tool 结果摘要回流为下一轮输入" .-> B
+    B["Prompt Builder（Runtime Control Plane）"] --> C["可发送的输入结构（Prompt Instance / messages / request payload）"]
+    C --> D["从架构语义看 = Model Context（可能含 tool definitions / call configuration / policy metadata）"]
+    D --> E["Model Decision"]
 ```
 
 两个性质：
@@ -100,10 +111,11 @@ flowchart LR
 
 ## 4.5 Prompt Version
 
-Prompt 属于 **Runtime Contract**（Q3/Q5 的回答，第 2 章 2.8 的契约论证在此展开）：
+**Prompt 是 Runtime 行为配置的重要组成部分**（Q3/Q5 的回答）：
 
-- Prompt 是**模型行为策略**（第 2 章 2.8：变化可能改变 next action / Tool 参数 / 路径 / 最终 SQL）——修改 Prompt 就是修改行为
-- 因此 Prompt 必须：**Version**（可标识）、**Rollback**（可回退）、**Review**（变更可评审）、**Regression Test**（行为可回归）
+- **State Schema 是数据契约**（第 2 章 2.8）；**Prompt 是行为契约的一部分，但不等同于 State Schema 的数据契约**
+- Prompt 变化可能改变：**next action、Tool 参数、路径、输出格式、最终 SQL**——修改 Prompt 就是修改行为
+- 因此需要：**Version**（可标识）、**Rollback**（可回退）、**Review**（变更可评审）、**Regression Test**（行为可回归）、**Audit**（可追溯）
 
 ```mermaid
 flowchart LR
@@ -115,7 +127,16 @@ flowchart LR
     V2 -. "可回滚" .-> V1
 ```
 
-**为什么审计（Q5）**：Builder 的输出快照 + 使用的 Prompt 版本号，构成"这次调用用了哪个版本、组装了什么"的完整记录——这是行为问题定位（"v2 上线后 SQL 变了"）与合规追溯的基础。审计保存机制属 Observability 章节，此处只说明 Builder 侧的义务：**每次组装必须携带版本标识**。
+**Builder unit test 与 Prompt regression test 是两回事**：
+
+| 测试类型 | 输入 | 断言 |
+|---|---|---|
+| **Builder unit test** | 同一输入 + 同一 policy/config + 同一 template/version | 生成**结构一致、可断言**的 payload |
+| **Prompt regression test** | 代表性任务集 / 关键路径 / Tool 参数 / 输出格式 / 安全约束 | **行为不能出现不可接受退化** |
+
+不要把"同一输入生成一致 Context"当作全部 Prompt 回归测试——结构一致只证明组装稳定，不证明行为正确。
+
+**为什么审计（Q5）**：最小审计元数据集合——**prompt/template version、policy/config version、model version、tool schema/version、request metadata、generated payload snapshot 或 digest**。这构成"这次调用用了什么版本、组装了什么"的完整记录，是行为问题定位（"v2 上线后 SQL 变了"）与合规追溯的基础。审计保存机制属 Observability 章节，此处只说明 Builder 侧的义务：**每次组装必须携带并记录这些元数据**。
 
 > 标注：上述"版本管理"是 Runtime 的逻辑抽象；本项目 Demo 无真实 Prompt（FakeLLM 无指令概念），因此无版本记录——未来实现 Builder 时补上。
 
@@ -123,16 +144,17 @@ flowchart LR
 
 Q9 的回答：Builder 属于 **Runtime Control Plane**（architecture-map 第六层；第 3 章 3.6 已定位）。
 
-Builder **负责**：
+Builder **负责（执行，不决策）**：
 
 - 组装（选择输入、排序）
-- 过滤与脱敏（受确定性策略层约束——权限、敏感字段）
-- 裁剪（Token 预算策略）
-- 版本选择（4.5）
+- 筛选与渲染
+- 脱敏与裁剪（按 Policy 给出的规则执行）
+- 读取并应用已选版本（版本由配置 / 发布策略选定；简单实现可内置选择逻辑，但不把"版本选择"定义为 Builder 的专属职责）
 
 Builder **不能**：
 
 - **决定业务策略**——业务与安全策略属于确定性策略层（`.ai/principles/runtime-design.md` 三层边界）；Builder 执行策略，不制定策略
+- **拥有权限与治理判断权**——哪些字段允许暴露、必须脱敏、Token 预算，由 Policy / Runtime Configuration 决定（4.2）；Builder 只执行
 - **决定 Agent 下一步**——那是模型的开放式语义决策（第 1 章 1.4）；Builder 只负责"喂什么"，不负责"走哪条路"
 - **绕过 Runtime**——模型不能绕过 Runtime 直接修改最终调用输入（第 3 章 3.6）；Builder 作为 Runtime 组件，是组装唯一入口
 
@@ -140,7 +162,7 @@ Builder **不能**：
 flowchart TD
     subgraph RCP["Runtime Control Plane"]
         O["Observe State"]
-        B["Prompt Builder（组装 / 过滤 / 脱敏 / 裁剪 / 版本选择）"]
+        B["Prompt Builder（组装 / 筛选 / 渲染 / 脱敏 / 裁剪 / 应用已选版本）"]
         D["Model Decision"]
     end
     P["Deterministic Policy（权限 / 脱敏 / Token 预算）"] -. "约束 Builder，Builder 不制定策略" .-> B
@@ -155,7 +177,7 @@ Q10 的回答——**只说明挂载点，不展开实现**：
 | 未来能力 | 在 Builder 的挂载点 | 展开章节 |
 |---|---|---|
 | **Memory** | 作为 4.2 输入的新来源（检索结果注入组装） | Part 02 后续章节 |
-| **RAG** | 同上（按需检索结果作为输入来源；第 3 章 3.4 已列为 Context 变化来源） | Part 02 后续章节 |
+| **RAG** | 同上——**Retrieve / Rank / Filter 不属于 Prompt Builder**：Builder 只接收**筛选后的 retrieved context** 作为输入来源（第 3 章 3.4 已列为 Context 变化来源） | Part 02 后续章节 |
 | **MCP** | Tool Message 的标准化来源（工具连接标准） | Part 6 |
 | **Tool Registry** | Tool schema / 可用工具进入组装（第 3 章 3.4：Tool schema 是 Context 变化来源之一） | Part 02 后续章节 |
 
@@ -178,23 +200,23 @@ Q10 的回答——**只说明挂载点，不展开实现**：
 |---|---|---|
 | Q1 | 为什么 Runtime 必须有 Prompt Builder？ | 组装是每轮高频、多源动作；散落代码则不可版本、不可测试、不可审计 |
 | Q2 | 为什么 Prompt 不应该散落在代码里？ | 散落 = 轮间漂移 + 修改无法定位 + 无版本无测试无审计 |
-| Q3 | Prompt 为什么需要版本管理？ | Prompt 是行为策略（Runtime Contract）；修改 Prompt 即修改行为，必须可标识、可回退 |
-| Q4 | 为什么 Prompt Builder 必须可测试？ | 组装结果决定模型看到的输入；同一 State + 同一 Prompt 版本 + 同一外部输入 + 同一策略 → 语义一致 Context |
-| Q5 | 为什么 Prompt Builder 必须可审计？ | 输出快照 + 版本号 = "这次调用用了什么"的完整记录（定位与合规追溯） |
-| Q6 | Prompt Builder 的输入有哪些？ | System Instruction / Prompt Template / User Message / State Slice / Tool Result Summary / Runtime Policy / Metadata——按策略选择，不是每次全有 |
-| Q7 | Prompt Builder 的输出是什么？ | Model Context——发送给模型的一次完整输入（不是 Prompt） |
-| Q8 | Prompt Template 与 Model Context 的关系？ | Template（规则）→ Instance（实例化）→ Context（最终输入）三阶段 |
-| Q9 | 为什么 Builder 属于 Runtime 而不是模型？ | Builder 负责组装/过滤/脱敏/裁剪/版本选择；不决定策略、不决定下一步、不绕过 Runtime |
+| Q3 | Prompt 为什么需要版本管理？ | Prompt 是 Runtime 行为配置的重要组成部分（行为契约的一部分，不等同 State Schema 数据契约）；修改即修改行为，必须可标识、可回退 |
+| Q4 | 为什么 Prompt Builder 必须可测试？ | 组装决定模型看到的输入；Builder unit test 断言结构一致，Prompt regression test 断言行为不退化——两者都必要，前者不是后者的全部 |
+| Q5 | 为什么 Prompt Builder 必须可审计？ | 最小审计元数据集合：prompt/template version、policy/config version、model version、tool schema/version、request metadata、payload snapshot 或 digest |
+| Q6 | Prompt Builder 的输入有哪些？ | System Instruction / Prompt Template / User Message / State Slice / Tool Result Summary / Runtime Policy / Metadata——Policy 决定选什么，Builder 执行 |
+| Q7 | Prompt Builder 的输出是什么？ | 可发送的输入结构（Prompt Instance / messages / request payload）；从架构语义看构成一次调用的 Model Context（可能含 tool definitions / call configuration / policy metadata） |
+| Q8 | Prompt Template 与 Model Context 的关系？ | Template（规则）→ Instance（实例化）→ 语义上构成 Context（最终输入）三阶段 |
+| Q9 | 为什么 Builder 属于 Runtime 而不是模型？ | Builder 执行组装/筛选/渲染/脱敏/裁剪/应用已选版本；Policy 决定、Builder 执行；不决定策略/下一步/绕过 Runtime |
 | Q10 | Memory / RAG / MCP 如何接入？ | 作为 4.2 输入集合的新来源挂载，不改变 Builder 职责（实现见后续章节） |
 
 **本章验收标准：**
 
 - [ ] 能解释 Builder 是 Runtime 组件而非 Prompt 技巧，及 Demo 为隐式实现的诚实标注
-- [ ] 能列出 Builder 的输入集合与"按策略选择"原则
-- [ ] 能区分 Prompt Template / Prompt Instance / Model Context 三阶段
-- [ ] 能说明 Prompt 属于 Runtime Contract（Version / Rollback / Review / Regression）
-- [ ] 能说明 Builder 的"负责"与"不能"清单（组装 vs 策略 vs 决策）
-- [ ] 能指出 Memory / RAG / MCP / Tool Registry 的挂载点而不展开实现
+- [ ] 能列出 Builder 的输入集合与"Policy 决定、Builder 执行"原则
+- [ ] 能区分 Prompt Template / Prompt Instance / 语义上的 Model Context 三阶段
+- [ ] 能说明 Prompt 是行为配置/行为契约的一部分（Version / Rollback / Review / Regression / Audit），并区分 Builder unit test 与 Prompt regression test
+- [ ] 能说明 Builder 的"负责（执行）"与"不能（决策）"清单，及最小审计元数据集合
+- [ ] 能指出 Memory / RAG / MCP / Tool Registry 的挂载点而不展开实现（RAG：Builder 只接收筛选后的 retrieved context）
 - [ ] 能引用第 1/2/3 章与 architecture-map 而不复制定义
 
 **本章边界**：Memory、Checkpoint、Interrupt、Reducer、LangGraph API、RAG、MCP、A2A、Observability、Evaluation 均属后续章节；本章只标记边界与挂载点。
