@@ -77,20 +77,18 @@
   - 明确未决项：Memory 不选型、Checkpointer 未启用、Human Stop 暂停语义待 v0.6.0、Part 02 清单与 ROADMAP 差异待对齐
   - 顺手修复：content-map 第 0 章状态漂移（实现完成/待架构审查 → 最终完成）
   - 非出版内容，不进 MkDocs
-- Chapter 02：Execution State（2026-08-01，TASK-0007，分支 feature/chapter-02-execution-state，draft 待架构审查）：
+- PR #12（Chapter 02：Execution State）已通过 Architecture Review（五项修正：State 更新机制 / Prompt 与执行语义 / 单一事实源职责划分 / 默认排除规则与例外 / 测试表述——全部修复并复审通过），squash merge 到 main（2026-08-01，commit d535de0）；TASK-0007 标记 completed；Chapter 02 最终完成
   - 2.1-2.9 结构，回答 Q1-Q10（State 是 Loop 的记忆载体 / 唯一事实源 / 生命周期 / 每轮演化 / 进入与不进入 / 可测试 / Schema 契约）
-  - 4 张 Mermaid 图（生命周期 / State0→Final 演化 / State 与 Prompt-Memory-Checkpoint-Database 边界 / 进入 vs 不进入）
-  - 整章主线：State 不是业务数据、不是 Prompt、不是 Memory、不是 Checkpoint——是一次执行中的唯一控制事实源
-  - 零 Memory/Checkpoint/Reducer/Interrupt/LangGraph API；零新增代码
-  - mkdocs nav / Part 02 index / ROADMAP v0.3.0 draft 勾选 / content-map 行 已更新
+  - 4 张 Mermaid 图（生命周期 / State0→Final 演化 / State 与 Prompt-Memory-Checkpoint-Database 边界 / 进入 vs 默认不进入）
+  - 职责划分：本章=面向读者讲解；state-design=内部约束；architecture-map=跨概念关系
+  - content-map 状态规范化（本次 PR）：第 2 章=最终完成；Part 2=进行中（Execution State 已完成）；Part 3=进行中（示例与等价 Demo 已完成，正文待写）；统一四种状态
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 Chapter 02（Execution State）架构审查通过后 Merge
-2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-4. 选择许可证
+1. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+2. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+3. 选择许可证
 
 ## 当前阻塞
 
