@@ -54,6 +54,13 @@ nav:
       - 概览: 06-mcp-a2a/index.md
   - AI Coding:
       - 概览: 07-ai-coding/index.md
+  - Design Principles:
+      - 概述: 99-design-principles/index.md
+      - Runtime: 99-design-principles/01-runtime-design.md
+      - State: 99-design-principles/02-state-design.md
+      - LLM vs Runtime: 99-design-principles/03-llm-vs-runtime.md
+      - 测试 Agent: 99-design-principles/04-testing-agent.md
+      - Review Checklist: 99-design-principles/05-review-checklist.md
   - ADR:
       - Architecture First: adr/ADR-0001-architecture-first.md
       - Text-to-SQL Main Case: adr/ADR-0002-text2sql-main-case.md

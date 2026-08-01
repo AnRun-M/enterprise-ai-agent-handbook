@@ -25,6 +25,7 @@
 
 ## v0.3.0：Agent 与 Runtime 基础
 
+- [x] Agent Runtime Design Principles（docs/99-design-principles/，待架构审查）
 - [ ] LLM 与 Agent
 - [ ] Agent Loop
 - [ ] Runtime
