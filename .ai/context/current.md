@@ -66,7 +66,7 @@
   - CI 改为 pip install -e ".[dev]"（单一依赖事实源）；pyproject 增加 [tool.setuptools] packages = []
   - 对照文档 docs/03-langgraph-core/manual-vs-langgraph.md 已入 mkdocs nav
   - ROADMAP/content-map 标记「实现完成 / 待架构审查」
-  - 待 PR #4 架构审查，不 Merge
+- PR #4（LangGraph 等价 Demo）已通过 Architecture Review，squash merge 到 main（2026-08-01，commit 5c1d627），远程 feature/basic-langgraph 已删除；TASK-0003 标记 completed；LangGraph 等价 Demo 最终完成
 
 ## 正在进行
 
@@ -87,7 +87,6 @@
 
 ## 当前阻塞
 
-- 尚未固定 LangGraph 依赖版本
 - 尚未确定真实 LLM 供应商
 - GitHub Connector 当前不可直接写入
-- v0.2.0 里程碑未完成（basic_langgraph 等价 Demo、官方参考索引），按版本规则 CHANGELOG 暂处 Unreleased
+- v0.2.0 里程碑未完成（官方参考索引），按版本规则 CHANGELOG 暂处 Unreleased
