@@ -36,6 +36,7 @@ enterprise-ai-agent-handbook/
 - `references/`：未发布的研究素材与官方资料索引，不属于书籍正文。
 - `.ai/`：AI 项目记忆，帮助 AI 跨会话保持上下文，不属于书籍正文。
 - `.ai/principles/`：内部设计规范（项目宪法），不属于出版内容，不进入 MkDocs 文档站。
+- `.ai/principles/architecture-map.md`：内部概念坐标（Part 01-03 全局坐标系），不属于出版内容。
 
 ## AI 协作流程
 
