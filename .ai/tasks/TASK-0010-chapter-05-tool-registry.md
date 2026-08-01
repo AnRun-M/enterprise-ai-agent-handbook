@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -42,7 +42,7 @@
 - [x] 章节结构 5.1-5.10 完成，Q1-Q10 全部回答
 - [x] 5 张 Mermaid 图（位置 / 双视图 / Tool Call 路径 / 权限纵深防御 / schema 版本影响）
 - [x] `mkdocs build --strict`、`pytest`、`ruff check .` 通过
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR #18 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（六项修正：Registry 与 Tool View 分离 / Dispatcher 完整路径 / 术语固定 / canonical definition + Provider Adapter / 判别式 Result Contract / 纵深防御最终边界）
+- [x] PR #18 squash merge 到 main（commit 483b636），远程 feature/chapter-05-tool-registry 已删除
+- 合并后方可标记 completed（本次已合并）
