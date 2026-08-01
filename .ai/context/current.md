@@ -91,14 +91,21 @@
   - 4 张 Mermaid 图（Builder 位置 / 输入来源 / 输出到 Context / Version 生命周期）
   - 诚实标注：Demo 无显式 Builder，属"Runtime 的逻辑抽象，目前 Demo 为隐式实现"
 - **写作节奏决策（用户 2026-08-01）**：暂不进入 Part 3（LangGraph），先把 Part 02 的 Runtime 语义全部讲透（Tool Registry、Scheduler、Context Management 等）——让读者把 LangGraph 视为 Runtime 思想的一种实现，而非全书围绕框架展开（与 ADR-003 一致）
+- Chapter 05：Tool Registry（2026-08-01，TASK-0010，分支 feature/chapter-05-tool-registry，draft 待架构审查）：
+  - 5.1-5.10 结构，回答 Q1-Q10（硬编码 dispatch 失控 / Registry 最小模型 / Definition-Handler 分离 / Tool Call 路径 / Dispatch 三职责 / 权限纵深防御 / schema 版本 / Result Contract）
+  - 5 张 Mermaid 图（Registry 位置 / 双视图 / Tool Call 完整路径 / 权限纵深防御 / schema 版本影响）
+  - 主线：Registry = 能力描述与执行映射的注册表，不是工具集合、不是模型决策器
+  - 诚实标注：Demo 无 Registry（架构抽象，规模增长后的 Runtime 组件）
+  - 零新增代码 / 不引入 MCP SDK / LangGraph ToolNode
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Chapter 05：Part 02 Runtime 语义继续（候选主题：Tool Registry——ROADMAP v0.3.0 与 Part 02 index 均有，且承接 ch03/ch04 的 Tool Message 与挂载点）
-2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-4. 选择许可证
+1. 等待 Chapter 05（Tool Registry）架构审查通过后 Merge
+2. Chapter 06：Part 02 Runtime 语义继续（候选：Scheduler / Context Management / Retry，暂不进入 Part 3）
+3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+5. 选择许可证
 
 ## 当前阻塞
 
