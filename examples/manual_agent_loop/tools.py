@@ -84,6 +84,11 @@ class FakeSQLExecutor:
 
     不连接真实数据库，结果完全可复现。sql_timeout_seconds 由生产执行引擎使用，
     本 Fake 不模拟超时。
+
+    最小安全检查为纵深防御：与 Validator 的检查刻意独立实现（每层各自把关），
+    即使上层校验被绕过，执行层也拒绝：空 SQL、非 SELECT、多语句
+    （包括「SELECT 1; DROP TABLE orders」这类拼接）。这仍然是教学级防御，
+    不能替代 AST 解析、权限校验、扫描量限制和审计。
     """
 
     FIXED_RESULT: ClassVar[dict[str, object]] = {
@@ -93,7 +98,12 @@ class FakeSQLExecutor:
     }
 
     def execute(self, sql: str) -> ToolResult:
-        # 纵深防御：即使通过校验，执行层也只接受 SELECT。
-        if not sql.strip().lower().startswith("select"):
+        stripped = sql.strip()
+        if not stripped:
+            return ToolResult(ok=False, error="empty SQL")
+        statements = [s.strip() for s in stripped.split(";") if s.strip()]
+        if len(statements) > 1:
+            return ToolResult(ok=False, error="multi-statement is not allowed")
+        if not statements[0].lower().startswith("select"):
             return ToolResult(ok=False, error="only SELECT can be executed")
         return ToolResult(ok=True, data=dict(self.FIXED_RESULT))

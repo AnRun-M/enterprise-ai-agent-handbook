@@ -31,7 +31,7 @@ def render(state: AgentState) -> str:
     elif state.status is AgentStatus.MAX_ITERATIONS_REACHED:
         lines.append(f"== 达到最大迭代次数（{state.max_iterations}）后安全终止 ==")
     elif state.status is AgentStatus.FAILED:
-        lines.append("== 任务失败 ==")
+        lines.append(f"== 任务失败：{state.failure_reason or 'unknown'} ==")
     return "\n".join(lines)
 
 

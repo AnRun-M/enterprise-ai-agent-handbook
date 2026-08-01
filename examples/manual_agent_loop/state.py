@@ -22,6 +22,7 @@ class AgentState:
     validation_rule: str | None = None
     execution_result: ToolResult | None = None
     final_answer: str | None = None
+    failure_reason: str | None = None
     iteration: int = 0
     status: AgentStatus = AgentStatus.RUNNING
     history: list[StepEvent] = field(default_factory=list)
@@ -57,7 +58,8 @@ class AgentState:
         self.status = AgentStatus.SUCCESS
 
     def fail(self, reason: str) -> None:
-        """失败终止：执行失败或未处理异常。"""
+        """失败终止：保存失败原因并设置 FAILED，最终 State 可查。"""
+        self.failure_reason = reason
         self.status = AgentStatus.FAILED
 
     def exceed_max_iterations(self) -> None:

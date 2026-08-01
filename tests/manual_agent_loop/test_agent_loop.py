@@ -1,12 +1,21 @@
-"""手写 Agent Loop 行为测试：修复循环、终止条件、history、固定结果。"""
+"""手写 Agent Loop 行为测试：修复循环、终止条件、history、固定结果、失败原因。"""
 
 from __future__ import annotations
 
+import pytest
+
 from examples.manual_agent_loop.agent import Agent
 from examples.manual_agent_loop.config import AgentConfig
+from examples.manual_agent_loop.models import FakeLLM
 from examples.manual_agent_loop.state import AgentState
 from examples.manual_agent_loop.tools import FakeSQLExecutor, FakeSQLValidator
-from examples.manual_agent_loop.types import ActionType, AgentStatus, ValidationResult
+from examples.manual_agent_loop.types import (
+    ActionType,
+    AgentAction,
+    AgentStatus,
+    ToolResult,
+    ValidationResult,
+)
 
 
 def test_first_round_fails_second_round_fixes_and_succeeds() -> None:
@@ -65,10 +74,76 @@ def test_history_records_key_events() -> None:
     assert state.history[2].sql == state.current_sql
 
 
-def test_executor_rejects_non_select() -> None:
-    result = FakeSQLExecutor().execute("DELETE FROM orders")
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT 1; DROP TABLE orders",
+        "SELECT 1; DELETE FROM orders",
+        "DELETE FROM orders",
+        "",
+        "   ",
+    ],
+)
+def test_executor_rejects_unsafe_sql(sql: str) -> None:
+    result = FakeSQLExecutor().execute(sql)
     assert not result.ok
-    assert result.error == "only SELECT can be executed"
+
+
+def test_executor_accepts_single_select_with_trailing_semicolon() -> None:
+    result = FakeSQLExecutor().execute("SELECT order_date FROM orders LIMIT 1000;")
+    assert result.ok
+    assert result.data == FakeSQLExecutor.FIXED_RESULT
+
+
+class FailingExecutor(FakeSQLExecutor):
+    """测试专用：执行总是失败。"""
+
+    def execute(self, sql: str) -> ToolResult:
+        return ToolResult(ok=False, error="executor exploded")
+
+
+def test_execution_failure_saves_failure_reason() -> None:
+    state = Agent(config=AgentConfig(), executor=FailingExecutor()).invoke("查询昨天的 GMV")
+
+    assert state.status is AgentStatus.FAILED
+    assert state.failure_reason == "execution failed: executor exploded"
+
+
+class ExplodingModel(FakeLLM):
+    """测试专用：决策时抛出异常。"""
+
+    def decide_next(self, state: AgentState) -> AgentAction:
+        raise RuntimeError("model exploded")
+
+
+def test_runtime_exception_saves_failure_reason() -> None:
+    state = Agent(config=AgentConfig(), model=ExplodingModel(AgentConfig())).invoke("查询昨天的 GMV")
+
+    assert state.status is AgentStatus.FAILED
+    assert state.failure_reason is not None
+    assert "model exploded" in state.failure_reason
+
+
+class UnknownActionModel(FakeLLM):
+    """测试专用：返回未知动作，触发 Runtime 的未知分支异常。"""
+
+    def decide_next(self, state: AgentState) -> AgentAction:
+        return AgentAction(type="bogus")  # type: ignore[arg-type]  # 故意构造未知动作
+
+
+def test_unknown_action_saves_failure_reason() -> None:
+    state = Agent(config=AgentConfig(), model=UnknownActionModel(AgentConfig())).invoke("查询昨天的 GMV")
+
+    assert state.status is AgentStatus.FAILED
+    assert state.failure_reason is not None
+    assert "unknown action type" in state.failure_reason
+
+
+def test_success_has_no_failure_reason() -> None:
+    state = Agent(config=AgentConfig()).invoke("查询昨天的 GMV")
+
+    assert state.status is AgentStatus.SUCCESS
+    assert state.failure_reason is None
 
 
 def test_state_is_pure_dataclass_no_globals() -> None:

@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | completed |
+| Status | in_progress |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -45,4 +45,7 @@
 - [x] `pytest` 通过（首轮失败第二轮修复 / 最大迭代终止 / 非 SELECT 拒绝 / 缺 LIMIT 拒绝 / 固定 GMV / history 事件）
 - [x] `ruff check .` 通过
 - [x] `mkdocs build --strict` 通过
-- [ ] PR 创建并等待架构审查（不 Merge；gh 不可用，PR 由用户手动创建）
+- [x] PR #2 已创建并推送（https://github.com/AnRun-M/enterprise-ai-agent-handbook/pull/2），tests/docs CI 双绿
+- [ ] Architecture Review 通过（Blocker：failure_reason、Executor 加固——已修复待复审）
+- [ ] PR #2 Merge 到 main
+- 合并前不得标记 completed
