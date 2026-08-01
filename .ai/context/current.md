@@ -56,10 +56,21 @@
   - PR #5 Review 修正：目录从 docs/99-design-principles 移至 .ai/principles（内部规范，不进 MkDocs）；三层职责边界（模型=开放式语义决策 / 确定性策略层=安全与治理 / Runtime=控制机制）；State 范围收窄为"执行控制状态"；Temporal 等降级为待验证方向；Checklist 按影响范围应用
   - ROADMAP v0.3.0 里程碑项保留（描述为内部规范，非读者章节）
 - PR #5（Agent Runtime Design Principles）已通过 Architecture Review，squash merge 到 main（2026-08-01，commit 6b93d19），远程 feature/design-principles 已删除；TASK-0004 标记 completed
+- LangGraph 等价 Demo（2026-08-01，TASK-0003，分支 feature/basic-langgraph，PR #4）：
+  - 固定 langgraph==1.2.9（pyproject 精确固定；references/official/langgraph.md 核验记录）
+  - 复用 manual_agent_loop 的 FakeLLM / Validator / Executor，不复制实现
+  - GraphState（TypedDict + operator.add reducer）与 manual 字段语义对齐
+  - 迭代语义等价：decide 节点递增 iteration，route_decide_or_max 先查上限（max_iterations=2 时 finalize 不执行），有 off-by-one 专项测试
+  - PR #4 Review 修复：decide 节点恢复模型决策语义（路由只按 next_action 分发）；节点级异常转换 _failure_boundary 保留异常前 State；终止状态守卫
+  - tests/basic_langgraph 26 用例（含 test_direct_equivalence_with_manual 等价对照、异常保状态、决策路由）
+  - CI 改为 pip install -e ".[dev]"（单一依赖事实源）；pyproject 增加 [tool.setuptools] packages = []
+  - 对照文档 docs/03-langgraph-core/manual-vs-langgraph.md 已入 mkdocs nav
+  - ROADMAP/content-map 标记「实现完成 / 待架构审查」
+  - 待 PR #4 架构审查，不 Merge
 
 ## 正在进行
 
-- LangGraph 等价 Demo（`examples/basic_langgraph`）——实现完成，PR #4 待架构审查
+- LangGraph 等价 Demo（`examples/basic_langgraph`）——实现完成，PR #4 待架构审查（TASK-0003）
 - 官方资料索引（`references/official/`）
 
 ## 下一步

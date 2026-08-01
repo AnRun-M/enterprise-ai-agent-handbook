@@ -6,7 +6,7 @@
 |---|---|---|---|---|---|
 | 第 0 章：你已经写了一个 Agent | Agent 最小闭环、手写 Runtime、框架价值 | `examples/manual_agent_loop`、`examples/basic_langgraph` | 手写 Loop 测试 | 实现完成 / 待架构审查 | v0.2.0 |
 | Part 2：Agent Runtime（LLM 与 Agent / Agent Loop / Runtime / State / Tool Registry / Prompt Builder / Memory 与 Context / 手写 Runtime） | Runtime 概念、State 生命周期 | `examples/manual_agent_loop` | State reducer、Tool adapter | 规划 | v0.3.0 |
-| Part 3：LangGraph Core（StateGraph / Node / Edge / Conditional Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream / Subgraph） | 图运行时、恢复、流式 | `examples/basic_langgraph` | Graph path、Checkpoint recovery | 规划 | v0.4.0 |
+| Part 3：LangGraph Core（StateGraph / Node / Edge / Conditional Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream / Subgraph） | 图运行时、恢复、流式 | `examples/basic_langgraph` | Graph path、Checkpoint recovery | 实现完成 / 待架构审查 | v0.4.0 |
 | Part 4：Text-to-SQL 重构（Text2SQLState / 意图识别 / 元数据与业务规则检索 / SQL 生成 / SQL 校验 / 权限检查 / 引擎路由 / SQL 修复循环 / Python 分析 / 结构化输出） | 全流程落地 | `examples/text2sql_state`、`examples/sql_validation` | SQL validator、Router、Text-to-SQL regression | 规划 | v0.5.0 |
 | Part 5：生产级能力（Checkpoint / HITL / 幂等 / Retry / Timeout / Compensation / Observability / Cost Control / Evaluation / Regression Test） | 可靠性、可观测、评测 | `examples/checkpoint_hitl` | Checkpoint recovery | 规划 | v0.6.0 |
 | Part 6：MCP 与 A2A（MCP 边界 / MCP Tool 接入 / A2A 边界 / Agent Card / Task / Artifact / 服务化） | 能力连接与 Agent 协作标准 | 待规划 | Tool adapter | 规划 | v0.7.0 |
