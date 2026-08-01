@@ -87,8 +87,15 @@ class FakeSQLExecutor:
 
     最小安全检查为纵深防御：与 Validator 的检查刻意独立实现（每层各自把关），
     即使上层校验被绕过，执行层也拒绝：空 SQL、非 SELECT、多语句
-    （包括「SELECT 1; DROP TABLE orders」这类拼接）。这仍然是教学级防御，
-    不能替代 AST 解析、权限校验、扫描量限制和审计。
+    （包括「SELECT 1; DROP TABLE orders」这类拼接）。
+
+    首 token 判定：提取第一个完整 token，忽略大小写后严格等于 "select" 才允许执行，
+    因此 SELECTED、SELECTevil 等前缀相似 token 同样被拒绝。
+
+    CTE 说明：当前教学实现仅允许首 token 为 SELECT，CTE（以 WITH 开头）被明确拒绝；
+    生产实现应通过 AST 解析与策略决定是否允许 CTE。
+
+    这仍然是教学级防御，不能替代 AST 解析、权限校验、扫描量限制和审计。
     """
 
     FIXED_RESULT: ClassVar[dict[str, object]] = {
@@ -104,6 +111,13 @@ class FakeSQLExecutor:
         statements = [s.strip() for s in stripped.split(";") if s.strip()]
         if len(statements) > 1:
             return ToolResult(ok=False, error="multi-statement is not allowed")
-        if not statements[0].lower().startswith("select"):
-            return ToolResult(ok=False, error="only SELECT can be executed")
+
+        # 提取首个完整 token，严格匹配 "select"（避免 SELECTED / SELECTevil 前缀通过）。
+        first_match = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)", statements[0])
+        first_token = first_match.group(1).lower() if first_match else ""
+        if first_token != "select":
+            return ToolResult(
+                ok=False,
+                error=f"only SELECT can be executed, got '{first_token or '?'}'",
+            )
         return ToolResult(ok=True, data=dict(self.FIXED_RESULT))

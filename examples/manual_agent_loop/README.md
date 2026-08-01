@@ -145,4 +145,6 @@ flowchart TD
 - 审计日志（SQL、引擎、耗时、错误）
 - 高风险查询人工审批
 
+当前教学实现仅允许首 token 为 SELECT（严格匹配，SELECTED 等前缀 token 也被拒绝）；CTE 以 WITH 开头，因此当前明确拒绝——生产实现应通过 AST 与策略决定是否允许 CTE。
+
 见 `AGENTS.md`「Text-to-SQL 安全底线」与 canonical pipeline T05 / T06。
