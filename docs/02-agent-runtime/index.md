@@ -14,7 +14,7 @@
 | Retry | Part 05（生产级） | 概念边界见 Chapter 01（Retry ≠ Loop） |
 | Checkpoint | Part 03（Checkpointer 机制）+ Part 05（生产恢复语义） | 边界见 architecture-map |
 | Interrupt | Part 03（原语）+ Part 05（HITL 语义） | 边界见 Chapter 01（Human Stop 暂停态） |
-| Streaming | Part 03（Stream API）+ Part 05（生产传输协议） | — |
+| Streaming | Part 03（Stream API / 框架机制）+ Part 05（生产流式交付与运行语义） | — |
 | Trace | Part 05（Observability） | — |
 
 ## 章节

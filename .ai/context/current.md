@@ -102,6 +102,7 @@
 - Part 02 范围对齐（2026-08-01，TASK-0012，分支 docs/part-02-scope-alignment，待架构审查）：
   - 结论：Chapter 01-06 保持最终完成；Part 02 还需 Chapter 07（Memory、Context 与 Context Management）；Retry/Timeout/Idempotency/Compensation/Trace 移 Part 05；Checkpoint/Interrupt/Streaming 拆 Part 03 机制 + Part 05 语义；手写 Runtime 已满足（manual Demo + ch01-06 + Map）；Part 02 在 ch07 完成前保持进行中
   - 修改：ROADMAP v0.3.0 冗余项标注覆盖并勾选、Design Principles 去掉过期标注、Memory 与 Context → Chapter 07；Part 02 index 主题列表改为覆盖与归属表；content-map Part 2 行更新 + Chapter 07 行新增
+  - PR #22 Review 修正：Chapter 06 摘要漂移修复（content-map 第 6 章按最终语义重写）、Chapter 07 证据列去预设（示例/测试改待规划）、Part 02 汇总范围换正式目录、Streaming Part 05 措辞收窄为"生产流式交付与运行语义"、三源一致性检查通过
 - 官方资料索引（`references/official/`）
 
 ## 下一步
