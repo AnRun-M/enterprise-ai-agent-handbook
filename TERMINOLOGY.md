@@ -65,3 +65,38 @@ Graph 中的控制流关系。
 ## Human-in-the-loop
 
 在关键步骤暂停，等待人工确认、修改或拒绝后继续。
+
+## Scheduler
+
+决定任务执行时机、顺序与并发度的组件；Agent Runtime 中负责任务排队与调度。
+
+## Semantic Layer / 语义层
+
+将底层表、字段映射为业务指标与口径的抽象层，供 SQL 生成与权限校验使用。
+
+## Idempotency / 幂等
+
+同一操作重复执行多次结果一致的性质，是重试与恢复的前提。
+
+## Compensation / 补偿
+
+部分步骤失败后执行反向操作，使系统回到一致状态的机制。
+
+## Evaluation / 评测
+
+用数据集与指标系统评估 Agent 输出质量的过程。
+
+## Observability / 可观测性
+
+通过日志、Trace、指标等手段了解系统内部运行状态的能力。
+
+## Guardrail / 防护约束
+
+独立于模型意志、由代码强制执行的输入输出约束（如只读 SQL、行数限制、超时）。
+
+## 术语书写规则
+
+- 术语第一次出现使用「中文（English）」格式，例如「幂等（Idempotency）」。
+- 后续优先使用统一中文名。
+- 类名、API、协议名保留官方英文（如 StateGraph、Command、Agent Card）。
+- MCP、A2A、LLM、SQL 等通用缩写保持英文。

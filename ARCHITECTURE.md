@@ -4,57 +4,58 @@
 
 ```text
 enterprise-ai-agent-handbook/
-├── .ai/
-│   ├── context/
+├── .ai/                    # AI 项目记忆（不属于书籍正文）
+│   ├── context/            # project / current / decisions 索引
 │   ├── tasks/
 │   └── templates/
-├── docs/
-│   ├── adr/
-│   └── ...
-├── examples/
-├── diagrams/
-├── references/
+├── docs/                   # 正式出版内容（MkDocs 文档站）
+│   ├── adr/                # ADR 唯一事实源（ADR-####-*.md）
+│   ├── 00-introduction/    # 含 content-map.md（章节—示例—测试映射）
+│   ├── 01-agent-foundations/
+│   ├── 02-agent-runtime/
+│   ├── 03-langgraph-core/
+│   ├── 04-text2sql/        # 含 canonical-pipeline.md（流程唯一事实源）
+│   ├── 05-production/
+│   ├── 06-mcp-a2a/
+│   └── 07-ai-coding/
+├── examples/               # 可运行示例（下划线包命名，可被 Python 导入）
+├── references/             # 未发布研究素材与官方资料索引
 ├── tests/
-├── AGENTS.md
+├── AGENTS.md               # AI 协作规则唯一事实源
 ├── ROADMAP.md
 ├── TERMINOLOGY.md
+├── CHANGELOG.md
+├── README.md
 └── mkdocs.yml
 ```
 
+## 内容边界
+
+- `docs/`：正式出版内容，由 MkDocs 构建发布。
+- `references/`：未发布的研究素材与官方资料索引，不属于书籍正文。
+- `.ai/`：AI 项目记忆，帮助 AI 跨会话保持上下文，不属于书籍正文。
+
 ## AI 协作流程
 
-```mermaid
-flowchart LR
-    U[用户] --> AI[ChatGPT / Codex / Claude Code]
-    AI --> A[读取 AGENTS.md]
-    A --> C[读取 .ai/context]
-    C --> T[读取任务]
-    T --> W[修改文档/代码/测试]
-    W --> S[更新 current.md]
-    S --> D[必要时更新 decisions.md]
-    D --> G[Commit / PR]
-```
+协作规则唯一事实源：`AGENTS.md`（强制读取顺序、按影响范围更新、ADR 规则、命名规则），此处只保留摘要：
+
+1. 按 `AGENTS.md` 强制顺序读取
+2. 读取或创建任务（`.ai/tasks/`，见模板）
+3. 修改文档 / 代码 / 测试
+4. 按影响范围更新记忆文件（每次任务至少更新 `current.md`）
+5. Commit / PR
 
 ## Text-to-SQL 目标架构
 
-```mermaid
-flowchart TD
-    A[用户问题] --> B[输入规范化]
-    B --> C[意图与语义解析]
-    C --> D[元数据/业务规则检索]
-    D --> E[SQL 生成]
-    E --> F[SQL 静态校验]
-    F --> G{风险是否可接受}
-    G -- 否 --> H[修复或人工审批]
-    H --> E
-    G -- 是 --> I[执行引擎路由]
-    I --> J[Spark / Athena / BigQuery]
-    J --> K[结果质量检查]
-    K --> L{是否需要分析}
-    L -- 是 --> M[Python 分析]
-    L -- 否 --> N[结果组织]
-    M --> N
-    N --> O[结构化前端输出]
+完整流程的唯一事实源：`docs/04-text2sql/canonical-pipeline.md`（T01-T12，含风险分支与 Mermaid 图）。
+
+摘要：
+
+```text
+用户问题 -> 输入规范化 -> 意图与语义解析 -> 元数据/业务规则检索
+-> SQL 生成 -> SQL 静态校验 -> 权限与风险检查 -> 修复或人工审批
+-> 执行引擎路由 -> Spark / Athena / BigQuery -> 结果质量检查
+-> Python 分析 -> 结构化输出
 ```
 
 ## 边界

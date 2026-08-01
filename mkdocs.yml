@@ -37,14 +37,17 @@ nav:
   - 首页: index.md
   - Introduction:
       - 概览: 00-introduction/index.md
+      - 内容地图: 00-introduction/content-map.md
   - Agent Foundations:
-      - 第 0 章: 01-agent-foundations/00-you-already-built-an-agent.md
+      - 概览: 01-agent-foundations/index.md
+      - 第 0 章: 01-agent-foundations/ch00-you-already-built-an-agent.md
   - Agent Runtime:
       - 概览: 02-agent-runtime/index.md
   - LangGraph Core:
       - 概览: 03-langgraph-core/index.md
   - Text-to-SQL:
       - 概览: 04-text2sql/index.md
+      - 规范流程: 04-text2sql/canonical-pipeline.md
   - Production:
       - 概览: 05-production/index.md
   - MCP and A2A:
@@ -54,3 +57,7 @@ nav:
   - ADR:
       - Architecture First: adr/ADR-0001-architecture-first.md
       - Text-to-SQL Main Case: adr/ADR-0002-text2sql-main-case.md
+      - LangGraph as Core Framework: adr/ADR-0003-langgraph-core-framework.md
+      - Deterministic Constraints in Code: adr/ADR-0004-deterministic-constraints-in-code.md
+      - Prompt Does Not Own All Rules: adr/ADR-0005-prompt-does-not-own-all-business-rules.md
+      - Repository Memory over Chat Memory: adr/ADR-0006-repository-memory-over-chat-memory.md

@@ -18,6 +18,8 @@
   -> 企业级 Text-to-SQL Agent
 ```
 
+贯穿案例的完整流程（T01-T12，唯一事实源）：[Text-to-SQL Canonical Pipeline](docs/04-text2sql/canonical-pipeline.md)。
+
 ## 先读什么
 
 任何人或 AI 进入项目，先按顺序阅读：
@@ -27,7 +29,8 @@
 3. `.ai/context/current.md`
 4. `.ai/context/decisions.md`
 5. `ROADMAP.md`
-6. `TERMINOLOGY.md`
+6. `ARCHITECTURE.md`
+7. `TERMINOLOGY.md`
 
 ## 核心原则
 

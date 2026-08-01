@@ -1,3 +1,3 @@
-# 03-text2sql-state
+# checkpoint_hitl
 
 状态：待实现。

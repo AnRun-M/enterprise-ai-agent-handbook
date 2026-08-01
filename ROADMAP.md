@@ -1,11 +1,23 @@
 # ROADMAP
 
+## 版本规则
+
+- ROADMAP 中的版本表示目标里程碑（进行中）；CHANGELOG 中的版本表示已经正式完成的版本。
+- 未完成版本只能放在 CHANGELOG 的 `Unreleased` 中。
+- 发布条件：
+  - 对应里程碑全部完成
+  - 文档构建通过（`mkdocs build --strict`）
+  - 已有代码测试通过（`pytest`）
+  - `.ai/context/current.md` 已更新
+  - `CHANGELOG.md` 已更新
+
 ## v0.2.0：AI-Native 骨架
 
 - [x] `.ai/` 上下文与任务目录
 - [x] ADR 目录
 - [x] MkDocs 配置
 - [x] 文档、示例、测试骨架
+- [x] 骨架收敛重构（ADR 单一事实源、canonical 流程、协作规范、命名与目录收敛）
 - [ ] 第 0 章
 - [ ] 手写 Agent Loop Demo
 - [ ] LangGraph 等价 Demo

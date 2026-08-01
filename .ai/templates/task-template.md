@@ -1,5 +1,20 @@
 # TASK-XXXX：任务标题
 
+## 元信息
+
+| 字段 | 值 |
+|---|---|
+| Status | proposed |
+| Owner |  |
+| Created | YYYY-MM-DD |
+| Updated | YYYY-MM-DD |
+| Related ADR |  |
+| Related Chapter |  |
+| Related Example |  |
+| Related Test |  |
+
+Status 取值：`proposed` | `approved` | `in_progress` | `blocked` | `completed` | `cancelled`
+
 ## 背景
 
 描述为什么要做这件事。

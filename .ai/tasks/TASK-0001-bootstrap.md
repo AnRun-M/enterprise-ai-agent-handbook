@@ -1,5 +1,18 @@
 # TASK-0001：初始化 Enterprise AI Agent Handbook
 
+## 元信息
+
+| 字段 | 值 |
+|---|---|
+| Status | completed |
+| Owner | AnRun-M |
+| Created | 2026-08-01 |
+| Updated | 2026-08-01 |
+| Related ADR | ADR-0001, ADR-0002 |
+| Related Chapter | 第 0 章（骨架） |
+| Related Example | 无 |
+| Related Test | 无 |
+
 ## 目标
 
 建立可持续维护的 AI-Native 文档与示例工程。

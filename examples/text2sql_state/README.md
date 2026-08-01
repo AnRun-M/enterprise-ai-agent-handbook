@@ -1,3 +1,3 @@
-# 04-sql-validation
+# text2sql_state
 
 状态：待实现。

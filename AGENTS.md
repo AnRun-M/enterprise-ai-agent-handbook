@@ -13,21 +13,35 @@
 3. `.ai/context/current.md`
 4. `.ai/context/decisions.md`
 5. `ROADMAP.md`
-6. `TERMINOLOGY.md`
-7. 当前任务相关文件
+6. `ARCHITECTURE.md`
+7. `TERMINOLOGY.md`
+8. 当前任务相关文件
 
 禁止仅依赖聊天上下文直接修改仓库。
 
-## AI 完成任务后的强制动作
+## AI 完成任务后的强制动作（按影响范围更新）
 
-每次完成任务后：
+每次完成任务后，按影响范围更新，不要求全部更新：
 
-1. 更新 `.ai/context/current.md`
-2. 若产生长期决策，更新 `.ai/context/decisions.md`
-3. 若改变路线，更新 `ROADMAP.md`
-4. 若新增术语，更新 `TERMINOLOGY.md`
-5. 若改变架构，更新 `ARCHITECTURE.md`
-6. 若版本行为变化，更新 `CHANGELOG.md`
+- 每次任务必须更新：`.ai/context/current.md`
+- 仅产生长期决策时更新：`docs/adr/` 与 `.ai/context/decisions.md`
+- 仅改变路线或里程碑时更新：`ROADMAP.md`
+- 仅新增或改变术语时更新：`TERMINOLOGY.md`
+- 仅改变系统或仓库架构时更新：`ARCHITECTURE.md`
+- 仅形成发布级变化时更新：`CHANGELOG.md`
+
+## ADR 规则
+
+- `docs/adr/ADR-####-*.md` 是 ADR 的唯一事实源，编号统一四位（如 `ADR-0001`）。
+- `.ai/context/decisions.md` 只保留索引、摘要与链接，不存储完整正文。
+- 新增决策：先创建 ADR 文件，再同步索引。
+
+## 命名规则
+
+- Part 目录：两位数字前缀，如 `00-introduction/`、`01-agent-foundations/`。
+- 章节文件：`chXX-主题名.md`，如 `ch00-you-already-built-an-agent.md`。
+- 示例目录：`examples/主题_下划线/`（无数字前缀），必须支持标准 `import` 导入（含 `__init__.py`）。示例顺序由 `examples/README.md` 与 `docs/00-introduction/content-map.md` 维护，不由目录前缀维护。
+- ADR 文件：`docs/adr/ADR-####-主题.md`。
 
 ## 写作规范
 

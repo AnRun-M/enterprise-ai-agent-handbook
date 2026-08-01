@@ -17,19 +17,15 @@ Enterprise AI Agent Handbook
 
 ## 贯穿案例
 
+以 Text-to-SQL 为唯一贯穿案例。完整流程的唯一事实源：[canonical-pipeline.md](../../docs/04-text2sql/canonical-pipeline.md)（T01-T12，含风险分支）。
+
+摘要：
+
 ```text
-用户问题
-  -> 意图识别
-  -> 指标/维度/口径解析
-  -> 元数据与业务规则检索
-  -> SQL 生成
-  -> SQL 静态校验
-  -> 权限与风险检查
-  -> 执行引擎路由
-  -> Spark / Athena / BigQuery
-  -> 结果质量检查
-  -> Python 分析
-  -> Thread Card / Chart / Table
+用户问题 -> 输入规范化 -> 意图与语义解析 -> 元数据/业务规则检索
+-> SQL 生成 -> SQL 静态校验 -> 权限与风险检查 -> 修复或人工审批
+-> 执行引擎路由 -> Spark / Athena / BigQuery -> 结果质量检查
+-> Python 分析 -> 结构化输出
 ```
 
 ## 长期原则
