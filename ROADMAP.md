@@ -29,7 +29,7 @@
 - [x] Runtime Architecture Map（.ai/principles/ 内部规范）
 - [x] Chapter 01：Agent Loop
 - [x] Chapter 02：Execution State
-- [x] Chapter 03：Model Context（draft，待架构审查）
+- [x] Chapter 03：Model Context
 - [ ] LLM 与 Agent
 - [ ] Agent Loop
 - [ ] Runtime

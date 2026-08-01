@@ -82,16 +82,15 @@
   - 4 张 Mermaid 图（生命周期 / State0→Final 演化 / State 与 Prompt-Memory-Checkpoint-Database 边界 / 进入 vs 默认不进入）
   - 职责划分：本章=面向读者讲解；state-design=内部约束；architecture-map=跨概念关系
   - content-map 状态规范化（本次 PR）：第 2 章=最终完成；Part 2=进行中（Execution State 已完成）；Part 3=进行中（示例与等价 Demo 已完成，正文待写）；统一四种状态
-- Chapter 03：Model Context（2026-08-01，TASK-0008，分支 feature/chapter-03-model-context，draft 待架构审查）：
-  - 3.1-3.9 结构，回答 Q1-Q10（模型看不到整个 Runtime / Context 是组装产物 / State→Context 最小切片 / Prompt 是 Context 组件 / 生命周期 / Builder 归属 Runtime / Context Contract 是推论）
+- PR #14（Chapter 03：Model Context）已通过 Architecture Review（六项修正：Context 变化来源 / 控制字段派生进入 / Prompt 术语表 / 生命周期逻辑周期 / 模型-Builder 边界 / Context Contract 测试条件——全部修复并复审通过），squash merge 到 main（2026-08-01，commit 21af67f）；TASK-0008 标记 completed；Chapter 03 最终完成
+  - 3.1-3.9 结构，回答 Q1-Q10（模型看不到整个 Runtime / Context 是输入快照 / 最小充分上下文原则 / System Instruction-Prompt-Context 三层术语 / 生命周期 / Builder 归属 Runtime / Context Contract 是推论）
   - 4 张 Mermaid 图（State→Context / Builder 流程 / Prompt-Context-State 关系 / 生命周期）
   - 整章主线：模型只能看到 Runtime 构造给它的那一次调用输入
-  - 零 Prompt Engineering / LangGraph API / Memory / Checkpoint / MCP / RAG；零新增代码；不修改 principles/architecture-map/ADR
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 Chapter 03（Model Context）架构审查通过后 Merge
+1. 正式写 Chapter 04：Prompt Builder——重点不是"怎么写好 Prompt"，而是 Runtime 如何把指令、State 切片、工具结果和外部信息，稳定地组装为**可版本化、可测试、可审计**的模型输入
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
