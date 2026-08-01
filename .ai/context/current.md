@@ -50,15 +50,21 @@
   - 修复过程记录：validation_error（消息）与 validation_rule（规则名）分离；Windows 控制台 UTF-8 输出
 - PR #2（手写 Agent Loop Demo）已通过 Architecture Review，squash merge 到 main（2026-08-01，commit 2d94239），远程 feature/manual-agent-loop 已删除
   - Review Blocker 全部修复并复审通过：AgentState.failure_reason（Executor 失败 / 运行时异常 / 未知 Action 均记录原因）、FakeSQLExecutor 最小安全检查加固（空 SQL / 非 SELECT / 多语句）、SELECT 首 token 严格匹配（拒绝 SELECTED / SELECTevil / CTE）
+- Agent Runtime Design Principles（2026-08-01，TASK-0004，分支 feature/design-principles，PR #5）：
+  - .ai/principles/ 六份文档：index（项目宪法定位）/ runtime-design / state-design / llm-vs-runtime / testing-agent / review-checklist
+  - 全部原则可溯源：第 0 章、两个 Runtime 代码、PR #2 / PR #4 Review、ADR-0003~0006
+  - PR #5 Review 修正：目录从 docs/99-design-principles 移至 .ai/principles（内部规范，不进 MkDocs）；三层职责边界（模型=开放式语义决策 / 确定性策略层=安全与治理 / Runtime=控制机制）；State 范围收窄为"执行控制状态"；Temporal 等降级为待验证方向；Checklist 按影响范围应用
+  - ROADMAP v0.3.0 里程碑项保留（描述为内部规范，非读者章节）
+  - 待架构审查，不 Merge
 
 ## 正在进行
 
-- LangGraph 等价 Demo（`examples/basic_langgraph`）
+- LangGraph 等价 Demo（`examples/basic_langgraph`）——实现完成，PR #4 待架构审查
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 完成 LangGraph 最小等价实现（`examples/basic_langgraph`，固定 LangGraph 版本）
+1. 等待 PR #4（basic_langgraph）与 PR（Design Principles）架构审查通过后 Merge
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
