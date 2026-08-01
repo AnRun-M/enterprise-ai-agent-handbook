@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -40,9 +40,13 @@
 ## 验收标准
 
 - [x] 章节结构 7.1-7.11 完成，Q1-Q10 全部回答
-- [x] 6 张 Mermaid 图（四概念关系 / 跨轮 vs 跨执行判定 / Pipeline / Builder-Manager 边界 / Memory 写入生命周期 / Injection 来源）
+- [x] 7 张 Mermaid 图（四概念关系 / 跨执行判定（含充分条件）/ Pipeline / Builder-Manager 职责拆分 / Injection 来源 / Memory 写入生命周期 / Memory 读取生命周期）
 - [x] `mkdocs build --strict`、`git diff --check`、`pytest`、`ruff check .` 通过
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR 创建并等待架构审查（PR #24，不 Merge）
+- [x] Architecture Review 通过（七项概念边界修正，commit 340835c）
+- [x] PR Merge 到 main（squash b0195f0，CI build/test 双绿）
+
+## 完成记录
+
+- 2026-08-01：PR #24 经 Architecture Review 七项修正（Memory 不天然是权威事实源 / 跨执行非充分条件 / Candidate-Record 分离 / 写入读取双生命周期 / Context Management 职责集合 / Compression 收窄 / Configuration 引用策略），squash merge b0195f0
+- 2026-08-01：Part 02 收官四项检查全部满足 → Part 02 最终完成（Memory PR 中执行）
