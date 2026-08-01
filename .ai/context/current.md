@@ -67,23 +67,19 @@
   - 对照文档 docs/03-langgraph-core/manual-vs-langgraph.md 已入 mkdocs nav
   - ROADMAP/content-map 标记「实现完成 / 待架构审查」
 - PR #4（LangGraph 等价 Demo）已通过 Architecture Review，squash merge 到 main（2026-08-01，commit 5c1d627），远程 feature/basic-langgraph 已删除；TASK-0003 标记 completed；LangGraph 等价 Demo 最终完成
+- PR #8（Chapter 01：Agent Loop）已通过 Architecture Review（三项概念修正：状态转换过程严格表述 / Workflow vs Agent 判据重写为决策权归属 / Human Stop 改为暂停态），squash merge 到 main（2026-08-01，commit e63e7df）；TASK-0005 标记 completed；Chapter 01 最终完成
 
 ## 正在进行
 
-- Chapter 01：Agent Loop（2026-08-01，TASK-0005，分支 feature/chapter-01-agent-loop，draft 待架构审查）：
-  - 1.1-1.9 结构，回答 Q1-Q10（LLM 不循环 / Loop 属于 Runtime / 四阶段 / State 是循环对象 / 终止 / Retry vs Loop / Workflow vs Agent / 双 Runtime 等价）
-  - 4 张 Mermaid 图（四阶段闭环 / pipeline 位置 / Manual↔Graph 映射 / 终止状态机）
-  - 零 LangGraph API、零新增代码，全部引用已有 Demo 与 principles
-  - 写作目标：读者能不看框架自写 Agent Loop
-  - mkdocs nav / Part 01 index / ROADMAP v0.3.0 draft 勾选 / content-map 行 已更新
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 Chapter 01 架构审查通过后 Merge
-2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-4. 选择许可证
+1. 完成《整书 Runtime Architecture Map》（.ai/principles/，Part 01-03 总导航——State/Context/Memory/Checkpoint 的统一全局坐标系，防止概念漂移；用户建议，非读者文档）
+2. 之后正式写 Chapter 02
+3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+5. 选择许可证
 
 ## 当前阻塞
 

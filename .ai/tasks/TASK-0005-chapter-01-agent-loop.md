@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -42,7 +42,7 @@
 - [x] 4 张 Mermaid 图（四阶段闭环 / pipeline 位置 / Manual↔Graph 映射 / 终止状态机）
 - [x] `mkdocs build --strict` 通过
 - [x] `pytest`、`ruff check .` 通过
-- [ ] PR 创建并等待架构审查（不 Merge）
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并后方可标记 completed
+- [x] PR #8 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（三项概念修正：状态转换过程严格表述 / Workflow vs Agent 判据重写为决策权归属 / Human Stop 改为暂停态）
+- [x] PR #8 squash merge 到 main（commit e63e7df），远程 feature/chapter-01-agent-loop 已删除
+- 合并后方可标记 completed（本次已合并）
