@@ -40,21 +40,30 @@
   - 移除 StateGraph/Node/Edge/Pregel 细节，LangGraph 机制统一指向 Part 3
   - MCP/A2A/RAG/Memory 小节改为「外围能力」框架：Agent 是控制系统，外围能力提供输入/连接/协作
 - PR #1（第 0 章）经 Architecture Review 通过，merge 到 main（2026-08-01）
+- 手写 Agent Loop Demo（2026-08-01，TASK-0002，分支 feature/manual-agent-loop）：
+  - examples/manual_agent_loop/：types / config / state / models / tools / runtime / agent / main
+  - 全部 Fake 确定性组件（FakeLLM 首轮缺 LIMIT → 二轮修复；FakeSQLValidator 语法级；FakeSQLExecutor 固定 GMV）
+  - 状态显式传递（AgentState + validation_rule），history 记录每轮事件
+  - 三种终止：success / failed / max_iterations_reached
+  - tests/manual_agent_loop/ 19 个测试通过；CI 新增 tests.yml（pytest + ruff）
+  - ROADMAP v0.2.0 勾选「手写 Agent Loop Demo」；content-map 状态更新
+  - 修复过程记录：validation_error（消息）与 validation_rule（规则名）分离；Windows 控制台 UTF-8 输出
+- PR #2 已创建（https://github.com/AnRun-M/enterprise-ai-agent-handbook/pull/2），tests/docs CI 双绿；当前处于 Architecture Review 修改阶段
+  - Review Blocker 修复：AgentState.failure_reason（Executor 失败 / 运行时异常 / 未知 Action 均记录原因）、FakeSQLExecutor 最小安全检查加固（空 SQL / 非 SELECT / 多语句）
 
 ## 正在进行
 
-- 手写 Agent Loop Demo（`examples/manual_agent_loop`）
+- 手写 Agent Loop Demo（`examples/manual_agent_loop`）——PR #2 已创建，CI 双绿，Architecture Review 修改阶段（Blocker 已修复，待复审）
 - LangGraph 等价 Demo（`examples/basic_langgraph`）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 完成手写 Agent Loop（`examples/manual_agent_loop`，以第 0 章伪代码为蓝本）
-2. 完成 LangGraph 最小等价实现（`examples/basic_langgraph`）
-3. 增加对照文档与测试（tests/ 目前为空）
-4. 固定 LangGraph 版本
-5. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-6. 选择许可证
+1. 等待 PR #2 Architecture Review 复审通过后 Merge
+2. 完成 LangGraph 最小等价实现（`examples/basic_langgraph`，固定 LangGraph 版本）
+3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+5. 选择许可证
 
 ## 当前阻塞
 

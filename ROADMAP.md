@@ -19,7 +19,7 @@
 - [x] 文档、示例、测试骨架
 - [x] 骨架收敛重构（ADR 单一事实源、canonical 流程、协作规范、命名与目录收敛）
 - [x] 第 0 章
-- [ ] 手写 Agent Loop Demo
+- [x] 手写 Agent Loop Demo
 - [ ] LangGraph 等价 Demo
 - [ ] 官方参考索引
 
