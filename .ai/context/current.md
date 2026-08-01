@@ -86,16 +86,16 @@
   - 3.1-3.9 结构，回答 Q1-Q10（模型看不到整个 Runtime / Context 是输入快照 / 最小充分上下文原则 / System Instruction-Prompt-Context 三层术语 / 生命周期 / Builder 归属 Runtime / Context Contract 是推论）
   - 4 张 Mermaid 图（State→Context / Builder 流程 / Prompt-Context-State 关系 / 生命周期）
   - 整章主线：模型只能看到 Runtime 构造给它的那一次调用输入
-- Chapter 04：Prompt Builder（2026-08-01，TASK-0009，分支 feature/chapter-04-prompt-builder，draft 待架构审查）：
-  - 4.1-4.9 结构，回答 Q1-Q10（组装是每轮高频多源动作 / 输入集合按策略选择 / 输出是 Model Context 不是 Prompt / Template→Instance→Context / Prompt 属于 Runtime Contract / Builder 属于 Control Plane / Memory-RAG-MCP 挂载点）
+- PR #16（Chapter 04：Prompt Builder）已通过 Architecture Review（六项修正：Builder 输出表述 / Policy-Builder 边界 / 行为契约与数据契约区分 / 两类测试分离 / 审计最小集合 / RAG 挂载点收窄——全部修复并复审通过），squash merge 到 main（2026-08-01，commit 4be82e2）；TASK-0009 标记 completed；Chapter 04 最终完成
+  - 4.1-4.9 结构，回答 Q1-Q10（组装是每轮高频多源动作 / Policy 决定 Builder 执行 / 输出是可发送输入结构语义上构成 Context / Template→Instance→Context / Prompt 是行为配置 / Builder 属于 Control Plane / Memory-RAG-MCP 挂载点）
   - 4 张 Mermaid 图（Builder 位置 / 输入来源 / 输出到 Context / Version 生命周期）
   - 诚实标注：Demo 无显式 Builder，属"Runtime 的逻辑抽象，目前 Demo 为隐式实现"
-  - 零 Prompt Engineering 技巧内容；零新增代码；不提前展开 Memory/RAG/MCP 实现
+- **写作节奏决策（用户 2026-08-01）**：暂不进入 Part 3（LangGraph），先把 Part 02 的 Runtime 语义全部讲透（Tool Registry、Scheduler、Context Management 等）——让读者把 LangGraph 视为 Runtime 思想的一种实现，而非全书围绕框架展开（与 ADR-003 一致）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 Chapter 04（Prompt Builder）架构审查通过后 Merge
+1. Chapter 05：Part 02 Runtime 语义继续（候选主题：Tool Registry——ROADMAP v0.3.0 与 Part 02 index 均有，且承接 ch03/ch04 的 Tool Message 与挂载点）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
