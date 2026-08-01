@@ -8,7 +8,9 @@ version = "0.2.0"
 description = "Enterprise AI Agent architecture handbook and runnable examples"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+# 精确固定 LangGraph 版本，保证书中代码与测试可复现（references/official/langgraph.md）。
+# 注意：langgraph 自带 langchain-core 传递依赖，本仓库代码不使用任何 LangChain API。
+dependencies = ["langgraph==1.2.9"]
 
 [project.optional-dependencies]
 docs = [
@@ -32,3 +34,9 @@ target-version = "py311"
 [tool.mypy]
 python_version = "3.11"
 strict = true
+
+# 本仓库是文档 + 示例工程，不作为 Python 包发布；
+# 显式声明空包列表，避免 setuptools 自动发现目录产生歧义。
+# 示例与测试从仓库根目录直接导入（tests/conftest.py 保证根目录在 sys.path）。
+[tool.setuptools]
+packages = []

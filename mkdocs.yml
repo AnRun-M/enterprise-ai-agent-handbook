@@ -45,6 +45,7 @@ nav:
       - 概览: 02-agent-runtime/index.md
   - LangGraph Core:
       - 概览: 03-langgraph-core/index.md
+      - 手写 vs LangGraph: 03-langgraph-core/manual-vs-langgraph.md
   - Text-to-SQL:
       - 概览: 04-text2sql/index.md
       - 规范流程: 04-text2sql/canonical-pipeline.md
