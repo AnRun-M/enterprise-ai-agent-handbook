@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -88,7 +88,16 @@
 3. **"手写 Runtime 已满足"的判断**：以 manual Demo + ch01-06 + Map 为准；若 Review 认为需独立"手写 Runtime 全实现"章节，可重新评估（当前不成立）
 4. **Part 02 收官时机**：ch07 合并后需再次对齐三源并更新 content-map Part 2 行
 
-## 9. 本轮 Review 修正记录（PR #22 Architecture Review，2026-08-01）
+## 9. 验收状态
+
+- [x] 不一致清单 / 归属矩阵 / 章节映射 / 剩余建议 / 移出主题 / 收官结论 / 修改方案 / 风险 完成
+- [x] ROADMAP / Part 02 index / content-map 三源对齐（含 PR #22 Review 修正：Chapter 06 摘要、Chapter 07 证据去预设、Part 02 正式范围、Streaming 措辞）
+- [x] PR #22 创建并等待架构审查（不 Merge）
+- [x] Architecture Review 通过（五项修正全部复审通过）
+- [x] PR #22 squash merge 到 main（commit 51dcaa9），远程 docs/part-02-scope-alignment 已删除
+- 合并后方可标记 completed（本次已合并）
+
+## 10. 本轮 Review 修正记录（PR #22 Architecture Review，2026-08-01）
 
 1. **Chapter 06 摘要漂移修复**：content-map 第 6 章核心概念改为最终章节语义（Loop / Routing / Lifecycle Guard 边界、可执行步骤 / work item 调度、Control Plane 编排、Scheduler / Policy / LLM 职责边界、Runtime 替换契约与教学 Demo 验证范围）——不再写"Loop vs Scheduler"旧表述、"Scheduler 调度 State Transition"、无条件"Runtime 可替换"
 2. **Chapter 07 证据列去预设**：对应示例 / 对应测试改为"待规划"——现有 Demo 与测试未实现或验证 Memory / Context Manager / Compression / Trimming / Summarization / Injection，不得把未来证据写成已存在事实

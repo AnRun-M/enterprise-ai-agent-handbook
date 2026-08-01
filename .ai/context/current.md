@@ -99,16 +99,19 @@
   - 6.1-6.10 结构，回答 Q1-Q10；4 张 Mermaid 图
   - **Part 02 阶段性编排总览**（不提前宣布 Part 02 收官）
   - 诚实标注：Demo 无独立 Scheduler；TASK-0003 仅验证教学 Demo 范围
-- Part 02 范围对齐（2026-08-01，TASK-0012，分支 docs/part-02-scope-alignment，待架构审查）：
-  - 结论：Chapter 01-06 保持最终完成；Part 02 还需 Chapter 07（Memory、Context 与 Context Management）；Retry/Timeout/Idempotency/Compensation/Trace 移 Part 05；Checkpoint/Interrupt/Streaming 拆 Part 03 机制 + Part 05 语义；手写 Runtime 已满足（manual Demo + ch01-06 + Map）；Part 02 在 ch07 完成前保持进行中
-  - 修改：ROADMAP v0.3.0 冗余项标注覆盖并勾选、Design Principles 去掉过期标注、Memory 与 Context → Chapter 07；Part 02 index 主题列表改为覆盖与归属表；content-map Part 2 行更新 + Chapter 07 行新增
-  - PR #22 Review 修正：Chapter 06 摘要漂移修复（content-map 第 6 章按最终语义重写）、Chapter 07 证据列去预设（示例/测试改待规划）、Part 02 汇总范围换正式目录、Streaming Part 05 措辞收窄为"生产流式交付与运行语义"、三源一致性检查通过
+- PR #22（Part 02 范围对齐）已通过 Architecture Review（五项修正全部复审通过），squash merge 到 main（2026-08-01，commit 51dcaa9）；TASK-0012 标记 completed
+  - 结论：Chapter 01-06 保持最终完成；Part 02 还需 Chapter 07；Retry/Timeout/Trace 移 Part 05；Checkpoint/Interrupt/Streaming 拆两处；手写 Runtime 已满足；Part 02 暂不收官
+  - 修改：ROADMAP / Part 02 index / content-map 三源对齐
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 Part 02 范围对齐架构审查通过后 Merge
-2. Chapter 07：Memory、Context 与 Context Management 任务书（Part 02 收官前置；只讲边界与基础语义，不写向量库/检索算法）
+1. **Chapter 07：Memory、Context 与 Context Management**（Part 02 收官前置；只讲边界与基础语义：Memory vs State/Context/Checkpoint、Context Window、History、Compression/Trimming/Summarization、Injection；不写向量库/检索算法）
+2. **Part 02 收官检查**（Chapter 07 完成后执行，全部满足才标 Part 02 最终完成）：
+   - Chapter 02-07 全部最终完成
+   - ROADMAP v0.3.0 全部完成
+   - Part 02 index 与 content-map 一致
+   - 没有未归属的 Runtime 基础主题
 3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 5. 选择许可证
