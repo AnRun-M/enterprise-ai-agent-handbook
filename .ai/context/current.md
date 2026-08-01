@@ -2,7 +2,7 @@
 
 日期：2026-08-01
 
-阶段：`v0.2.0` 骨架收敛重构完成，第 0 章正文初稿完成
+阶段：`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；下一步 Part 03（LangGraph Core）待确认
 
 ## 已完成
 
@@ -102,22 +102,24 @@
 - PR #22（Part 02 范围对齐）已通过 Architecture Review（五项修正全部复审通过），squash merge 到 main（2026-08-01，commit 51dcaa9）；TASK-0012 标记 completed
   - 结论：Chapter 01-06 保持最终完成；Part 02 还需 Chapter 07；Retry/Timeout/Trace 移 Part 05；Checkpoint/Interrupt/Streaming 拆两处；手写 Runtime 已满足；Part 02 暂不收官
   - 修改：ROADMAP / Part 02 index / content-map 三源对齐
-- Chapter 07：Memory、Context 与 Context Management（2026-08-01，TASK-0013，分支 feature/chapter-07-memory-context-management，draft 待架构审查）：
-  - 7.1-7.11 结构，回答 Q1-Q10（四概念边界 / 跨轮次≠Memory / History vs Memory / Window vs Budget / Pipeline / Injection 治理 / Memory 写入流程 / 五类测试与审计）
-  - 6 张 Mermaid 图（四概念关系 / 跨轮 vs 跨执行判定 / Pipeline / Builder-Manager 边界 / Memory 写入生命周期 / Injection 来源）
+- Chapter 07：Memory、Context 与 Context Management（2026-08-01，TASK-0013）已通过 Architecture Review 并 squash merge 到 main（commit b0195f0，CI build/test 双绿），TASK-0013 标记 completed：
+  - 7.1-7.11 结构，回答 Q1-Q10（四概念边界 / 跨轮次≠Memory / History vs Memory / Window vs Budget / Pipeline / Injection 治理 / Memory 写入与读取双流程 / 五类测试与审计）
+  - 7 张 Mermaid 图（四概念关系 / 跨执行判定（含充分条件）/ Pipeline / Builder-Manager 职责拆分 / Injection 来源 / Memory 写入生命周期 / Memory 读取生命周期）
   - 主线：State 服务执行、Context 服务调用、Memory 跨执行、Checkpoint 是快照；Context Management 是受预算/权限/事实边界约束的输入治理
+  - Architecture Review 七项修正（commit 340835c）：Memory 不天然是权威事实源（可信度取决于来源/类型/验证状态/版本/时效/权威级别/作用域）；跨执行是首要判据但不是充分条件（主动选择/scope/生命周期/provenance/不属于外部事实源）；Memory Candidate 与 Record 分离（Candidate 不得直接注入）；写入与读取双生命周期（Memory Reader ≠ Context Manager）；Context Management 是职责集合不是单一巨型组件（无业务事实裁决权）；Compression 可能丢失信息（lossless structural / lossy semantic）；Configuration 采用引用而非复制（configuration id / version reference / user-level override）
   - 诚实标注：Demo 无跨执行 Memory / 无独立 Context Manager / 无 Compression-Summarization-Injection；双 Runtime 等价测试不验证 Memory 与 Context Management
   - 零向量库/检索算法/LangGraph Memory API；零新增代码
+- **Part 02 收官检查（2026-08-01，四项全部满足）→ Part 02 最终完成**：
+  - ✅ Chapter 02-07 全部最终完成（content-map 第 2-7 章统一"最终完成"）
+  - ✅ ROADMAP v0.3.0 全部完成（Chapter 07 项最终完成，里程碑注记）
+  - ✅ Part 02 index 与 content-map 一致（主题表 6 主题 = Part 2 行 6 主题；Chapter 07 状态两处同步）
+  - ✅ 没有未归属的 Runtime 基础主题（归属表 12 主题全部有归属：Part 01/02/03/05）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 等待 Chapter 07 架构审查通过后 Merge
-2. **Part 02 收官检查**（Merge 后的 Memory PR 中执行，四项全部满足才标 Part 02 最终完成）：
-   - Chapter 02-07 全部最终完成
-   - ROADMAP v0.3.0 全部完成
-   - Part 02 index 与 content-map 一致
-   - 没有未归属的 Runtime 基础主题
+1. **post-merge Memory PR**（分支 feature/memory-pr-0013-part02-close）已提交推送等待确认——确认后合并
+2. Part 03（LangGraph Core）**不直接进入**，等用户确认节奏
 3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 5. 选择许可证
