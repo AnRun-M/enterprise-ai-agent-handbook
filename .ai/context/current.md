@@ -2,7 +2,7 @@
 
 日期：2026-08-01
 
-阶段：`v0.2.0` 骨架收敛重构完成（章节正文尚未开写）
+阶段：`v0.2.0` 骨架收敛重构完成，第 0 章正文初稿完成
 
 ## 已完成
 
@@ -26,21 +26,33 @@
   - 任务模板增加生命周期元信息，TASK-0001 标记 completed
   - 版本语义规则（ROADMAP），CHANGELOG 0.2.0 移入 Unreleased
   - `mkdocs build --strict` 通过；`import examples.manual_agent_loop` 等标准导入验证通过
+- 第 0 章正文初稿（2026-08-01）：
+  - 完成 LLM vs Agent、最小定义、Loop 定位、手写 Runtime vs 框架、框架不消灭 Loop、业务自建能力、该不该用 LangGraph、MCP/A2A/RAG/Memory 边界共 10 问
+  - 4 张 Mermaid 图 + 手写 Agent Loop 伪代码（T04/T05/T07 循环）
+  - 常见误区 8 条、架构决策清单、本章验收标准
+  - 官方来源核验：LangGraph（docs.langchain.com）、MCP（v2025-11-25）、A2A（v1.0.0）、Anthropic Building effective agents（URL 待复核）；OpenAI practical guide 未核验（TODO）
+  - 流程严格引用 canonical-pipeline.md，未另立流程
+  - content-map 第 0 章状态更新为正文初稿；ROADMAP v0.2.0 第 0 章勾选
+- 第 0 章 Architecture Review 修订（2026-08-01，PR #1）：
+  - 「LLM = 无状态函数」改为「基础模型推理通常不会自动管理应用级状态，状态由 Runtime 或应用层维护」
+  - 「Agent 判断必须存在循环」改为循环是复杂 Agent 典型能力而非必要条件，保留控制流归属/自主决策/工具使用
+  - 五要素标注为本书工程分析模型，非行业唯一标准
+  - 移除 StateGraph/Node/Edge/Pregel 细节，LangGraph 机制统一指向 Part 3
+  - MCP/A2A/RAG/Memory 小节改为「外围能力」框架：Agent 是控制系统，外围能力提供输入/连接/协作
 
 ## 正在进行
 
-- 第 0 章：《你已经写了一个 Agent，只是你不知道》（正文未开写）
 - 手写 Agent Loop Demo（`examples/manual_agent_loop`）
 - LangGraph 等价 Demo（`examples/basic_langgraph`）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 完成第 0 章正文（骨架与规范已就绪）
-2. 完成手写 Agent Loop（`examples/manual_agent_loop`）
-3. 完成 LangGraph 最小等价实现（`examples/basic_langgraph`）
-4. 增加对照文档与测试（tests/ 目前为空）
-5. 固定 LangGraph 版本
+1. 完成手写 Agent Loop（`examples/manual_agent_loop`，以第 0 章伪代码为蓝本）
+2. 完成 LangGraph 最小等价实现（`examples/basic_langgraph`）
+3. 增加对照文档与测试（tests/ 目前为空）
+4. 固定 LangGraph 版本
+5. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 6. 选择许可证
 
 ## 当前阻塞
@@ -48,4 +60,4 @@
 - 尚未固定 LangGraph 依赖版本
 - 尚未确定真实 LLM 供应商
 - GitHub Connector 当前不可直接写入
-- v0.2.0 里程碑未完成（第 0 章、Demo、官方索引），按版本规则 CHANGELOG 暂处 Unreleased
+- v0.2.0 里程碑未完成（两个 Demo、官方索引），按版本规则 CHANGELOG 暂处 Unreleased
