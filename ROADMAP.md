@@ -26,7 +26,7 @@
 ## v0.3.0：Agent 与 Runtime 基础
 
 - [x] Agent Runtime Design Principles（.ai/principles/ 内部规范，待架构审查）
-- [x] Runtime Architecture Map（.ai/principles/ 内部规范，待架构审查）
+- [x] Runtime Architecture Map（.ai/principles/ 内部规范）
 - [x] Chapter 01：Agent Loop
 - [ ] LLM 与 Agent
 - [ ] Agent Loop

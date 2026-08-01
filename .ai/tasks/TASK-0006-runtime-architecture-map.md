@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-01 |
 | Updated | 2026-08-01 |
@@ -42,6 +42,6 @@
 - [x] principles index 更新（含阅读规则）
 - [x] 概念边界检查完成（State/Context/Memory/Checkpoint 未合并、未多源）
 - [x] `mkdocs build --strict`、`pytest`、`ruff check .` 通过
-- [ ] Architecture Review 通过
-- [ ] PR Merge 到 main
-- 合并前保持 in_progress
+- [x] Architecture Review 通过（四个 Blocker 全部修复并复审通过：Memory 边界改为跨越单次执行边界 / 总图改为职责关系与条件分支 / Checkpoint-Audit 收窄 / State 引用策略）
+- [x] PR #10 squash merge 到 main（commit 48bca0e），远程 feature/runtime-architecture-map 已删除
+- 合并前保持 in_progress（本次已合并）
