@@ -30,6 +30,7 @@
 - [x] Chapter 01：Agent Loop
 - [x] Chapter 02：Execution State
 - [x] Chapter 03：Model Context
+- [x] Chapter 04：Prompt Builder（draft，待架构审查）
 - [ ] LLM 与 Agent
 - [ ] Agent Loop
 - [ ] Runtime

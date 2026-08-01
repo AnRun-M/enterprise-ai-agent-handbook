@@ -86,11 +86,16 @@
   - 3.1-3.9 结构，回答 Q1-Q10（模型看不到整个 Runtime / Context 是输入快照 / 最小充分上下文原则 / System Instruction-Prompt-Context 三层术语 / 生命周期 / Builder 归属 Runtime / Context Contract 是推论）
   - 4 张 Mermaid 图（State→Context / Builder 流程 / Prompt-Context-State 关系 / 生命周期）
   - 整章主线：模型只能看到 Runtime 构造给它的那一次调用输入
+- Chapter 04：Prompt Builder（2026-08-01，TASK-0009，分支 feature/chapter-04-prompt-builder，draft 待架构审查）：
+  - 4.1-4.9 结构，回答 Q1-Q10（组装是每轮高频多源动作 / 输入集合按策略选择 / 输出是 Model Context 不是 Prompt / Template→Instance→Context / Prompt 属于 Runtime Contract / Builder 属于 Control Plane / Memory-RAG-MCP 挂载点）
+  - 4 张 Mermaid 图（Builder 位置 / 输入来源 / 输出到 Context / Version 生命周期）
+  - 诚实标注：Demo 无显式 Builder，属"Runtime 的逻辑抽象，目前 Demo 为隐式实现"
+  - 零 Prompt Engineering 技巧内容；零新增代码；不提前展开 Memory/RAG/MCP 实现
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. 正式写 Chapter 04：Prompt Builder——重点不是"怎么写好 Prompt"，而是 Runtime 如何把指令、State 切片、工具结果和外部信息，稳定地组装为**可版本化、可测试、可审计**的模型输入
+1. 等待 Chapter 04（Prompt Builder）架构审查通过后 Merge
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
