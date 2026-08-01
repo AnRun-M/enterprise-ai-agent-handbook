@@ -31,7 +31,7 @@
 - [x] Chapter 02：Execution State
 - [x] Chapter 03：Model Context
 - [x] Chapter 04：Prompt Builder
-- [x] Chapter 05：Tool Registry（draft，待架构审查）
+- [x] Chapter 05：Tool Registry
 - [ ] LLM 与 Agent
 - [ ] Agent Loop
 - [ ] Runtime
