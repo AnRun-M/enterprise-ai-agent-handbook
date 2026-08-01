@@ -41,6 +41,7 @@ nav:
   - Agent Foundations:
       - 概览: 01-agent-foundations/index.md
       - 第 0 章: 01-agent-foundations/ch00-you-already-built-an-agent.md
+      - 第 1 章: 01-agent-foundations/ch01-agent-loop.md
   - Agent Runtime:
       - 概览: 02-agent-runtime/index.md
   - LangGraph Core:
