@@ -8,7 +8,7 @@ import pytest
 
 from examples.basic_langgraph.agent import LangGraphAgent
 from examples.basic_langgraph.graph import build_graph
-from examples.basic_langgraph.routing import route_after_model_action
+from examples.basic_langgraph.routing import route_by_next_action, route_decide_or_max
 from examples.basic_langgraph.state import build_initial_state
 from examples.manual_agent_loop.agent import Agent as ManualAgent
 from examples.manual_agent_loop.config import AgentConfig
@@ -16,6 +16,7 @@ from examples.manual_agent_loop.models import FakeLLM
 from examples.manual_agent_loop.tools import FakeSQLExecutor, FakeSQLValidator
 from examples.manual_agent_loop.types import (
     ActionType,
+    AgentAction,
     AgentStatus,
     ToolResult,
     ValidationResult,
@@ -52,6 +53,31 @@ class ExplodingModel(FakeLLM):
 
     def generate_sql(self, state: object) -> str:
         raise RuntimeError("model exploded")
+
+
+class FinalizeFirstModel(FakeLLM):
+    """测试专用：第一轮决策 FINALIZE（模型拥有决策权，即使当前没有候选 SQL）。"""
+
+    def decide_next(self, state: object) -> AgentAction:
+        if state.iteration == 0:  # type: ignore[attr-defined]
+            return AgentAction(ActionType.FINALIZE, reason="forced finalize")
+        return super().decide_next(state)
+
+
+class FixFirstModel(FakeLLM):
+    """测试专用：第一轮决策 FIX_SQL。"""
+
+    def decide_next(self, state: object) -> AgentAction:
+        if state.iteration == 0:  # type: ignore[attr-defined]
+            return AgentAction(ActionType.FIX_SQL, reason="forced fix")
+        return super().decide_next(state)
+
+
+class ExplodingFixModel(FakeLLM):
+    """测试专用：第二轮（修复）抛出异常。"""
+
+    def fix_sql(self, state: object) -> str:
+        raise RuntimeError("fix exploded")
 
 
 # ---------------------------------------------------------------- 默认流程
@@ -159,6 +185,57 @@ def test_model_exception_saves_failure_reason() -> None:
     assert "model exploded" in state["failure_reason"]
 
 
+# ---------------------------------------------------------------- 模型决策语义
+
+def test_model_decision_finalize_is_routed() -> None:
+    """模型决定 FINALIZE 就必须路由到 finalize（即使没有候选 SQL，也不改道 generate）。"""
+    state = make_graph_agent(model=FinalizeFirstModel(AgentConfig())).invoke(QUESTION)
+
+    assert state["status"] is AgentStatus.FAILED
+    assert state["failure_reason"] == "cannot finalize without a SQL candidate"
+    assert state["iteration"] == 1
+    assert state["history"][-1].action is ActionType.FINALIZE
+
+
+def test_model_decision_fix_is_routed() -> None:
+    """模型决定 FIX_SQL 就必须路由到 fix_sql 节点。"""
+    state = make_graph_agent(model=FixFirstModel(AgentConfig())).invoke(QUESTION)
+
+    assert state["history"][0].action is ActionType.FIX_SQL
+
+
+def test_fix_exception_preserves_state_and_history() -> None:
+    """第二轮 fix_sql 抛异常：iteration / history / current_sql 必须保留。"""
+    state = make_graph_agent(model=ExplodingFixModel(AgentConfig())).invoke(QUESTION)
+
+    assert state["status"] is AgentStatus.FAILED
+    assert state["iteration"] == 2  # 失败发生在第 2 轮
+    assert "fix exploded" in (state["failure_reason"] or "")
+    # 第一轮 history 保留
+    assert len(state["history"]) == 2
+    assert state["history"][0].action is ActionType.GENERATE_SQL
+    assert state["history"][0].validation_error == "missing LIMIT clause"
+    # current_sql 保留为第一轮生成的 SQL（修复未执行成功）
+    assert state["current_sql"] is not None
+    assert "LIMIT" not in state["current_sql"]
+    # 最后一条为失败事件
+    assert state["history"][-1].status is AgentStatus.FAILED
+    assert state["history"][-1].action is None
+
+
+def test_model_exception_equivalent_to_manual() -> None:
+    """模型异常场景与 manual_agent_loop 的关键状态语义对照。"""
+    config = AgentConfig()
+    graph = make_graph_agent(model=ExplodingModel(config)).invoke(QUESTION)
+    manual = ManualAgent(config=config, model=ExplodingModel(config)).invoke(QUESTION)
+
+    assert graph["status"] is AgentStatus.FAILED
+    assert manual.status is AgentStatus.FAILED
+    assert "model exploded" in (graph["failure_reason"] or "")
+    assert "model exploded" in (manual.failure_reason or "")
+    assert graph["iteration"] == manual.iteration == 1
+
+
 @pytest.mark.parametrize(
     "sql",
     [
@@ -185,22 +262,34 @@ def test_no_cross_invoke_pollution() -> None:
     assert first["final_answer"] == second["final_answer"]
 
 
-def test_router_is_pure_function() -> None:
-    state = build_initial_state(QUESTION, max_iterations=3)
-    state["current_sql"] = "SELECT 1 LIMIT 1"
+def test_router_decide_or_max_is_pure() -> None:
+    state = build_initial_state(QUESTION, max_iterations=2)
     state["iteration"] = 1
-    state["validation_error"] = "missing LIMIT clause"
-    assert route_after_model_action(state) == "fix_sql"
+    before = dict(state)
+    assert route_decide_or_max(state) == "decide"
+    assert state == before  # 纯函数：调用后输入 State 不被修改
 
     state["iteration"] = 2
-    state["validation_error"] = None
-    assert route_after_model_action(state) == "finalize"
+    assert route_decide_or_max(state) == "max_iterations"
 
-    state["iteration"] = 3
+    state["status"] = AgentStatus.FAILED
+    assert route_decide_or_max(state) == "end"  # 终止状态守卫：不再进入下一轮
+
+
+def test_router_by_next_action_is_pure() -> None:
+    state = build_initial_state(QUESTION, max_iterations=3)
+
+    state["next_action"] = ActionType.GENERATE_SQL
+    assert route_by_next_action(state) == "generate_sql"
+    state["next_action"] = ActionType.FIX_SQL
+    assert route_by_next_action(state) == "fix_sql"
+    state["next_action"] = ActionType.FINALIZE
     before = dict(state)
-    assert route_after_model_action(state) == "max_iterations"
-    # 纯函数：路由调用后输入 State 不被修改
-    assert state == before
+    assert route_by_next_action(state) == "finalize"
+    assert state == before  # 纯函数：调用后输入 State 不被修改
+
+    state["status"] = AgentStatus.FAILED
+    assert route_by_next_action(state) == "end"  # 终止状态守卫：不按 next_action 分发
 
 
 def test_graph_compiles_and_runs() -> None:
@@ -227,6 +316,8 @@ def test_initial_state_complete() -> None:
         "failure_reason",
         "iteration",
         "status",
+        "next_action",
+        "decision_reason",
         "history",
     }
     assert set(state) == expected_keys

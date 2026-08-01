@@ -1,10 +1,12 @@
 """对外接口：LangGraphAgent.invoke(question) -> 最终 GraphState。
 
-错误边界（本 Demo 的分层约定）：
-- 节点内部可预期的失败（如执行失败）已转为 State（FAILED + failure_reason）；
-- 非预期异常由 LangGraph 向上抛出，在 invoke 层捕获并转换为 FAILED State；
-- 无 Checkpointer 时异常不保留部分执行状态——这是本 Demo 的明确边界
-  （Checkpoint 能力在 v0.4.0 / v0.6.0 里程碑引入）。
+错误边界（本 Demo 的分层约定，详见 README 第 13 节）：
+- 节点内异常（模型 / 工具非预期异常）：由节点级 _failure_boundary 统一转为
+  FAILED State（保留异常前状态），这是主要处理机制；
+- Graph Runtime 级异常（如路由函数异常、LangGraph 内部错误）：在 invoke 层
+  最后兜底，转换为 FAILED State；
+- 无 Checkpointer 时 Graph Runtime 级异常不保留部分执行状态——这是本 Demo
+  的明确边界（Checkpoint 能力在 v0.4.0 / v0.6.0 里程碑引入）。
 """
 
 from __future__ import annotations

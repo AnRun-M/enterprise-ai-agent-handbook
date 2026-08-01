@@ -13,7 +13,7 @@ from __future__ import annotations
 import operator
 from typing import Annotated, TypedDict
 
-from examples.manual_agent_loop.types import AgentStatus, StepEvent, ToolResult
+from examples.manual_agent_loop.types import ActionType, AgentStatus, StepEvent, ToolResult
 
 
 class GraphState(TypedDict):
@@ -29,6 +29,9 @@ class GraphState(TypedDict):
     failure_reason: str | None
     iteration: int
     status: AgentStatus
+    # 模型决策输出：由 decide 节点写入，条件边只按它路由。
+    next_action: ActionType | None
+    decision_reason: str | None
     # history 由多个节点追加：使用 reducer（operator.add）合并。
     history: Annotated[list[StepEvent], operator.add]
 
@@ -46,6 +49,8 @@ def build_initial_state(user_question: str, max_iterations: int) -> GraphState:
         "failure_reason": None,
         "iteration": 0,
         "status": AgentStatus.RUNNING,
+        "next_action": None,
+        "decision_reason": None,
         "history": [],
     }
 

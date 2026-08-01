@@ -61,22 +61,29 @@ pytest tests/basic_langgraph
 
 ```mermaid
 flowchart TD
-    START --> G["generate_sql"]
-    G --> R1{"route_after_model_action"}
-    R1 -- "校验失败且未达上限" --> F["fix_sql"]
-    R1 -- "校验通过且未达上限" --> FIN["finalize"]
-    R1 -- "iteration >= max" --> MAX["max_iterations"]
-    F --> R2{"route_after_model_action"}
-    R2 -- "校验失败且未达上限" --> F
-    R2 -- "校验通过且未达上限" --> FIN
+    START --> R0{"route_decide_or_max（确定性）"}
+    R0 -- "RUNNING 且 iteration < max" --> D["decide"]
+    R0 -- "iteration >= max" --> MAX["max_iterations"]
+    R0 -- "终止状态" --> END
+    D --> R1{"route_by_next_action（模型决策）"}
+    R1 -- "GENERATE_SQL" --> G["generate_sql"]
+    R1 -- "FIX_SQL" --> F["fix_sql"]
+    R1 -- "FINALIZE" --> FIN["finalize"]
+    G --> R2{"route_decide_or_max"}
+    R2 -- "RUNNING 且 iteration < max" --> D
     R2 -- "iteration >= max" --> MAX
+    R2 -- "终止状态" --> END
+    F --> R3{"route_decide_or_max"}
+    R3 -- "RUNNING 且 iteration < max" --> D
+    R3 -- "iteration >= max" --> MAX
+    R3 -- "终止状态" --> END
     FIN --> END
     MAX --> END
 ```
 
 ## 8. State 字段说明
 
-`GraphState`（TypedDict）字段与 `manual_agent_loop.AgentState` 一一对齐：`user_question` / `max_iterations` / `current_sql` / `validation_error` / `validation_rule` / `execution_result` / `final_answer` / `failure_reason` / `iteration` / `status` / `history`。
+`GraphState`（TypedDict）字段与 `manual_agent_loop.AgentState` 一一对齐：`user_question` / `max_iterations` / `current_sql` / `validation_error` / `validation_rule` / `execution_result` / `final_answer` / `failure_reason` / `iteration` / `status` / `history`，另加两个模型决策字段：`next_action`（decide 节点的输出，条件边只按它路由）与 `decision_reason`。
 
 关键差异：手写版本是可变 dataclass，由 Runtime 显式 `apply_*` 更新；Graph 版本是 TypedDict，**节点返回部分更新**，LangGraph 按 channel 合并。`history` 使用 **reducer（`Annotated[list[StepEvent], operator.add]`）** 实现追加语义。
 
@@ -84,51 +91,55 @@ flowchart TD
 
 | 节点 | 对应手写行为 | 职责 |
 |---|---|---|
+| `decide` | 循环顶部的 `iteration += 1` + `decide_next()` | **iteration 递增** + 调 `model.decide_next(StateProxy(state))` → 写 `next_action` / `decision_reason`（模型拥有业务决策权） |
 | `generate_sql` | GENERATE_SQL 分支 | 调 `model.generate_sql` → 校验 → 返回部分更新 |
 | `fix_sql` | FIX_SQL 分支 | 调 `model.fix_sql` → 校验 → 返回部分更新 |
 | `finalize` | FINALIZE 分支 | 调 `executor.execute` → 成功写 SUCCESS+回答 / 失败写 FAILED+原因 |
 | `max_iterations` | 循环顶部的上限检查 | 置 MAX_ITERATIONS_REACHED（不增加 iteration） |
 
-节点不调用下一个节点、不写 while 循环；`iteration` 由模型动作节点各自 +1（`finalize` 也是动作轮）。
+节点不调用下一个节点、不写 while 循环；**`iteration` 只在 decide 节点递增**（每一轮 = 一次决策 + 一次动作，与手写「每轮递增一次」一致）。generate / fix / finalize 四个节点（除 max_iterations 外）统一应用节点级异常转换 `_failure_boundary`。
 
 ## 10. Edge 和 Conditional Edge 说明
 
-- `START` → `generate_sql`：条件边（`route_start` 固定返回 generate_sql，演示入口路由模式）。
-- `generate_sql` / `fix_sql` → 条件边 `route_after_model_action`：**循环的核心**。
-- `finalize` → `END`、`max_iterations` → `END`：终止边。
+两条条件边，各司其职（路由函数**不替代模型做业务决策**）：
+
+- `route_decide_or_max`（确定性）：START 与 generate_sql / fix_sql 之后——终止状态 → END；`iteration >= max_iterations` → `max_iterations`；否则 → `decide`。
+- `route_by_next_action`（模型决策分发）：decide 之后——只按 `next_action` 路由到 generate_sql / fix_sql / finalize（终止状态 → END）。
+- 终止边：`finalize` → `END`、`max_iterations` → `END`。
 
 ## 11. while loop 与 Graph 的逐项映射
 
 | manual_agent_loop（手写） | basic_langgraph（Graph） |
 |---|---|
-| `while not state.is_terminal()` | 条件边回路 + END |
-| 循环顶部的 `iteration >= max_iterations` 检查 | `route_after_model_action` 中的上限优先判断 → `max_iterations` 节点 |
-| `decide_next()` 的 if/elif | 条件边路由函数（纯函数） |
+| `while not state.is_terminal()` | 条件边回路 + 终止状态守卫（非 RUNNING → END） |
+| 循环顶部 `iteration += 1` + `decide_next()` | `decide` 节点（递增 iteration + 调 `model.decide_next`） |
+| 循环顶部的 `iteration >= max_iterations` 检查 | `route_decide_or_max`（确定性，先于 decide 执行） |
+| `decide_next()` 的业务决策 if/elif | `decide` 节点的模型调用；`route_by_next_action` 只按 `next_action` 分发 |
 | `generate_sql()` / `fix_sql()` / 校验 / `execute()` 函数调用 | Node |
 | `state.apply_*()` 显式更新 | 节点返回部分 State 更新（channel 合并） |
 | `record_round()` 追加 history | reducer（`operator.add`）追加 |
-| `is_terminal()` 三种终止 | `finalize`→END（SUCCESS/FAILED）、`max_iterations`→END |
+| `try/except` 包住整轮 | 节点级 `_failure_boundary` 异常转换（保留状态） |
+| `is_terminal()` 三种终止 | `finalize`→END（SUCCESS/FAILED）、`max_iterations`→END、终止状态守卫 |
 
 ## 12. 迭代次数语义（off-by-one 关键）
 
 与手写版本完全一致：
 
-- 每次模型动作算一轮：generate=第 1 轮，fix=第 2 轮，finalize=第 3 轮；
-- **进入下一节点前检查**：模型动作节点之后的路由函数先检查 `iteration >= max_iterations`；
+- **iteration 在 decide 节点递增**（每轮 = 一次决策 + 一次动作，与手写「循环顶部递增一次」一致）：generate=第 1 轮，fix=第 2 轮，finalize=第 3 轮；
+- **进入下一决策前检查**：decide 之前由确定性的 `route_decide_or_max` 检查 `iteration >= max_iterations`——达到上限直接进 `max_iterations`，**不调用模型**；
 - `max_iterations=2` 时：第 2 轮结束后进入 `max_iterations` 节点，**finalize 不会执行**——即使第 2 轮校验已通过（与手写行为一致）；
-- SUCCESS / FAILED 后不再执行任何节点（直接 END）。
+- 终止状态守卫：SUCCESS / FAILED / MAX_ITERATIONS_REACHED 后不再执行任何节点（直接 END）。
 
 测试覆盖：`test_max_iterations_2_stops_before_finalize`、`test_no_extra_rounds_after_success`、`test_direct_equivalence_with_manual`（iteration 断言）。
 
 ## 13. 错误处理边界
 
-三层分工（`agent.py` / `nodes.py` docstring）：
+两层分工（`agent.py` / `nodes.py` docstring）：
 
-1. **节点内可预期的失败 → State**：Executor 返回失败 → `FAILED + failure_reason`（finalize 节点内处理，不抛异常）。
-2. **非预期异常 → 向上抛出**：节点内不捕获；LangGraph 运行时将异常传播出 `graph.invoke()`。
-3. **Graph 运行时异常 → agent 层**：`LangGraphAgent.invoke` 捕获并转换为 `FAILED + failure_reason`。
+1. **节点级异常转换（主要机制）**：generate_sql / fix_sql / finalize / decide 四个节点统一由 `_failure_boundary` 包裹——模型 / 工具的非预期异常转为 State 更新：`status = FAILED`、`failure_reason`、**正确的 iteration**、追加一条失败 history 事件；异常前已有的 `current_sql` / `validation_error` / `execution_result` / `history` 由 LangGraph channel 合并自动保留。
+2. **Graph Runtime 级异常（最后兜底）**：路由函数异常、LangGraph 内部错误等在图运行时层抛出，由 `LangGraphAgent.invoke` 捕获并转为 `FAILED + failure_reason`（无 Checkpointer 时不保留部分执行状态——这是明确的教学边界，也是 v0.6.0 Checkpoint 能力的伏笔）。
 
-边界说明：本 Demo **不使用 Checkpointer**，因此异常发生时无法保留部分执行状态（手写版本同样不保留——进程崩溃即丢失）。这是明确的教学边界，也是 v0.6.0 Checkpoint 能力的伏笔。
+可预期的工具失败（如 Executor 返回失败）仍走普通 State 更新路径（finalize 节点内处理，不抛异常），不属于上述两层。
 
 ## 14. History reducer / 合并策略
 
