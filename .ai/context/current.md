@@ -1,8 +1,8 @@
 # Current Session
 
-日期：2026-08-01
+日期：2026-08-03
 
-阶段：`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；下一步 Part 03（LangGraph Core）待确认
+阶段：`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03（LangGraph Core）章节规划已通过 Architecture Review（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用），正文待确认后从 Chapter 08 开始
 
 ## 已完成
 
@@ -114,12 +114,23 @@
   - ✅ ROADMAP v0.3.0 全部完成（Chapter 07 项最终完成，里程碑注记）
   - ✅ Part 02 index 与 content-map 一致（主题表 6 主题 = Part 2 行 6 主题；Chapter 07 状态两处同步）
   - ✅ 没有未归属的 Runtime 基础主题（归属表 12 主题全部有归属：Part 01/02/03/05）
+- **Part 03 章节规划（2026-08-03，TASK-0014，本任务）**：
+  - 前提确认：Part 02 最终完成 / v0.3.0 已完成 / Runtime 语义全部建立
+  - 规划唯一事实源：`.ai/tasks/TASK-0014-part-03-architecture-planning.md`
+  - 为什么在 Runtime 之后（ADR-0003 + 写作节奏决策 + architecture-map 归属 + 避免重复 + 证据先行）
+  - Runtime → LangGraph 全映射 20 项 = **Part 03 全局参考**（独立文档或 index 前言，不属于单章正文；Review 修正 1）
+  - Part 03 = 10 章（ch08-ch17）：ch08 为什么是图（为什么 Runtime 可以用 Graph 表达）/ ch09 Graph State（TypedDict/Schema/START/END/Initial State，compile/invoke 属 Graph Runtime 非本章核心）/ ch10 Execution Nodes（Node 执行模型）/ ch11 Edge+条件边 / ch12 Reducer（State Update→Channel Merge 核心映射）/ ch13 Command+Send / ch14 Checkpoint / ch15 Interrupt / ch16 Stream / ch17 Subgraph
+  - Concept Dependency Graph 严格 DAG（根 C08，无环证明）；自审六项全过
+  - **Architecture Review：APPROVED WITH MINOR CHANGES**——四项修正已应用（映射表移出 ch08 为全局参考 / ch09 聚焦 Graph State / ch10 改 Execution Nodes / ch12 加定位句）；章节结构、DAG、依赖、Part 03 定位不变，不新增章节不改顺序
+  - **PR #26 Review 二轮修正**：DAG 方向语义统一（A→B=先决章节，无环证明修正）、10 章范围冻结（删除 12 章开放项，仅可经独立 Architecture Decision / Scope Alignment 任务调整）、Ch10 Node 表述收窄（实现可为 callable/Runnable，语义上是 Graph Runtime 管理的执行单元）、Ch13 Command/Send 定位收窄（Conditional Edge 已表达运行时路由；Command=State Update+路由意图；Send=运行时动态 fan-out）——已应用并推送更新 PR #26
+  - 未决项：v1.0.0 章节数目标过时待对账、RetryPolicy 机制归属、官方 URL 发布前复核、index/content-map/ROADMAP/mkdocs 落地更新待确认后执行（章节范围已冻结：10 章）
+  - 未开始任何 Chapter 正文（等用户确认规划）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
 1. **post-merge Memory PR**（分支 feature/memory-pr-0013-part02-close）已提交推送等待确认——确认后合并
-2. Part 03（LangGraph Core）**不直接进入**，等用户确认节奏
+2. Part 03（LangGraph Core）：章节规划已完成（TASK-0014），**等用户确认规划后从 Chapter 08 开始写正文**（按 DAG 拓扑序）
 3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 5. 选择许可证
