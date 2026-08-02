@@ -68,7 +68,9 @@
 
 ## 4. Part 03 章节设计（10 章，ch08-ch17）
 
-覆盖 ROADMAP v0.4.0 全部 11 项：StateGraph / Node / Edge / Conditional Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream / Subgraph。合并依据：Edge 与 Conditional Edge 同属「控制流连接」问题（静态 vs 动态是同一课）；Command 与 Send 同属「静态图之外的动态控制流」。
+覆盖 ROADMAP v0.4.0 全部 11 项：StateGraph / Node / Edge / Conditional Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream / Subgraph。合并依据：Edge 与 Conditional Edge 同属「控制流连接」问题（静态 vs 动态是同一课）；Command 与 Send 同属「动态控制流原语」，合章对比各自解决的问题（见 ch13）。
+
+**章节范围已冻结：Ch08-Ch17 共 10 章（Edge + Conditional Edge 合章、Command + Send 合章）。后续只有出现明确的正文容量、概念独立性或读者理解问题时，才能通过独立的 Architecture Decision / Scope Alignment 任务调整；单章写作任务不得临时拆章、加章或重排。**
 
 ### ch08 为什么是图：为什么 Runtime 可以用 Graph 表达
 
@@ -94,8 +96,8 @@
 
 ### ch10 Execution Nodes：Node 执行模型
 
-- **为什么存在**：手写 Runtime 的动作分支（generate / fix / finalize）在图中成为节点。Node 是图里的**执行单元**，不是普通函数——它在图执行框架内运行：读 State → 调能力 → 返回部分更新，并承担图内的失败边界（Architecture Review 修正 3）。
-- **回答什么问题**：Node 作为执行单元与普通函数有什么区别？节点与手写动作分支如何映射？节点为什么不调用下一个节点、不写 while？节点如何返回 State Update？Failure Boundary 如何在节点级统一（`_failure_boundary`）？Tool / LLM 调用责任如何落在节点上？
+- **为什么存在**：手写 Runtime 的动作分支（generate / fix / finalize）在图中成为节点。**Node 在实现上可以是普通 Python callable 或 Runnable；但在架构语义上，它是由 Graph Runtime 管理的执行单元，负责读取 State、执行能力、返回 State Update，并进入运行时调度与错误边界——因此不能只按孤立函数理解**（Architecture Review 修正 3）。
+- **回答什么问题**：Node 的执行单元语义与孤立函数有什么区别（实现可为 callable / Runnable，但语义上是 Graph Runtime 管理的执行单元）？节点与手写动作分支如何映射？节点为什么不调用下一个节点、不写 while？节点如何返回 State Update？Failure Boundary 如何在节点级统一（`_failure_boundary`）？Tool / LLM 调用责任如何落在节点上？
 - **不回答什么问题**：更新合并规则（Reducer）——ch12；节点间连接（边 / 条件边）——ch11；图编译执行的机制（compile / invoke）——Graph Runtime 侧（ch11 执行路径引出）；Tool Registry 语义本身——ch05。
 - **与上一章关系**：ch09 建立 Graph State；本章定义图中「执行」的单元。
 - **与下一章关系**：ch11 需要「边连接节点」——本章先讲清节点边界与执行职责。
@@ -127,8 +129,8 @@
 
 ### ch13 Command 与 Send：动态控制流
 
-- **为什么存在**：静态图表达不了「执行中再决定扇出 / 原地切换」的结构。Command（状态更新 + 路由一步完成）与 Send（动态创建并行任务）是 LangGraph 处理动态结构的原语，是生产多引擎并行 / 批处理的基础。
-- **回答什么问题**：静态边与条件边何时不够用？Command 与「先更新 State 再路由」的区别？Send 如何实现动态 fan-out（map-reduce）？与 Dispatch / Scheduler 的对应关系？
+- **为什么存在**：运行时路由已由 Conditional Edge 表达（ch11），但还有两类动态控制流需求需要新原语：**Command 的核心是让节点结果同时携带 State Update 与路由意图，并支持特定动态导航语义**（原地更新 + 路由一步完成）；**Send 的核心是按运行时数据动态创建并行 work items / fan-out**（map-reduce）。两者都属于动态控制流原语，但解决的问题不同——是生产多引擎并行 / 批处理的基础。
+- **回答什么问题**：Conditional Edge 已能表达运行时路由，Command / Send 解决的是什么不同的问题？Command 与「先更新 State 再路由」的区别（节点结果同时携带 State Update 与路由意图）？Send 如何按运行时数据动态创建并行 work items / fan-out（map-reduce）？与 Dispatch / Scheduler 的对应关系？
 - **不回答什么问题**：Interrupt（暂停）——ch15；生产重试 / 幂等——Part 05；Subgraph 组合——ch17（仅引用）。
 - **与上一章关系**：ch12 定义合并；Command 的部分更新走同一合并；ch11 定义静态路由，Command / Send 是其动态延伸。
 - **与下一章关系**：ch14 Checkpoint 持久化动态产生的状态；ch17 Subgraph 常与 Send 搭配做 map-reduce。
@@ -182,7 +184,7 @@
 
 ## 5. Concept Dependency Graph（严格 DAG）
 
-顶点：C08-C17。边表示「被依赖者先完成」（依赖者 → 被依赖者，即箭头指向先决条件）。
+顶点：C08-C17。**边方向语义：A → B 表示 A 是 B 的先决章节，A 必须先完成**（箭头从先决章节指向依赖章节；本节表格、Mermaid 图与无环性证明均按此语义，无歧义）。
 
 | 章 | 依赖（必须先完成） | 依赖它的章 |
 |---|---|---|
@@ -196,6 +198,8 @@
 | C15 | C08, C14 | — |
 | C16 | C08, C10, C11 | — |
 | C17 | C08, C10, C13 | — |
+
+> 表格说明：A → B 表示 A 是 B 的先决章节。「依赖（必须先完成）」列即 A（先决章节），「依赖它的章」列即 B（依赖章节）；与 Mermaid 箭头方向一致。
 
 ```mermaid
 flowchart TD
@@ -225,7 +229,7 @@ flowchart TD
     C14 --> C15
 ```
 
-**无环性证明**：所有边指向「编号更小」的章（唯一例外是 C08→所有章，但 C08 无入边，是唯一根）。沿任意路径编号严格递增（C08→…→C17），不存在返回边 → 严格 DAG，拓扑序即 ch08→ch17 线性阅读序。
+**无环性证明**：所有边均从较小章节编号指向较大章节编号。沿任意有向路径，章节编号严格递增，因此不可能返回已访问节点，所以该图是严格 DAG。ch08→ch17 是一个合法拓扑序。
 
 ## 6. 自审（Part 03 规划 vs 边界约束）
 
@@ -255,12 +259,13 @@ flowchart TD
 
 ### 未决项 / 风险（不在本任务解决，需用户确认）
 
-1. **章节粒度**：本规划合并 Edge+Conditional Edge、Command+Send；若用户偏好更细粒度，可拆为 12 章（ch08-ch19），DAG 结构不变。
-2. **v1.0.0「12 至 16 个核心章节」目标已过时**：现有 8 章 + Part 03 规划 10 章 = 18 章，Part 04-07 还会增加。需在版本策略任务中再对账（本任务不改 ROADMAP）。
-3. **RetryPolicy 机制归属**：ROADMAP v0.4.0 未列、Part 02 归属 Part 05；若 Part 03 顺带提及机制（非独立成章），需在写 ch11/ch14 时确认措辞。
-4. **官方文档 URL**：除 graph-api 页外，State/Reducers/Persistence/Interrupts/Streaming/Subgraphs 概念页路径发布前按 references/official/langgraph.md 清单复核。
-5. **index.md / content-map / ROADMAP / mkdocs.yml 落地更新**：待用户确认本章规划后、开始写 Chapter 08 时一并执行（本任务只规划，不动四个事实源）。其中 Runtime → LangGraph 全映射表（第 3 节）需按 Review 修正 1 落成为 Part 03 全局参考（独立文档，与 `manual-vs-langgraph.md` 并列，或并入 index 前言）。
-6. **examples 扩展**（checkpoint / interrupt / stream / subgraph Demo + Graph path / Checkpoint recovery 测试）属后续写作任务，非本任务。
+> 章节粒度已冻结（Ch08-Ch17 共 10 章，见第 4 节），不再作为未决项。
+
+1. **v1.0.0「12 至 16 个核心章节」目标已过时**：现有 8 章 + Part 03 规划 10 章 = 18 章，Part 04-07 还会增加。需在版本策略任务中再对账（本任务不改 ROADMAP）。
+2. **RetryPolicy 机制归属**：ROADMAP v0.4.0 未列、Part 02 归属 Part 05；若 Part 03 顺带提及机制（非独立成章），需在写 ch11/ch14 时确认措辞。
+3. **官方文档 URL**：除 graph-api 页外，State/Reducers/Persistence/Interrupts/Streaming/Subgraphs 概念页路径发布前按 references/official/langgraph.md 清单复核。
+4. **index.md / content-map / ROADMAP / mkdocs.yml 落地更新**：待用户确认本章规划后、开始写 Chapter 08 时一并执行（本任务只规划，不动四个事实源）。其中 Runtime → LangGraph 全映射表（第 3 节）需按 Review 修正 1 落成为 Part 03 全局参考（独立文档，与 `manual-vs-langgraph.md` 并列，或并入 index 前言）。
+5. **examples 扩展**（checkpoint / interrupt / stream / subgraph Demo + Graph path / Checkpoint recovery 测试）属后续写作任务，非本任务。
 
 ### 下一步（经用户确认后）
 
@@ -283,6 +288,11 @@ flowchart TD
 - 2026-08-03：Architecture Review（APPROVED WITH MINOR CHANGES），四项修正全部应用，章节结构 / DAG / 依赖 / Part 03 定位保持不变：
   1. **映射表定位调整**：Runtime → LangGraph 全映射改为 Part 03 全局参考（独立文档或 index 前言），移出 ch08 正文；ch08 聚焦「为什么 Runtime 可以用 Graph 表达」，不承担索引职责；映射行 #14（compile/invoke）归属改为「Graph Runtime，ch10 执行模型引出，非 ch09 核心」。
   2. **ch09 聚焦 Graph State**：TypedDict / State Schema / START / END / Initial State；compile()/invoke() 属于 Graph Runtime，不作为本章核心。
-  3. **ch10 调整为 Execution Nodes（Node 执行模型）**：强调 Node 是图中的执行单元而非普通函数；正文突出 State Update / Failure Boundary / Tool 与 LLM 调用职责。
+  3. **ch10 调整为 Execution Nodes（Node 执行模型）**：Node 实现上可为普通 Python callable / Runnable，但架构语义上是由 Graph Runtime 管理的执行单元（读 State、执行能力、返回 State Update、进入运行时调度与错误边界），不能只按孤立函数理解；不把 Node 与 Tool 混淆、不限定必须使用特定类；正文突出 State Update / Failure Boundary / Tool 与 LLM 调用职责。
   4. **ch12 增加定位句**：Reducer 是「Runtime State Update → LangGraph Channel Merge」的核心映射机制，Part 02 → Part 03 最重要的框架映射之一。
 - 2026-08-03：本任务随修正完成定稿（TASK-0014 completed）。
+- 2026-08-03：**PR #26 Architecture Review 二轮修正**（commit：docs: refine part 03 planning invariants），四项全部应用：
+  1. **DAG 方向语义统一**：A → B = A 是 B 的先决章节（箭头从先决章节指向依赖章节）；表格说明与无环性证明同步修正（所有边从较小编号指向较大编号，沿路径编号严格递增 → 严格 DAG，ch08→ch17 是合法拓扑序）。
+  2. **10 章范围冻结**：Ch08-Ch17 共 10 章（Edge + Conditional Edge 合章、Command + Send 合章）；删除「可拆为 12 章」开放未决项，改为「仅能通过独立 Architecture Decision / Scope Alignment 任务调整，单章写作任务不得临时拆章、加章或重排」。
+  3. **Ch10 Node 表述收窄**：Node 实现上可为普通 Python callable / Runnable，但架构语义上是由 Graph Runtime 管理的执行单元（读 State、执行能力、返回 State Update、进入运行时调度与错误边界），不能只按孤立函数理解；不把 Node 与 Tool 混淆、不限定必须使用特定类。
+  4. **Ch13 Command / Send 定位收窄**：Conditional Edge 已能表达运行时路由；Command 的核心是节点结果同时携带 State Update 与路由意图（含特定动态导航语义）；Send 的核心是按运行时数据动态创建并行 work items / fan-out；两者属动态控制流原语但解决的问题不同。

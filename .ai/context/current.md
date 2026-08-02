@@ -122,7 +122,8 @@
   - Part 03 = 10 章（ch08-ch17）：ch08 为什么是图（为什么 Runtime 可以用 Graph 表达）/ ch09 Graph State（TypedDict/Schema/START/END/Initial State，compile/invoke 属 Graph Runtime 非本章核心）/ ch10 Execution Nodes（Node 执行模型）/ ch11 Edge+条件边 / ch12 Reducer（State Update→Channel Merge 核心映射）/ ch13 Command+Send / ch14 Checkpoint / ch15 Interrupt / ch16 Stream / ch17 Subgraph
   - Concept Dependency Graph 严格 DAG（根 C08，无环证明）；自审六项全过
   - **Architecture Review：APPROVED WITH MINOR CHANGES**——四项修正已应用（映射表移出 ch08 为全局参考 / ch09 聚焦 Graph State / ch10 改 Execution Nodes / ch12 加定位句）；章节结构、DAG、依赖、Part 03 定位不变，不新增章节不改顺序
-  - 未决项：章节粒度可选拆分（12 章）、v1.0.0 章节数目标过时待对账、RetryPolicy 机制归属、官方 URL 发布前复核、index/content-map/ROADMAP/mkdocs 落地更新待确认后执行
+  - **PR #26 Review 二轮修正**：DAG 方向语义统一（A→B=先决章节，无环证明修正）、10 章范围冻结（删除 12 章开放项，仅可经独立 Architecture Decision / Scope Alignment 任务调整）、Ch10 Node 表述收窄（实现可为 callable/Runnable，语义上是 Graph Runtime 管理的执行单元）、Ch13 Command/Send 定位收窄（Conditional Edge 已表达运行时路由；Command=State Update+路由意图；Send=运行时动态 fan-out）——已应用并推送更新 PR #26
+  - 未决项：v1.0.0 章节数目标过时待对账、RetryPolicy 机制归属、官方 URL 发布前复核、index/content-map/ROADMAP/mkdocs 落地更新待确认后执行（章节范围已冻结：10 章）
   - 未开始任何 Chapter 正文（等用户确认规划）
 - 官方资料索引（`references/official/`）
 
