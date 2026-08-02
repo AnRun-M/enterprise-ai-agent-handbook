@@ -125,12 +125,18 @@
   - **PR #26 Review 二轮修正**：DAG 方向语义统一（A→B=先决章节，无环证明修正）、10 章范围冻结（删除 12 章开放项，仅可经独立 Architecture Decision / Scope Alignment 任务调整）、Ch10 Node 表述收窄（实现可为 callable/Runnable，语义上是 Graph Runtime 管理的执行单元）、Ch13 Command/Send 定位收窄（Conditional Edge 已表达运行时路由；Command=State Update+路由意图；Send=运行时动态 fan-out）——已应用并推送更新 PR #26
   - 未决项：v1.0.0 章节数目标过时待对账、RetryPolicy 机制归属、官方 URL 发布前复核、index/content-map/ROADMAP/mkdocs 落地更新待确认后执行（章节范围已冻结：10 章）
   - 未开始任何 Chapter 正文（等用户确认规划）
+- **Chapter 08 正文初稿（2026-08-03，TASK-0015，本任务）**：
+  - `docs/03-langgraph-core/ch08-why-graph.md`：8.1-8.9，Q1-Q10，4 张 Mermaid 图
+  - 主线：Runtime 可图化三性质（循环可显式 / 连接可声明 / 边界可挂载）；图带来/没带来；不引入新 Runtime 理论
+  - 写作约束已执行：Runtime 第一视角、Framework 第二视角；只引用不重新定义 State/Context/Memory/Scheduler/Tool Registry；映射表为全局参考不复制；Demo 未用能力（Checkpoint/Interrupt/Stream）如实标注
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 8 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 08 draft）
+  - 待 Architecture Review（流程：Review → Merge → Memory PR）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
 1. **post-merge Memory PR**（分支 feature/memory-pr-0013-part02-close）已提交推送等待确认——确认后合并
-2. Part 03（LangGraph Core）：章节规划已完成（TASK-0014），**等用户确认规划后从 Chapter 08 开始写正文**（按 DAG 拓扑序）
+2. Part 03（LangGraph Core）：Chapter 08 正文初稿完成（TASK-0015，**待 Architecture Review**）；Review 通过并 Merge 后按 DAG 拓扑序写 ch09-ch17
 3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 5. 选择许可证
