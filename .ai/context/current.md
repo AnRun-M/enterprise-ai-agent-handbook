@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）均最终完成；Chapter 11（Edge 与 Conditional Edge）正文初稿完成待 Architecture Review（TASK-0018）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（Edge 与 Conditional Edge，PR #33）均最终完成，下一步 Chapter 12（Reducer，TASK-0019）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -155,12 +155,12 @@
   - **代码差异如实报告**：任务书建议结构中的「START → decide 确定性入口」与实际代码不符——START 出口实为条件边（`add_conditional_edges(START, route_decide_or_max, ...)`），本 Demo 静态边仅 finalize→END / max_iterations→END 两条；正文按代码为准并在 11.2 显式注明
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 11 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 11 draft / 待架构审查）
   - **PR #33 Review 六项修正（2026-08-05）**：Routing error 归属（非法 next_action = 应用路由契约错误，应用 callable 产生 / Graph Runtime 传播 / 应用级 invoke 兜底，非框架自动转换）/ Conditional Edge 两层定义（概念层 vs 当前 Demo path map，path map 非必经结构）/ next_action 写入 State 收窄为当前 Demo 显式契约（非框架强制，Command 留 ch13）/ Route Decision 纯函数三层（定义 / 工程推荐 / Demo 事实，"纯函数化"非定义组成部分）/ Edge-Conditional Edge 边界（静态 Edge 不读 State，读 State 的是 routing callable，declaration 与 callable 都不执行 Node）/ Edge-Scheduler 关系（"Edge 是 Runtime 控制流的声明载体，不是 Scheduler 本身"）——已应用并推送更新 PR #33
-  - 待 Architecture Review 复审
+  - **PR #33 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 6f7c33f，CI build/test 双绿）→ Chapter 11 最终完成**；本 Memory PR（docs/post-pr33-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 11 正文初稿完成（TASK-0018），待 Architecture Review；下一步预告 **Chapter 12：Reducer**（状态合并语义，TASK-0019，按 DAG 拓扑序，Chapter 11 Review 通过后启动）
+1. Part 03（LangGraph Core）：Chapter 11 最终完成（TASK-0018，PR #33）；下一步 **Chapter 12：Reducer**（状态合并语义，TASK-0019，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 12 核心主线（已固定，写作不得偏离）**：Node 返回 State Update，Reducer 定义同一 State channel 收到更新时如何合并。Reducer 是数据合并规则，不是业务决策器、路由器或并发控制器；当前 Demo 的 history 使用追加语义，其余字段默认覆盖。
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
