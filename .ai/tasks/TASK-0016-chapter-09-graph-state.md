@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-05 |
 | Updated | 2026-08-05 |
@@ -60,8 +60,9 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0016 Status = in_progress；ROADMAP Chapter 09 = draft / 待架构审查；content-map 第 9 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-09-graph-state，commit `docs: draft chapter 09 graph state`）
-- [ ] PR #29 Architecture Review 七项修正全部应用（Initial State 框架误述 / StateProxy 只读收窄 / Graph State 可见范围 / Checkpoint 定义 / 生命周期归属 / 测试证据归属 / TypedDict 静态检查表述）
-- [ ] 等待 Architecture Review
+- [x] PR #29 Architecture Review 七项修正全部应用（Initial State 框架误述 / StateProxy 只读收窄 / Graph State 可见范围 / Checkpoint 定义 / 生命周期归属 / 测试证据归属 / TypedDict 静态检查表述）
+- [x] PR #29 复审通过并 squash merge 到 main（commit 06ea299，CI build/test 双绿，2026-08-05）→ Chapter 09 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -74,3 +75,5 @@
   5. **生命周期归属修正**：应用设计定契约（语义/类型/合法状态/生命周期契约）、Node/Edge/Lifecycle Guard/Graph Runtime 执行中实现演化、schema 只声明形态不执行规则
   6. **测试证据归属修正**：路由纯函数测试只覆盖两个路由 callable；Node 输入不可变性无统一测试，如实标注（9.7 误解、9.9 证据表与未验证清单、Q8/Q10）
   7. **TypedDict 静态检查表述收窄**："为静态检查提供条件，是否成门禁取决于配置"；CI 未启用 mypy --strict；不宣称提交前必发现
+- 2026-08-05：PR #29 经 Architecture Review 复审通过，squash merge 到 main（commit 06ea299，CI build/test 双绿）→ **TASK-0016 标记 completed；Chapter 09 最终完成**；本 Memory PR（docs/post-pr29-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
+- 2026-08-05：记录 future maintenance（不立即执行）：修正 `examples/basic_langgraph/state.py` 中 `build_initial_state` docstring「LangGraph 要求初始 invoke 提供全部字段」→「构造本 Demo 约定的完整初始状态」（属于 examples 文档修正，不属于 Chapter 09，随 examples 维护任务处理）。

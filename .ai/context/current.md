@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08 最终完成（PR #27），Chapter 09（Graph State）正文初稿完成待 Architecture Review（TASK-0016）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08 最终完成（PR #27）、Chapter 09（Graph State）最终完成（PR #29），下一步 Chapter 10（Execution Nodes，TASK-0017）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -138,12 +138,13 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；TypedDict 标注为当前 Demo 选择非唯一方案；START/END 为图结构哨兵（END ≠ 成功，暂停 ≠ END）；Node 返回部分更新（Reducer 留 ch12）；不展开 Checkpoint/Interrupt/Stream；证据诚实（未验证清单如实标注，不夸大 TASK-0003）
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 9 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 09 draft / 待架构审查）
   - **PR #29 Review 七项修正（2026-08-05）**：Initial State 完整字段为 Demo 契约非框架要求（input/output schema、internal/private state 属 LangGraph 通用能力）/ StateProxy 只读表述收窄（属性访问适配器，按逻辑只读，非强制不可变、非安全边界、不等于 Model Context）/ Graph State 可见范围两层（具体节点可读字段取决于 schema 划分与节点输入契约）/ Checkpoint 定义修正（状态与执行上下文快照，非简单字典副本）/ 生命周期归属三层（应用设计定契约 / 执行路径实现演化 / schema 只声明形态）/ 测试证据归属拆分（路由纯函数测试不覆盖所有 Node 输入不可变性）/ TypedDict 静态检查为条件非门禁（CI 未启用 mypy --strict）——已应用并推送更新 PR #29
-  - 待 Architecture Review 复审
+  - **PR #29 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 06ea299，CI build/test 双绿）→ Chapter 09 最终完成**；本 Memory PR（docs/post-pr29-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+  - **Future maintenance（不立即执行）**：修正 `examples/basic_langgraph/state.py` 中 `build_initial_state` docstring「LangGraph 要求初始 invoke 提供全部字段」→「构造本 Demo 约定的完整初始状态」——属于 examples 文档修正（对齐 Chapter 09 概念边界），不属于 Chapter 09，随 examples 维护任务处理
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 09 正文初稿完成（TASK-0016），待 Architecture Review；下一步 **Chapter 10：Execution Nodes**（TASK-0017，按 DAG 拓扑序，Chapter 09 Review 通过后启动）
+1. Part 03（LangGraph Core）：Chapter 09 最终完成（TASK-0016，PR #29）；下一步 **Chapter 10：Execution Nodes / Node Execution Model**（TASK-0017，按 DAG 拓扑序，Memory PR 合并后启动）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
