@@ -7,7 +7,7 @@
 
 **整章主线：**
 
-> **Node 在实现上可以是普通 Python callable，但在架构语义上，它是由 Graph Runtime 管理的执行单元：读取 State、执行能力、返回部分 State Update，并进入运行时调度与错误边界。Node 不是孤立函数、不是 Tool、不是调度器——它只做执行，不决定"下一个执行谁"。**
+> **Node 在实现上可以是普通 Python callable，但在架构语义上，它是由 Graph Runtime 管理的执行单元：读取 State、执行能力、返回 State Update，并进入运行时调度与错误边界。Node 不是孤立函数、不是 Tool、不是调度器。当前 Demo 将执行与路由严格拆开：Node 返回 State Update，Conditional Edge 决定下一步——这不是 LangGraph 对所有 Node 的强制限制；Node 通过 Command 携带路由意图的机制留第 13 章。**
 
 ## 10.1 从手写动作分支到 Node
 
@@ -53,7 +53,7 @@ flowchart LR
 
 Node 在实现上是什么？`examples/basic_langgraph` 里，它就是一个普通 Python 函数（节点工厂返回 `Callable[[GraphState], dict]`）。**但把它理解成"一个函数"是本章要纠正的第一个误读**（Q2 的回答）：
 
-> **Node 的架构语义不是"函数"，而是"由 Graph Runtime 管理的执行单元"。** 实现上它可以是普通 Python callable（当前 Demo），也可以是包装了更复杂对象的可调用实体；但语义上，它的生命周期、输入、输出、错误处理都由 Graph Runtime 管理——它执行，但**不拥有调度权**。
+> **Node 的架构语义不是"函数"，而是"由 Graph Runtime 管理的执行单元"。** 实现上它可以是普通 Python callable（当前 Demo），也可以是包装了更复杂对象的可调用实体。**职责拆分**：Graph Runtime 负责调度调用 Node、提供 State 输入、接收 Node 返回结果、合并 State Update、按控制流继续执行、传播未被应用捕获的异常；**应用负责定义 Node callable、业务输入输出契约、依赖注入与业务错误转换**（如 `failure_reason` / history 的业务语义）。当前 Demo 中执行与路由严格拆开——Node 返回 State Update，路由决定下一步（10.8）；LangGraph 通用能力允许 Node 通过 Command 携带 State Update 与路由意图（第 13 章），真正解释并执行跳转的仍然是 Graph Runtime。
 
 执行单元的标准循环（`nodes.py` 全部节点的共同模式）：
 
@@ -72,9 +72,9 @@ flowchart LR
 
 | 维度 | 普通函数 | Node（执行单元） |
 |---|---|---|
-| 调用者 | 调用方代码直接调用 | **Graph Runtime 调度执行**（什么时候执行、执行后去哪，由运行时决定） |
-| 输入 | 任意参数 | 当前 Graph State（类型契约上可读 schema 字段，第 9 章 9.4） |
-| 输出 | 任意返回值 | **部分 State Update 字典**，由 Runtime 合并（第 12 章机制） |
+| 调用者 | 调用方代码直接调用 | **Graph Runtime 调度调用**（何时执行、执行后如何继续，由 Graph Runtime 按控制流决定） |
+| 输入 | 任意参数 | 当前 Graph State（类型契约上可读 schema 字段，第 9 章 9.4）；能力经 Node Factory 显式注入 |
+| 输出 | 任意返回值 | **Graph Runtime 可解释的更新结果**：当前 Demo 形态为部分 State Update 字典（工程建议：只返回实际变化的字段）；Command 携带路由意图属第 13 章 |
 
 第 6 章 6.2 说 Scheduler 调度的是"可执行步骤 / work item"——Node 就是这种步骤在图中被注册、被调度的形态。**单独拎出一个节点函数看，它和普通函数没区别；放进图里看，它是运行时执行流水线上的一个环节。** 这正是"实现可以是 callable、语义是执行单元"的含义。
 
@@ -97,11 +97,11 @@ def decide(state: GraphState) -> dict:
 
 1. **读什么由 schema 决定**：节点在类型契约上可以读取 `GraphState` schema 中的字段（第 9 章 9.4）——`current_sql` / `validation_error` / `validation_rule` / `iteration` / `status`……这正是"State 是控制事实唯一来源"（第 2 章）在节点侧的体现：节点不猜、不记、不缓存，一切从 State 读
 2. **模型只经适配器读**：模型看到的是 `StateProxy`（第 9 章 9.7）——按只读约定使用的属性访问适配器，不是安全边界
-3. **节点不读 State 之外的东西**：全局变量、聊天上下文、模块级缓存都不在节点输入协议里（`.ai/principles/state-design.md`：跨轮次信息如果不在显式载体里，就无法被程序校验、审计与测试）
+3. **输入来源的完整清单**：跨轮次控制事实从 Graph State 读取；Model / Validator / Executor 等能力通过 Node Factory 显式注入（`make_decide_node(model)` 的参数注入）；Runtime Context 或其他请求级依赖应显式传入。**禁止**依赖未声明的模块级可变状态、隐藏缓存或隐式跨轮记忆（`.ai/principles/state-design.md`：跨轮次信息如果不在显式载体里，就无法被程序校验、审计与测试）。**Graph State 是执行控制事实的载体；Node dependency 不是 State 字段**——能力与配置走注入，不进 State
 
 ## 10.4 Node 输出：Partial State Update
 
-**节点如何写回（Q4 的回答）**：节点返回**部分 State Update 的 dict**——只声明"我想更新这些字段"，不返回完整 State、不原地修改传入的 State 对象：
+**节点如何写回（Q4 的回答）**：当前 Demo 的节点返回**部分 State Update 的 dict**（节点签名 `Callable[[GraphState], dict]`）——只声明"我想更新这些字段"，不返回完整 State、不原地修改传入的 State 对象。**这是当前 Demo 的形态**：LangGraph 通用层上，Node 返回 Graph Runtime 可解释的更新或控制结果——Node 通过 Command 携带 State Update 与路由意图的机制是第 13 章的职责，本章不展开 Command API：
 
 ```python
 # nodes.py，generate_sql 节点（示意）
@@ -118,7 +118,7 @@ def generate_sql(state: GraphState) -> dict:
 
 **三个输出侧边界**（与第 9 章 9.7 的误解清单一致）：
 
-- **不返回完整 State**：节点只需返回本次变更的字段；`status` 变了就只带 `status`
+- **优先只返回实际变化的字段**（工程建议，不是框架绝对禁令）：减少覆盖风险并保持更新意图清晰；`status` 变了就只带 `status`
 - **不原地修改输入 State**：当前实现按"返回更新、不改输入"的模式编写；`test_router_*_is_pure` 只证明两个路由 callable 不修改输入，**没有统一测试断言每个 Node 调用前后输入对象完全不变**（诚实标注，第 9 章 9.9 未验证清单）
 - **不把可变性当契约**：`merged = {**state, **updates}` 只是构造事件快照的局部视图，不是写入动作
 
@@ -134,31 +134,39 @@ def generate_sql(state: GraphState) -> dict:
 | **合并** | Graph Runtime 把部分更新并入 State（第 12 章机制） | channel 合并 |
 | **下一执行步骤** | 由路由决定下一个节点，或终止到 END（第 11 章） | 条件边回路 |
 
-**生命周期归属（Q8 的回答）**：节点的"何时执行、执行后去哪"全部由 Graph Runtime / 路由决定——**节点内部不调用下一个节点、不写 while 循环**（`nodes.py` 模块 docstring 原话："节点不调用下一个节点（下一步由 conditional edge 的路由函数决定）；节点内部不写 while 循环"）。这是第 1 章 1.4 的职责边界在图中的延续：**循环属于 Runtime（第 1 章 1.4），调度权不进入执行单元**。第 9 章 9.5 的 `graph.invoke(initial)` 是图执行的入口（第 8 章 8.1 的迁移事实）；compile / invoke 的执行机制属 Graph Runtime 的执行路径，本章不展开。
+**生命周期归属（Q8 的回答）**：**当前 Demo** 中，节点的"何时执行、执行后去哪"由 Graph Runtime / 路由决定——**节点内部不调用下一个节点、不写 while 循环**（`nodes.py` 模块 docstring 原话："节点不调用下一个节点（下一步由 conditional edge 的路由函数决定）；节点内部不写 while 循环"）。这是第 1 章 1.4 的职责边界在当前 Demo 设计中的延续：**循环属于 Runtime（第 1 章 1.4），执行与路由严格拆开**。**注意这是当前 Demo 的设计选择，不是 LangGraph 对所有 Node 的强制限制**——通用能力允许 Node 通过 Command 携带 State Update 与路由意图（第 13 章），真正解释并执行跳转的仍然是 Graph Runtime。第 9 章 9.5 的 `graph.invoke(initial)` 是图执行的入口（第 8 章 8.1 的迁移事实）；compile / invoke 的执行机制属 Graph Runtime 的执行路径，本章不展开。
 
-## 10.6 三类节点：LLM Node / Tool Node / Pure Compute Node
+## 10.6 四类节点形态
 
 按"节点内调用什么能力"分类（Q7 的回答）——分类依据是第 6 章 6.5 的组件关系（模型、Tool、Policy 都被 Scheduler 编排，但责任不同）：
 
 ```mermaid
 flowchart TD
-    subgraph LLMN["LLM Node：开放式语义决策（第 6 章 6.7 模型层）"]
-        D["decide 节点\n（model.decide_next，写 next_action）"]
+    subgraph SDN["Semantic Decision Node（语义决策）"]
+        D["decide\n（model.decide_next → next_action / decision_reason）"]
     end
-    subgraph TOOLN["Tool 相关 Node：确定性能力调用（第 5 章）"]
-        G["generate_sql / fix_sql\n（模型生成 + Validator 校验）"]
-        F["finalize 节点\n（executor.execute）"]
+    subgraph MCN["Mixed Capability Node（混合能力）"]
+        G["generate_sql / fix_sql\n（模型生成 + Validator 确定性校验）"]
     end
-    subgraph COMP["Pure Compute Node：纯确定性计算（ADR-004）"]
-        M["max_iterations 节点\n（只写 status + history，无模型无工具）"]
+    subgraph EEN["External Execution Node（外部执行）"]
+        F["finalize\n（executor.execute）"]
     end
+    subgraph DCN["Deterministic Compute Node（确定性计算）"]
+        M["max_iterations\n（只做确定性状态更新）"]
+    end
+    DEP["能力经 Node Factory 依赖注入\n（当前 Demo 非 Tool Registry lookup；\n第 5 章 Registry 为未来能力组织方式）"] -. "注入" .-> D
+    DEP -. "注入" .-> G
+    DEP -. "注入" .-> F
 ```
 
-- **LLM Node（`decide`）**：业务动作决策只发生在这里——调用 `model.decide_next`，把结果写进 State（`next_action` / `decision_reason`），不追加 history 事件（history 语义由动作节点维护，保证与手写版可比）。这是 PR #4 Review Blocker 1 固化的边界：**模型拥有开放式语义决策权，路由与节点不得替代**（第 1 章 1.4）
-- **Tool 相关 Node（`generate_sql` / `fix_sql` / `finalize`）**：节点内调用已注册的能力（第 5 章 Tool Registry 的语义：Registry 是能力描述与执行映射的注册表）——`validator.validate`（T05 静态校验）、`executor.execute`（T09 执行）；校验结果写回 State 的 `validation_error` / `validation_rule`（驱动修复循环，第 2 章 2.4）
-- **Pure Compute Node（`max_iterations`）**：只做确定性兜底计算——不调用模型、不调用工具，写 `status = MAX_ITERATIONS_REACHED` + 一条 history 事件。它是第 1 章 1.5"终止由确定性代码保证（ADR-004）"的直接承载
+- **Semantic Decision Node（语义决策节点，`decide`）**：调用 `model.decide_next` 完成开放式语义决策（第 6 章 6.7 模型层），把结果写进 State（`next_action` / `decision_reason`），不追加 history 事件（history 语义由动作节点维护，保证与手写版可比）。这是 PR #4 Review Blocker 1 固化的边界：**模型拥有开放式语义决策权，路由与节点不得替代**（第 1 章 1.4）
+- **Mixed Capability Node（混合能力节点，`generate_sql` / `fix_sql`）**：节点内同时调用模型生成 SQL 与 Validator 确定性校验（T05）——校验结果写回 State 的 `validation_error` / `validation_rule`（驱动修复循环，第 2 章 2.4）
+- **External Execution Node（外部执行节点，`finalize`）**：调用 Executor（T09 执行），成功 / 失败写入 `status` / `final_answer` / `failure_reason`
+- **Deterministic Compute Node（确定性计算节点，`max_iterations`）**：不调用模型、不调用工具，只做确定性状态更新（`status = MAX_ITERATIONS_REACHED` + 一条 history 事件）。它是第 1 章 1.5"终止由确定性代码保证（ADR-004）"的直接承载
 
-**分类的意义**：不是给节点贴标签，而是回答"节点里该放什么"——模型决策、工具调用、纯计算三种能力在图中各有节点形态，责任边界与第 6 章三层职责（模型 / 确定性策略层 / Runtime）一致。
+**能力如何进入节点（依赖注入，不是 Registry lookup）**：当前 Demo 的 Model / Validator / Executor 依赖全部由 Node Factory 参数显式注入（`make_generate_sql_node(model, validator)`），形成 closure——**basic_langgraph 尚未实现 Tool Registry lookup**，Validator / Executor 不能写成"经 Registry 注册并分发"。第 5 章的 Tool Registry 是**未来可替换的能力组织方式**（Dispatcher 实现细节见第 5 章，本章不展开）。
+
+**分类的意义**：不是给节点贴标签，而是回答"节点里该放什么"——语义决策、混合能力、外部执行、确定性计算四类形态对应第 6 章三层职责（模型 / 确定性策略层 / Runtime），并明确了"能力怎么进节点"的边界：当前 Demo 用依赖注入，Registry 是未来组织方式。
 
 ## 10.7 Failure Boundary：节点级统一错误转换
 
@@ -171,34 +179,31 @@ def generate_sql(state: GraphState) -> dict:
     ...
 ```
 
+**职责归属**：`_failure_boundary` 是**应用实现的**节点级异常转换（`nodes.py` 的应用代码），**不是 LangGraph 自动提供的 FAILED State 机制**——把异常转成 State 语义（`failure_reason` / history）是应用的业务错误转换职责（10.2 的职责拆分）；Graph Runtime 只负责传播未被应用捕获的异常。
+
 `_failure_boundary` 把"任何节点异常"转为 State 更新（Q6 的回答）：
 
 - `status = FAILED` + `failure_reason = "node error in <node>: <exc>"`
 - `iteration` 语义正确（decide 节点失败报告本轮编号，动作节点失败使用已递增的 iteration）
 - 追加一条失败 history 事件（action=None，与手写异常语义一致）
-- **异常前状态自动保留**：失败更新里不含 `current_sql` / `validation_error` / `execution_result`，这些字段由 channel 合并自动保留（`test_fix_exception_preserves_state_and_history` 断言第一轮 history 与 current_sql 不丢）
+- **异常前状态保留（有条件的，不是事务回滚）**：`_failure_boundary` 只返回失败相关字段，因此**未被本次 Update 覆盖的 State channels 会保留已有值**——这不是事务回滚，前提是 Node 未原地修改可变对象；当前测试仅覆盖具体异常场景（`test_fix_exception_preserves_state_and_history` 断言第一轮 history 与 current_sql 不丢），**不泛化为任意异常自动恢复**
 
 ```mermaid
 flowchart TD
-    subgraph NODE["节点执行（generate / fix / finalize / decide）"]
-        E["能力调用（模型 / 工具）"]
-        E -- "非预期异常" --> FB["节点级 _failure_boundary\n→ FAILED State 更新\n（保留异常前 State）"]
-        E -- "成功 / 可预期失败" --> U["返回部分更新\n（可预期失败走普通 State 更新路径）"]
-    end
-    subgraph RT["Graph Runtime"]
-        FB2["Runtime 级兜底（agent.py invoke 层）\n路由异常 / 框架内部错误 → FAILED"]
-        FB -. "向上抛出" .-> FB2
-    end
-    U --> M["channel 合并"]
+    E["Node / capability 异常"] --> CAP["被节点级 _failure_boundary 捕获\n（应用实现的异常转换）"]
+    CAP --> FAILED["返回 FAILED State Update\n（failure_reason + history + iteration）"]
+    FAILED --> MERGE["Graph Runtime 正常合并"]
+    E --> ESC["未捕获异常，或路由 / 框架执行异常"]
+    ESC --> OUTER["invoke 外层兜底（agent.py）\n构造最终 FAILED State"]
 ```
 
-**两层边界（与第 8 章 8.4 的"集成点"表述一致）**：节点级异常转换是主要机制；Graph Runtime 级异常（路由函数异常、框架内部错误）由 `agent.py` 的 invoke 层兜底转 FAILED——这是"Graph Runtime 管理执行单元"的另一面：**执行单元的失败有统一的运行时边界处理**。可预期的工具失败（Executor 返回失败）不抛异常，走普通 State 更新路径（`finalize` 节点里 `result.ok` 分支）。
+**两层边界（与第 8 章 8.4 的"集成点"表述一致）**：节点级 `_failure_boundary` 是主要机制——异常在节点内被捕获并转为 State 更新后，**不会再抛给外层**；外层兜底只处理未被节点捕获的**逃逸异常**（路由函数异常、LangGraph 内部错误），由 `agent.py` 的 invoke 层构造最终 FAILED State。**两层不是同一异常连续执行两次**。可预期的工具失败（Executor 返回失败）不抛异常，继续走普通 Result Contract / State Update 路径（`finalize` 节点里 `result.ok` 分支）。
 
 ## 10.8 Node 与 Runtime Scheduler、Node 与 Graph Runtime
 
-**Node 与 Scheduler（第 6 章）**：Scheduler 由 Routing + Lifecycle Guard 两个职责构成（第 6 章 6.1）——Routing 决定"把控制权交给谁"（图中是路由函数选择下一个节点，第 11 章）、Lifecycle Guard 决定继续 / 终止 / 暂停（图中的终止状态守卫与 `max_iterations` 节点）。**Node 是被 Scheduler 选择和执行的对象，不是 Scheduler 本身**（Q8 的回答）：`decide` 节点不决定自己是去 `generate_sql` 还是 `finalize`，那是 `route_by_next_action` 的事；`generate_sql` 不决定自己是继续下一轮还是终止，那是 `route_decide_or_max` 的事。
+**Node 与 Scheduler（第 6 章）**：Scheduler 由 Routing + Lifecycle Guard 两个职责构成（第 6 章 6.1）——Routing 决定"把控制权交给谁"（图中是路由函数选择下一个节点，第 11 章）、Lifecycle Guard 决定继续 / 终止 / 暂停（图中的终止状态守卫与 `max_iterations` 节点）。**在当前 Demo 中，Node 是被 Scheduler（路由）选择和执行的对象，不是 Scheduler 本身**（Q8 的回答）：`decide` 节点不决定自己是去 `generate_sql` 还是 `finalize`，那是 `route_by_next_action` 的事；`generate_sql` 不决定自己是继续下一轮还是终止，那是 `route_decide_or_max` 的事——**执行与路由严格拆开是当前 Demo 的设计，并便于独立测试**。
 
-**Node 与 Graph Runtime**：编译后的图由 Graph Runtime 执行（第 8 章 8.4：LangGraph Runtime 提供执行协议与集成机制）——节点是它管理的执行单元：调度执行、合并更新、统一错误边界。`compile()` / `.invoke()` 的具体执行机制属于 Graph Runtime 的执行路径（第 11 章执行路径引出，本章不展开）；本章只立事实：**节点把"执行"交给 Runtime 的调度与合并协议，自己不实现循环、不实现分发、不实现持久化**。
+**Node 与 Graph Runtime**：编译后的图由 Graph Runtime 执行（第 8 章 8.4：LangGraph Runtime 提供执行协议与集成机制）。**职责拆分**：Graph Runtime 负责调度调用 Node、提供 State 输入、接收 Node 返回结果、合并 State Update、按控制流继续执行、传播未被应用捕获的异常；应用负责定义 Node callable、业务输入输出契约、依赖注入与业务错误转换（10.2）。**当前 Demo 将执行与路由严格拆开——Node 返回 State Update，Conditional Edge 决定下一步**（第 11 章）；**这不是 LangGraph 对所有 Node 的强制限制**——Node 通过 Command 携带 State Update 与路由意图的机制留第 13 章，真正解释并执行跳转的仍然是 Graph Runtime。`compile()` / `.invoke()` 的具体执行机制属于 Graph Runtime 的执行路径（第 11 章执行路径引出，本章不展开）；节点自己不实现循环、不实现持久化。
 
 ## 10.9 边界：Node 与 Tool、Node 与 Graph State、Node 与 Runnable
 
@@ -220,9 +225,9 @@ flowchart LR
     N2 -. "（finalize 节点）" .-> T2
 ```
 
-**Node 与 Graph State**：节点是 State 的唯一读写执行点（第 9 章）——所有状态变化都发生在节点返回的部分更新里；State 本身不执行任何动作（第 1 章 1.3：循环的是围绕 State 的状态转换过程，State 不是主动主体）。
+**Node 与 Graph State**：在当前 Demo 的图执行阶段，业务状态更新由 Node 返回的 Update 发起，由 Graph Runtime 按 channel 规则合并（第 9 章）；State 本身不执行任何动作（第 1 章 1.3：循环的是围绕 State 的状态转换过程，State 不是主动主体）。**该表述只覆盖图执行阶段的业务更新**，不覆盖：Initial State 构造（第 9 章 9.5）、Reducer 合并机制（第 12 章）、Command（第 13 章）、Checkpoint / resume（第 14 章）及后续 update state 能力。
 
-**Node 与 Runnable（仅一句边界，不展开）**：LangGraph 的 Node 在实现上可以包装 Runnable（LangChain 概念），LangChain 的 create_agent 底层也使用 LangGraph Runtime——但本 Part 只按"Graph Runtime 管理的执行单元"讲解 Node，Runnable / LCEL / create_agent 等 LangChain 内容全部留给 Future LangChain Scope Planning（`.ai/context/current.md` Future Task），不在本章展开。
+**Node 与 Runnable（仅一句边界，不展开）**：LangGraph Node 的实现可以包装兼容的 callable / Runnable——本 Part 只按"Graph Runtime 管理的执行单元"讲解 Node；Runnable / LCEL 等内容属于 Future LangChain Scope（`.ai/context/current.md` Future Task），不在本章展开。
 
 ## 10.10 Node Contract 与 Node Testing
 
@@ -230,10 +235,10 @@ flowchart LR
 
 | 契约 | 内容 | 本 Demo 证据 |
 |---|---|---|
-| 输入契约 | 接收 Graph State（类型契约上可读 schema 字段） | 所有节点签名 `state: GraphState` |
-| 输出契约 | 返回部分更新 dict；不返回完整 State、不原地改输入 | `nodes.py` 各节点 return updates |
-| 能力契约 | 模型 / 工具 / 纯计算按职责分类进入节点（10.6） | 五个节点工厂 |
-| 错误契约 | 节点异常统一转 FAILED State（保留异常前 State） | `_failure_boundary` |
+| 输入契约 | 接收 Graph State（类型契约上可读 schema 字段）；能力经 Node Factory 注入（依赖不是 State 字段） | 所有节点签名 `state: GraphState` |
+| 输出契约 | 返回 Graph Runtime 可解释的更新结果（当前 Demo 形态：部分更新 dict；工程建议只返回实际变化字段） | `nodes.py` 各节点 return updates |
+| 能力契约 | 四类节点形态（语义决策 / 混合能力 / 外部执行 / 确定性计算，10.6）；能力经 Node Factory 依赖注入，未实现 Tool Registry lookup | 五个节点工厂 |
+| 错误契约 | 节点异常由应用实现的 `_failure_boundary` 转 FAILED State（未被 Update 覆盖的 channel 保留已有值） | `_failure_boundary` |
 | 行为契约 | 不调用下一节点、不写 while、决策权归模型 | `nodes.py` 模块 docstring |
 
 **Node Testing（Q10 的回答）**：`tests/basic_langgraph/` 的节点相关断言——
@@ -242,21 +247,23 @@ flowchart LR
 |---|---|
 | 模型异常 → FAILED + failure_reason | `test_model_exception_saves_failure_reason` / `test_model_exception_equivalent_to_manual` |
 | 执行失败 → FAILED + failure_reason | `test_executor_failure_saves_failure_reason` |
-| 节点异常保留异常前 State | `test_fix_exception_preserves_state_and_history` |
+| 节点异常保留异常前 State（具体场景） | `test_fix_exception_preserves_state_and_history` |
 | 模型决策语义（FINALIZE / FIX 必须路由到对应节点） | `test_model_decision_finalize_is_routed` / `test_model_decision_fix_is_routed` |
 | 确定性兜底节点（max_iterations） | `test_max_iterations_2_stops_before_finalize` |
 | 双 Runtime 行为等价（节点序列与手写动作序列一致） | `test_direct_equivalence_with_manual`（history 动作序列逐项相等） |
+
+注意：`test_fix_exception_preserves_state_and_history` 只证明**具体异常场景**下未覆盖字段被保留——不是"任意异常自动恢复"的证明（10.7）。
 
 **必须诚实标注**：节点测试断言的是**行为契约与错误转换结果**；"每个 Node 调用前后输入对象完全不变"**没有统一测试覆盖**（10.4 已述）；并发节点执行、节点重试、节点恢复语义未验证（属第 12 章 reducer / Part 05 生产语义）。测试数量以最新 CI 为准，不在正文写死。
 
 ## 10.11 常见误区
 
-1. **Node 就是 Python 函数**——实现上可以是 callable，语义上是 Graph Runtime 管理的执行单元：调度、合并、错误边界都属于运行时
-2. **Node 决定下一步执行谁**——路由决定（第 11 章）；节点只执行，不调用下一节点、不写 while
-3. **Node 必须返回完整 State**——返回部分更新 dict，由 Runtime 合并（第 12 章机制）
+1. **Node 就是 Python 函数**——实现上可以是 callable，语义上是 Graph Runtime 管理的执行单元；Graph Runtime 负责调度 / 输入 / 合并 / 控制流 / 异常传播，应用负责定义、契约、注入与业务错误转换
+2. **Node 决定下一步执行谁**——当前 Demo 中路由决定（第 11 章），节点只执行，不调用下一节点、不写 while；但这不是框架强制——通用能力允许 Node 通过 Command 携带路由意图（第 13 章），跳转解释权仍在 Graph Runtime
+3. **Node 必须返回完整 State**——当前 Demo 形态返回部分更新 dict，由 Runtime 合并（第 12 章机制）；优先只返回实际变化字段是工程建议，不是框架绝对禁令
 4. **Node 就是 Tool**——Node 是执行单元（可调用多个能力），Tool 是被调用的能力（第 5 章）
-5. **Node 里可以放业务规则**——权限 / 安全 / 终止由确定性策略层保证（ADR-004）；节点按职责调用模型 / 工具 / 纯计算
-6. **Node 异常就是进程崩溃**——节点级 `_failure_boundary` 把异常转为 FAILED State（保留异常前 State）；Graph Runtime 级异常由 invoke 层兜底
+5. **Node 里可以放业务规则**——权限 / 安全 / 终止由确定性策略层保证（ADR-004）；节点按四类职责组织能力（10.6）
+6. **Node 异常就是进程崩溃**——应用实现的节点级 `_failure_boundary` 把节点异常转为 FAILED State（未被 Update 覆盖的 channel 保留已有值，非事务回滚）；未捕获 / 路由 / 框架异常由 invoke 层兜底——两层分叉，不是同一异常连续执行两次
 7. **模型决策发生在路由或节点组合里**——业务动作决策只发生在 `decide` 节点的模型调用（PR #4 Blocker 1）；路由只分发
 8. **Node 会自己重试**——重试 / 恢复是生产语义（Part 05）；本 Demo 无节点级重试
 9. **所有节点天然看到所有内部字段**——取决于 schema 划分与节点输入契约（第 9 章 9.4）
@@ -267,26 +274,27 @@ flowchart LR
 | # | 问题 | 答案 |
 |---|---|---|
 | Q1 | 为什么需要 Node？ | 手写动作分支（generate / fix / finalize）散落在 if/elif 里；Node 把"可执行步骤"变成图里注册的、有输入输出契约的执行单元 |
-| Q2 | Node 与普通 Python 函数有什么区别？ | 实现上可以是 callable，语义上是 Graph Runtime 管理的执行单元：执行时机、合并、错误边界由运行时管理，节点只执行不拥有调度权 |
-| Q3 | Node 的输入是什么？ | 当前 Graph State（类型契约上可读 schema 字段，第 9 章）；模型只经 StateProxy 按只读约定访问 |
-| Q4 | Node 的输出是什么？ | 部分 State Update 字典；不返回完整 State、不原地修改输入 |
+| Q2 | Node 与普通 Python 函数有什么区别？ | 实现上可以是 callable，语义上是 Graph Runtime 管理的执行单元；Graph Runtime 负责调度 / 提供输入 / 接收结果 / 合并 / 继续执行 / 传播异常，应用负责 Node 定义 / 契约 / 依赖注入 / 业务错误转换；当前 Demo 执行与路由严格拆开（Command 机制留第 13 章） |
+| Q3 | Node 的输入是什么？ | 当前 Graph State（类型契约上可读 schema 字段，第 9 章）；模型只经 StateProxy 按只读约定访问；能力经 Node Factory 注入（依赖不是 State 字段），禁止未声明的模块级可变状态与隐式跨轮记忆 |
+| Q4 | Node 的输出是什么？ | 当前 Demo 形态为部分 State Update 字典（工程建议：只返回实际变化字段）；LangGraph 通用层 Node 返回 Runtime 可解释的更新或控制结果（Command 属第 13 章）；不原地修改输入 |
 | Q5 | Partial Update 与手写 apply_* 的关系？ | 等价的是字段语义、状态转换结果与行为契约；更新机制不同（声明返回 vs 受控原地更新），合并规则属第 12 章 |
-| Q6 | Failure Boundary 如何在节点级统一？ | `_failure_boundary`：任何节点异常转 FAILED State（status / failure_reason / iteration / history），异常前状态由 channel 合并自动保留；Runtime 级异常由 invoke 层兜底 |
-| Q7 | LLM / Tool / 纯计算责任如何落在节点上？ | LLM Node（decide 决策）、Tool 相关 Node（generate / fix / finalize 调用已注册能力）、Pure Compute Node（max_iterations 确定性兜底）；与第 6 章三层职责一致 |
-| Q8 | Node 为什么不调用下一个节点、不写 while？ | 调度权在 Graph Runtime / 路由（第 11 章）；循环属于 Runtime（第 1 章 1.4），执行单元只执行 |
+| Q6 | Failure Boundary 如何在节点级统一？ | 应用实现的 `_failure_boundary` 把节点异常转 FAILED State（status / failure_reason / iteration / history）；异常前状态保留是有条件的（未被 Update 覆盖的 channel 保留已有值，非事务回滚）；未捕获 / 路由 / 框架异常由 invoke 层兜底——两层分叉，不是同一异常连续执行两次；可预期 Tool 失败走普通 Result Contract |
+| Q7 | 能力责任如何落在节点上？ | 四类节点形态：Semantic Decision（decide）/ Mixed Capability（generate / fix）/ External Execution（finalize）/ Deterministic Compute（max_iterations）；能力经 Node Factory 依赖注入，当前 Demo 未实现 Tool Registry lookup（ch05 为未来能力组织方式） |
+| Q8 | Node 为什么不调用下一个节点、不写 while？ | 当前 Demo 将执行与路由严格拆开：调度在 Graph Runtime / 路由（第 11 章），循环属于 Runtime（第 1 章 1.4）；这不是框架强制——Command 携带路由意图留第 13 章 |
 | Q9 | Node 与 Tool 有什么区别？ | Node 是执行单元（一个节点可调多个能力），Tool 是被调用的能力（第 5 章 Registry 语义）；两者不是同一层概念 |
 | Q10 | 当前 Demo 的 Node 已验证什么、未验证什么？ | 已验证：错误转换与保留 State、模型决策路由语义、确定性兜底、双 Runtime 行为等价；未验证：所有 Node 输入不可变性（无统一测试）、并发执行、节点重试 / 恢复 |
 
 **本章验收标准：**
 
 - [ ] 能复述主线：Node 是 Graph Runtime 管理的执行单元（实现可为 callable，语义不是孤立函数）
-- [ ] 能画出执行单元循环：读 State → 执行能力 → 返回部分更新 → Runtime 合并 → 下一执行步骤
-- [ ] 能说明 Node 的输入（Graph State 读取协议）与输出（Partial Update）契约
-- [ ] 能说明 `_failure_boundary` 的转换内容与"异常前状态保留"机制，并区分节点级与 Graph Runtime 级两层边界
-- [ ] 能分类说出 LLM Node / Tool 相关 Node / Pure Compute Node 在本 Demo 中的对应节点
-- [ ] 能说明 Node 不决定"下一个执行谁"（调度权在路由 / Graph Runtime），并解释为什么（循环属于 Runtime）
+- [ ] 能画出执行单元循环：读 State → 执行能力 → 返回更新 → Runtime 合并 → 下一执行步骤
+- [ ] 能说明 Node 的输入（Graph State 读取协议 + 依赖注入）与输出（当前 Demo 形态：Partial Update dict，工程建议只返回实际变化字段）契约
+- [ ] 能说明 `_failure_boundary` 是应用实现的异常转换（非框架自动机制）、异常前状态保留的条件（非事务回滚），并区分两层边界的控制流分叉（非同一异常执行两次）
+- [ ] 能分类说出四类节点（Semantic Decision / Mixed Capability / External Execution / Deterministic Compute）在本 Demo 中的对应节点，并说明能力经 Node Factory 注入而非 Registry lookup
+- [ ] 能区分当前 Demo 的严格拆分（Node 返回 State Update、Conditional Edge 决定下一步）与 LangGraph 通用能力（Command 携带路由意图，第 13 章）
+- [ ] 能区分 Graph Runtime 与应用各自的职责（调度 / 合并 / 异常传播 vs 定义 / 契约 / 注入 / 业务错误转换）
 - [ ] 能区分 Node 与 Tool、Node 与 Graph State、Node 与 Runnable（仅一句边界）
 - [ ] 能诚实陈述已验证与未验证范围（不夸大节点测试证据）
 - [ ] 术语与 `TERMINOLOGY.md` 一致；只引用不重新定义 State / Context / Memory / Scheduler / Tool Registry
 
-**本章边界**：Edge / Conditional Edge（节点接线与路由）——第 11 章；Reducer（部分更新如何合并）——第 12 章；Checkpoint / Interrupt / Stream / Subgraph——第 14-17 章；compile / invoke 的图执行机制——Graph Runtime 执行路径（第 11 章引出）；Tool Registry 语义本身——第 5 章；节点重试 / 恢复 / 生产错误治理——Part 05；LangChain（Runnable / LCEL / create_agent / Messages / PromptTemplate / Middleware）——Future LangChain Scope Planning（`.ai/context/current.md` Future Task），不在本章展开。
+**本章边界**：Edge / Conditional Edge（节点接线与路由）——第 11 章；Reducer（部分更新如何合并）——第 12 章；Command（Node 携带路由意图）——第 13 章；Checkpoint / Interrupt / Stream / Subgraph——第 14-17 章；compile / invoke 的图执行机制——Graph Runtime 执行路径（第 11 章引出）；Tool Registry 语义本身——第 5 章；节点重试 / 恢复 / 生产错误治理——Part 05；LangChain（Runnable / LCEL 等）——Future LangChain Scope Planning（`.ai/context/current.md` Future Task），不在本章展开。

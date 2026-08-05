@@ -146,7 +146,8 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；节点不调用下一节点、不写 while（调度权在路由 / Graph Runtime）；compile/invoke 归 Graph Runtime 执行路径不展开；三类节点（LLM / Tool / Pure Compute）；节点级 `_failure_boundary` 两层错误边界；Node≠Tool / ≠Python function / ≠Runnable（Runnable 仅一句边界）；不提前讲 Reducer/Checkpoint/Interrupt/Streaming/Subgraph；证据诚实（Node 输入不可变性无统一测试如实标注）
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 10 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 10 draft / 待架构审查）
   - **Future LangChain Scope Planning 补全**（并入既有条目，不新增第二份）：目标路线加 Agent Foundations → Production Engineering 全链；预计包含 Runnable 系列 / LCEL / ChatModel / Messages / Tool Calling / Middleware / create_agent / Structured Output / LangSmith 等；原则：LangGraph 可独立使用、LangChain 是更高层 Framework、Part 03 不出现 LangChain API
-  - 待 Architecture Review
+  - **PR #31 Review 九项修正（2026-08-05）**：Node/Routing 通用边界两层（严格拆分为 Demo 设计非框架强制，Command 留 ch13）/ Graph Runtime 与应用职责拆分（`_failure_boundary` 是应用实现非框架自动机制）/ Failure Boundary 控制流分叉（非同一异常执行两次）/ Node 输出契约收窄（当前 Demo 形态 + 工程建议非绝对禁令）/ 节点分类改四类形态（Semantic Decision / Mixed Capability / External Execution / Deterministic Compute）/ Tool Registry 证据边界（Demo 未实现 lookup，依赖注入，ch05 为未来组织方式）/ Node 输入来源（显式注入，禁止隐式跨轮记忆，dependency 非 State 字段）/ State Update 范围（仅图执行阶段，不覆盖 Initial State / Reducer / Command / Checkpoint）/ 异常前状态保留条件化（非事务回滚）/ LangChain API 清理（删除 create_agent 句，仅保留可包装 callable / Runnable 一句）——已应用并推送更新 PR #31
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步
