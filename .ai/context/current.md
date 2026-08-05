@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08 最终完成（PR #27）、Chapter 09 最终完成（PR #29），Chapter 10（Execution Nodes）正文初稿完成待 Architecture Review（TASK-0017）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（Execution Nodes，PR #31）均最终完成，下一步 Chapter 11（Edge 与 Conditional Edge，TASK-0018）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -147,12 +147,12 @@
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 10 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 10 draft / 待架构审查）
   - **Future LangChain Scope Planning 补全**（并入既有条目，不新增第二份）：目标路线加 Agent Foundations → Production Engineering 全链；预计包含 Runnable 系列 / LCEL / ChatModel / Messages / Tool Calling / Middleware / create_agent / Structured Output / LangSmith 等；原则：LangGraph 可独立使用、LangChain 是更高层 Framework、Part 03 不出现 LangChain API
   - **PR #31 Review 九项修正（2026-08-05）**：Node/Routing 通用边界两层（严格拆分为 Demo 设计非框架强制，Command 留 ch13）/ Graph Runtime 与应用职责拆分（`_failure_boundary` 是应用实现非框架自动机制）/ Failure Boundary 控制流分叉（非同一异常执行两次）/ Node 输出契约收窄（当前 Demo 形态 + 工程建议非绝对禁令）/ 节点分类改四类形态（Semantic Decision / Mixed Capability / External Execution / Deterministic Compute）/ Tool Registry 证据边界（Demo 未实现 lookup，依赖注入，ch05 为未来组织方式）/ Node 输入来源（显式注入，禁止隐式跨轮记忆，dependency 非 State 字段）/ State Update 范围（仅图执行阶段，不覆盖 Initial State / Reducer / Command / Checkpoint）/ 异常前状态保留条件化（非事务回滚）/ LangChain API 清理（删除 create_agent 句，仅保留可包装 callable / Runnable 一句）——已应用并推送更新 PR #31
-  - 待 Architecture Review 复审
+  - **PR #31 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 06a9142，CI build/test 双绿）→ Chapter 10 最终完成**；本 Memory PR（docs/post-pr31-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 10 正文初稿完成（TASK-0017），待 Architecture Review；下一步 **Chapter 11：Edge & Conditional Edge**（TASK-0018，按 DAG 拓扑序，Chapter 10 Review 通过后启动）
+1. Part 03（LangGraph Core）：Chapter 10 最终完成（TASK-0017，PR #31）；下一步 **Chapter 11：Edge 与 Conditional Edge**（TASK-0018，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 11 核心主线（已固定，写作不得偏离）**：Edge 描述确定性连接，Conditional Edge 根据运行时结果选择后续路径；路由函数产生 Route Decision，Graph Runtime 解释该结果并调度下一执行步骤。当前 Demo 将模型语义决策写入 State，再由确定性路由函数分发，避免路由层替代模型决策。
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
