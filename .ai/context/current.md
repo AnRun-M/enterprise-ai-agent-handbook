@@ -171,7 +171,8 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；Command 与「先更新 State 再路由」= 表达位置变化、解释权不变（Graph Runtime）；Send 是 work item 产生者、调度在 Scheduler / Graph Runtime（ch06 对应）；Command 的 State Update 走同一 channel 合并（ch12）；静态图足够时不需要动态原语（反例教学）；不提前讲 Command/Send API 签名 / Checkpoint / Interrupt / Stream / Subgraph（仅引用 map-reduce 组合方向）/ Part 05 生产语义；零 LangChain API
   - **证据诚实**：仓库无 Command / Send 实现证据——基于 `references/official/langgraph.md` 核验记录（刻意未使用）与 README 第 9 节；未验证清单 6 项如实标注，不推断实现行为
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 13 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 13 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #37 Review 七项修正（2026-08-05）**：Conditional Edge 多目标语义（返回一个或多个路径目标；当前 Demo 单路径；多目标 ≠ Send work-item 语义）/ Send 产生链路（Node 产数据 → conditional routing callable → Send descriptors → Graph Runtime 解释实例化调度；Send 不执行节点不创建线程）/ Send 独立输入语义（目标节点 + 专属输入；同一目标可实例化多次；核心区别 = 目标选择 vs 带独立输入的实例化）/ Command 作用域收窄（本章特指 Node 返回的 State Update + goto；resume / Tool return / parent graph / invoke-stream 输入声明不展开）/ Command 等价性收窄（单图场景相近意图，不宣称全面等价，仓库未测）/ 动态实例边界（实例化已注册目标 Node 的 work items，非注册新 Node 类型）/ Send 与并行收窄（表达 fan-out，不自动保证并发度 / 调度顺序 / 稳定顺序 / 线程安全 / 重试 / delivery / fan-in 确定性）——已应用并推送更新 PR #37
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步
