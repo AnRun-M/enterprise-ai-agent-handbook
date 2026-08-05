@@ -21,9 +21,11 @@
 
 > "无 Checkpointer 时 Graph Runtime 级异常不保留部分执行状态——这是本 Demo 的明确边界（Checkpoint 能力在 v0.4.0 / v0.6.0 里程碑引入）。"
 
-**手写 Runtime 的对应问题**：`examples/manual_agent_loop` 与当前 graph Demo 一样，执行全部在内存中——进程崩溃、进程重启、中断后再续跑，**已执行的状态全部丢失**（`.ai/principles/state-design.md`：两个 Runtime 都没有 Checkpointer 时，State 是唯一可延续的信息，但那只延续到进程存活期间）。第 2 章 2.2 的边界里已经埋下伏笔：State 只服务一次执行，**执行结束即失效，除非被 Checkpoint 持久化**。
+**手写 Runtime 的对应问题**：`examples/manual_agent_loop` 与当前 graph Demo 一样，执行全部在内存中——进程崩溃、进程重启、中断后再续跑，**已执行的可恢复状态全部丢失**（`.ai/principles/state-design.md`：两个 Runtime 都没有 Checkpointer 时，State 是唯一可延续的信息，但那只延续到进程存活期间）。第 2 章 2.2 的边界里已经埋下伏笔：State 只服务一次执行，**执行结束即失效，除非被 Checkpoint 持久化**。
 
-**Checkpoint 解决的问题**：把"执行到某个时刻的状态"**持久化下来**，使图执行不再是内存易失的一次性过程——崩溃后可以从快照恢复、需要时可以重放、中断后可以续跑（14.4）。这是 architecture-map 第五节定义的语义："Checkpoint 是 Execution State 在某个执行时刻的持久化快照，支持恢复、重放、中断续跑，并可为审计提供执行快照"。
+**"没有 Checkpointer 就全部失效"必须收窄（边界修正）**：未启用 Checkpointer 时，**Graph Runtime 不会自动维护可恢复的 thread checkpoint history**——但**应用仍可获得最终 State**（`agent.py` 的 `invoke` 返回最终 GraphState），**也可以自行将业务结果持久化**（例如把最终 SQL / 结果写入外部存储）。**仅保存最终字段值，不等于拥有 Graph Runtime 的恢复位置、历史快照、pending writes、重放与续跑协议**——后者才是 Checkpoint 提供的执行可恢复性。
+
+**Checkpoint 解决的问题**：把"执行到某个时刻的状态"**持久化下来**，使图执行不再是内存易失的一次性过程——崩溃后可以从快照恢复、需要时可以重放、中断后可以续跑（14.4）。这是 architecture-map 第五节定义的语义："Checkpoint 是 Execution State 在某个执行时刻的持久化快照，支持恢复、重放、中断续跑，并可为审计提供执行快照"。**形成时点（架构语义）**：Checkpoint 是"执行时刻快照"的架构语义；在 LangGraph StateGraph 中，**完整 checkpoint 通常对应 superstep 边界**——节点级 pending writes 可以更早持久化，但**不等于完整 checkpoint**（14.5；不展开 Pregel 内部算法）。
 
 **集成点 ≠ 能力自动生效（第 8 章 8.4 原话）**：LangGraph 为 Checkpoint 提供明确的集成机制（Checkpointer 挂载点），但**是否启用、挂载位置与治理策略仍由应用 Runtime / Policy 决定**——当前 Demo 刻意不启用，正是这个边界的教学体现（14.6）。
 
@@ -45,10 +47,10 @@ flowchart LR
 三个要点：
 
 1. **Graph State 是"现在"**：执行中每轮经 State Update → Reducer → Merged State 演进（第 9 章 / 第 12 章）
-2. **Checkpoint 是"某个时刻的留影"**：快照一旦生成就固定下来，不随执行继续变化；它保存的是**该时刻**的图执行状态
+2. **Checkpoint 是"某个时刻的留影"**：历史 checkpoint 生成后作为时刻快照**固定下来**，不随执行继续变化；**版本化边界**：`update_state` 或后续运行会**创建新的 checkpoint**，**不原地修改旧 checkpoint**——fork / replay 从历史 checkpoint 派生新轨迹（API 与 time-travel 细节不展开）
 3. **Checkpoint 不等于一个简单的 State 字典副本（边界 3 后半）**：Graph State 的字段值是其**核心组成部分**，但快照还包含**执行上下文**——第 9 章 9.8 修正后的表述原话："Checkpoint 是图在某个执行时刻持久化的状态与执行上下文快照——Graph State 的字段值是其核心组成部分，但 Checkpoint 不等同于一个简单的 State 字典副本"（14.5 展开持久化什么）
 
-**为什么不是"简单字典副本"**：恢复一次执行需要的不仅是字段值——还有执行进行到哪里（执行位置）、哪些 reducer 累积了哪些状态（第 12 章：Checkpoint 保存的就是 channel 状态，含 reducer 累积）、以及恢复所需的执行上下文。这些共同构成"可以继续执行"的快照，而不是一份只读的字段清单。
+**为什么不是"简单字典副本"**：恢复一次执行需要的不仅是字段值——还有执行进行到哪里（执行位置）、恢复所需的执行上下文与标识。**完整 checkpoint 的形成时点**：在 LangGraph StateGraph 中通常对应 **superstep 边界**（节点级 pending writes 可以更早持久化用于故障恢复，但**不等于完整 checkpoint**；不展开 Pregel 内部算法）。
 
 ## 14.3 Checkpointer 的职责
 
@@ -58,61 +60,67 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    CKPT["Checkpointer"]
+    CKPT["Checkpointer / persistence layer"]
     CK["快照（Checkpoint）"] 
-    CKPT -- "保存（执行时刻写入）" --> CK
-    CK -- "读取（恢复 / 重放 / 续跑时加载）" --> CKPT
-    RT["Graph Runtime\n（按应用契约决定恢复策略 / 重放语义 / 续跑规则）"] --> CKPT
+    CKPT -- "写入 checkpoint（执行时刻）" --> CK
+    CK -- "读取指定 checkpoint（恢复 / 重放 / 续跑）" --> CKPT
+    RT["Runtime 与应用契约\n（选恢复点 / 定 replay-resume 入口 / 副作用幂等 / 治理策略）"] --> CKPT
 ```
 
-**Checkpointer 的职责边界（Q4 的回答）**：
+**Checkpointer / persistence layer 的职责（Q4 的回答）——持久化机制**：
 
-| Checkpointer 负责 | 不由 Checkpointer 单独决定 |
+| Checkpointer / persistence layer 负责 | Runtime 与应用契约负责 |
 |---|---|
-| **保存**执行时刻的快照 | **恢复策略**（崩溃后恢复到哪个快照、丢弃哪些） |
-| **读取**快照供 Runtime 使用 | **重放语义**（重放时执行到什么程度、副作用如何处理） |
-| 提供快照的存取机制 | **续跑规则**（中断后从哪个点继续、是否合并新输入） |
+| **写入** checkpoint | **选择恢复点**（恢复到哪个 checkpoint、丢弃哪些） |
+| **读取**指定 checkpoint | **决定 replay / resume 入口** |
+| 按 **thread / checkpoint 标识**组织与检索 | **处理副作用与幂等性** |
+| **列举 checkpoint history** | **合并恢复后的新输入** |
+| **保存恢复所需的 pending writes** | **保留、清理、审计与治理策略** |
+| **序列化与反序列化**持久化数据 | **业务审批与权限** |
 
-**关键边界**：**恢复策略、重放语义和续跑规则由 Runtime 与应用契约共同决定**——Checkpointer 是"存取机制"，不是"恢复决策器"。这与第 8 章 8.4 / 第 13 章 13.8 的立场一致：**框架提供集成机制，业务治理策略由应用层决定**（生产恢复语义属 Part 05）。
+**关键边界**：**恢复策略、重放语义和续跑规则由 Runtime 与应用契约共同决定**——Checkpointer / persistence layer 是"持久化机制"，不是"恢复决策器"。这与第 8 章 8.4 / 第 13 章 13.8 的立场一致：**框架提供集成机制，业务治理策略由应用层决定**（生产恢复语义属 Part 05）。**本章不展开**：BaseCheckpointSaver 方法名、存储表结构、SQLite / Postgres API、serializer 代码（框架 API 教程 / 实现细节，超出本书范围）。
 
 ## 14.4 恢复、重放与续跑
 
 三个使用场景的概念语义（Q5 的回答；具体机制与 API 属后续章节 / Part 05，本章只立语义）：
 
-| 场景 | 语义 | 对应 Runtime 关切 |
+| 场景 | 语义 | 精确边界 |
 |---|---|---|
-| **恢复（Recovery）** | 崩溃 / 失败后，从最近可用快照重新获得执行状态，继续执行 | architecture-map：崩溃恢复 |
-| **重放（Replay）** | 从快照重新执行后续步骤（可用于复现、调试、审计） | architecture-map：重放 |
-| **续跑（Resume）** | 中断后从快照点继续，而非从头开始（Human Stop 暂停态的承载基础） | 第 1 章 1.5 暂停态；第 15 章 Interrupt |
+| **恢复（Recovery）** | 故障后恢复**持久化状态和执行上下文** | **不简单等于"所有节点从最后快照后重跑"**——pending writes 可能避免重新执行已完成节点；具体机制未在仓库验证（14.9） |
+| **重放（Replay）** | 从**历史 checkpoint** 重新执行**其后的步骤** | checkpoint **之前**的步骤被跳过；后续 LLM / Tool / API / Interrupt 可能**再次触发**（不是播放历史输出）；副作用幂等属 Part 05 |
+| **续跑（Resume）** | 从**中断状态**继续 | 可能**携带新的人工输入或控制结果**（Human Stop 暂停态承载基础，第 1 章 1.5）；具体 Interrupt / Command 机制留第 15 章 |
 
 ```mermaid
 flowchart LR
-    CK["Checkpoint（t2）"] --> R1["恢复：崩溃后回到 t2 继续"]
-    CK --> R2["重放：从 t2 重新执行后续步骤"]
-    CK --> R3["续跑：中断后从 t2 继续（第 15 章基础）"]
+    CK["Checkpoint（t2）"] --> R1["恢复：故障后恢复状态与执行上下文（pending writes 避免重跑已完成节点）"]
+    CK --> R2["重放：从 t2 重新执行其后步骤（跳过 checkpoint 之前，LLM / Tool 可能再次触发）"]
+    CK --> R3["续跑：从中断状态继续（可携带新的人工输入或控制结果，第 15 章）"]
 ```
 
-**三者共享同一事实**：都需要 Checkpointer 保存 / 读取快照（14.3）；**各自的规则**（恢复到哪个点、重放副作用如何处理、续跑如何合并新输入）由 Runtime 与应用契约决定。
+**三者共享同一事实**：都需要 Checkpointer / persistence layer 保存与读取快照（14.3）；**各自的规则**（恢复到哪个点、重放副作用如何处理、续跑如何合并新输入）由 Runtime 与应用契约决定。
 
 ## 14.5 持久化什么
 
-Q6 的回答——快照的内容（与第 9 章 9.8 / 第 12 章 12.12 的边界衔接）：
+Q6 的回答——快照的内容（**面向读者的 StateSnapshot 语义**，与第 9 章 9.8 / 第 12 章 12.12 的边界衔接）：
 
 ```mermaid
 flowchart LR
-    subgraph CK["Checkpoint（执行时刻快照）"]
-        C1["Graph State 字段值（核心组成部分）"]
-        C2["channel 状态（含 reducer 累积，第 12 章）"]
-        C3["执行上下文（执行位置等）"]
+    subgraph CK["Checkpoint / StateSnapshot（执行时刻快照）"]
+        C1["State channel values（快照时刻的值）"]
+        C2["next / 下一执行位置"]
+        C3["checkpoint / thread config 与标识"]
+        C4["metadata"]
+        C5["parent checkpoint relationship"]
+        C6["tasks / interrupts 等执行任务信息"]
     end
     GS["Graph State（当前执行状态）"] -. "快照时点的值" .-> C1
 ```
 
-- **Graph State 字段值**：快照时刻的 channel 值——核心组成部分（第 9 章 9.8）
-- **channel 状态含 reducer 累积**：第 12 章 12.12 已留待本章："Checkpoint 如何序列化 reducer 累积状态"——`history` 的追加累积（第 12 章 12.6）是持久化的对象之一
-- **执行上下文**：使快照"可以继续执行"而非"只读副本"的部分（14.2）
+- **State channel values**：快照时刻的 channel 值——核心组成部分（第 9 章 9.8）。**重要澄清**：**Reducer 的合并结果通常已经体现在 channel values 中**——`history` 的累计结果保存在 `values["history"]` 等 channel value 中（第 12 章 12.6 的追加累积就是 channel 值本身）；**不要把 reducer 累积写成必然独立的第二份业务数据**
+- **next / 下一执行位置、checkpoint / thread config 与标识、metadata、parent checkpoint relationship、tasks / interrupts 等执行任务信息**：使快照"可以继续执行"而非"只读副本"的部分（14.2）
+- **底层实现边界**：实现可能维护 channel versions、pending writes、serializer 数据等内部信息——**本章不展开**
 
-**边界**：完整审计事实由 Audit System 负责（architecture-map 第五节：Checkpoint 可为审计提供执行快照，但完整审计事实属 Observability 层，Part 05）。
+**pending writes 边界**：完整 checkpoint 通常形成于 **superstep 边界**；**节点级 writes 可能单独持久化，用于故障恢复**——但 **pending writes 不等于完整 StateSnapshot**（不展开具体表结构与 API）。
 
 ## 14.6 当前 Demo 为什么未启用
 
@@ -137,16 +145,16 @@ Q7 的回答——**如实标注，这是教学边界不是缺口**：
 
 ## 14.8 与 Memory 的边界
 
-Q8 的回答——**Checkpoint 不是 Memory**（固定主线第三部分 + 边界 3）：
+Q8 的回答——**Checkpoint 不是 Memory**（固定主线第三部分 + 边界 3），同时**桥接官方术语**：
 
-| 维度 | Checkpoint | Memory（第 7 章） |
+| 维度 | Checkpoint（本书架构边界） | Memory（第 7 章） |
 |---|---|---|
-| 是什么 | 某个执行时刻的状态与执行上下文快照 | 跨执行边界保留的信息 |
+| 是什么 | 执行 / thread 状态与执行上下文快照 | **经过选择、治理，用于未来执行复用的信息** |
 | 服务于 | 恢复 / 重放 / 续跑（同一执行的延续） | 跨任务 / 跨会话复用 |
 | 区分轴 | 快照时刻（执行内的点） | 是否跨越单次执行边界（第 7 章 / architecture-map 第四节） |
 | 权威性 | 是执行的留影，不是跨执行的事实源 | 可信度取决于来源 / 类型 / 验证状态等（第 7 章） |
 
-**一句话**：Checkpoint 是"执行走到哪了"的留影，Memory 是"执行之外记住了什么"——第 7 章已确立 Memory 跨执行、Checkpoint 是快照的边界**原样成立**，本章不重新定义。
+**官方术语桥接（必须声明）**：LangGraph 官方可能把 **thread 内由 Checkpointer 保留的状态称为 short-term memory**（同一 thread 可以跨多次 invoke 保留状态；Store 用于 cross-thread long-term memory）。**推荐表述**：LangGraph 官方可能把 thread 内由 Checkpointer 保留的状态称为 short-term memory；**本书为了维持架构语义边界，仍将其归入 Checkpoint / thread state persistence**，并把 Memory 限定为经过选择和治理、面向未来执行复用的信息。**因此不得绝对化**："Checkpoint 只存在于一次 invoke 内"、"只有 Memory 才能跨 invocation"、"Checkpointer 不可能提供任何 memory 语义"——都不成立：Checkpointer 的 thread persistence 可以跨多次 invoke 保留状态，但那在本书语义中仍是 Checkpoint / thread state persistence，不是经过选择与治理的 Memory。
 
 ## 14.9 证据与测试
 
@@ -162,9 +170,9 @@ Q8 的回答——**Checkpoint 不是 Memory**（固定主线第三部分 + 边�
 **未验证清单**（仓库中无证据，如实标注）：
 
 - 启用 Checkpointer 后的保存 / 读取行为
-- 崩溃恢复的确定性（恢复到哪个快照、丢失哪些进度）
-- 重放语义（副作用处理、幂等性）
-- 续跑规则（中断后合并新输入的语义）
+- Recovery 的具体机制（pending writes 如何避免重跑已完成节点——未在仓库验证）
+- Replay 的再次触发语义（后续 LLM / Tool / API / Interrupt 重新执行的行为）
+- Resume 的续跑规则（中断后合并新输入的语义）
 - reducer 累积状态的序列化（第 12 章 12.12 留待本章的问题——本章也只能立语义，实现未验证）
 - Checkpoint 与并发 / 动态 work item（第 13 章）的组合
 - 生产恢复策略（幂等重试 / 补偿 / 审计——Part 05）
@@ -174,40 +182,41 @@ Q8 的回答——**Checkpoint 不是 Memory**（固定主线第三部分 + 边�
 ## 14.10 常见误区
 
 1. **Checkpoint 就是 State 字典的序列化副本**——字段值是核心组成部分，但快照还包含执行上下文；"可以继续执行"与"只读副本"是两回事（14.2）
-2. **Checkpoint 等于 Memory**——区分轴不同：快照时刻（执行内的点）vs 跨执行边界（第 7 章）
-3. **Checkpointer 决定恢复策略**——Checkpointer 负责保存 / 读取；恢复策略、重放语义、续跑规则由 Runtime 与应用契约共同决定（14.3）
+2. **Checkpoint 等于 Memory**——本书语义下区分轴不同（快照 vs 经过选择治理的跨执行信息）；但**官方术语桥接**：LangGraph 官方可能把 thread 内 Checkpointer 保留的状态称为 short-term memory——本书仍归入 Checkpoint / thread state persistence（14.8）
+3. **Checkpointer 决定恢复策略**——Checkpointer / persistence layer 负责写入 / 读取 / 检索 / 列举 / pending writes / 序列化；恢复策略、重放语义、续跑规则、治理策略由 Runtime 与应用契约共同决定（14.3）
 4. **启用 Checkpoint 就自动获得生产恢复**——生产 HITL 策略、幂等重试、补偿、审计属 Part 05（14.7 / 边界 2）
-5. **Checkpoint 自动保证重放幂等**——重放副作用如何处理未验证（14.9 未验证清单）
+5. **Checkpoint 自动保证重放幂等**——重放会再次触发 LLM / Tool / API（不是播放历史输出），副作用幂等属 Part 05，未验证（14.4 / 14.9）
 6. **当前 Demo 已经启用 Checkpoint**——`graph.py` 无 checkpointer 参数，docstring 明确未启用（14.6）
 7. **Checkpoint 与审计是同一机制**——Checkpoint 可为审计提供执行快照，完整审计事实由 Audit System（Observability）负责（14.5）
-8. **Checkpoint 替代 Memory 存储选型**——Memory 的存储与检索方案第 7 章已定边界，不选型（14.8）
-9. **恢复就是重放**——恢复（崩溃后继续）、重放（重新执行）、续跑（中断后继续）是三个不同场景（14.4）
+8. **Checkpoint 替代 Memory 存储选型**——Memory 的存储与检索方案第 7 章已定边界，不选型；Checkpointer persistence 的 thread-scoped 语义是官方术语，不等于本书的 Memory 语义（14.8）
+9. **恢复就是重放**——Recovery（故障后恢复状态与执行上下文，pending writes 避免重跑）、Replay（从历史 checkpoint 重跑其后步骤，LLM / Tool 再次触发）、Resume（中断后继续，可携带新输入）是三个不同场景（14.4）
 10. **Checkpoint 能解决并发一致性问题**——并发与动态 work item（第 13 章）下的快照语义未验证（14.9）
 
 ## 14.11 总结
 
 | # | 问题 | 答案 |
 |---|---|---|
-| Q1 | 为什么图执行需要 Checkpoint？ | 执行默认内存易失（手写与 graph Demo 均无持久化）；Checkpoint 把"执行到某个时刻的状态"持久化，支持恢复 / 重放 / 续跑 |
-| Q2 | Checkpoint 是什么？ | 图在某个执行时刻持久化的**状态与执行上下文快照**——字段值是核心组成部分，但**不等于简单的 State 字典副本** |
+| Q1 | 为什么图执行需要 Checkpoint？ | 执行默认内存易失（手写与 graph Demo 均无持久化）；Checkpoint 把"执行到某个时刻的状态"持久化，支持恢复 / 重放 / 续跑——未启用时应用仍可获得最终 State 并可自行持久化业务结果，但**不拥有恢复位置 / 历史快照 / pending writes / 重放与续跑协议** |
+| Q2 | Checkpoint 是什么？ | 图在某个执行时刻持久化的**状态与执行上下文快照**（StateSnapshot 语义：channel values + 执行位置 + thread 标识 + metadata + parent 关系 + 任务信息）——**不等于简单的 State 字典副本**；完整 checkpoint 通常对应 superstep 边界 |
 | Q3 | Checkpoint 与 Graph State 是什么关系？ | Graph State 是执行中的当前状态（每轮演进）；Checkpoint 是某个时刻的留影（生成后固定） |
-| Q4 | Checkpointer 负责什么？ | 保存与读取快照；**恢复策略、重放语义、续跑规则由 Runtime 与应用契约共同决定** |
-| Q5 | 恢复、重放与续跑分别是什么？ | 恢复=崩溃后回到快照继续；重放=从快照重新执行后续步骤；续跑=中断后从快照点继续（第 15 章基础） |
-| Q6 | 持久化什么？ | Graph State 字段值（核心）+ channel 状态（含 reducer 累积，第 12 章）+ 执行上下文 |
+| Q4 | Checkpointer 负责什么？ | 写入 / 读取 checkpoint、按 thread-标识组织检索、列举 history、保存 pending writes、序列化反序列化；**恢复策略、重放语义、续跑规则、治理策略由 Runtime 与应用契约共同决定** |
+| Q5 | 恢复、重放与续跑分别是什么？ | Recovery=故障后恢复状态与执行上下文（pending writes 可能避免重跑，不等于全部节点重跑）；Replay=从历史 checkpoint 重跑其后步骤（跳过之前，LLM / Tool 再次触发，非播放历史输出）；Resume=中断后继续（可携带新输入，Interrupt / Command 留第 15 章） |
+| Q6 | 持久化什么？ | StateSnapshot：channel values（reducer 合并结果通常已体现在其中，history 累计在 values["history"]）+ next 执行位置 + thread config 与标识 + metadata + parent 关系 + tasks / interrupts 信息；pending writes ≠ 完整 checkpoint |
 | Q7 | 为什么当前 Demo 未启用？ | 教学边界：graph.py 无 checkpointer、docstring 明确未启用、examples/checkpoint_hitl 预留、官方核验记录刻意未使用 |
-| Q8 | Checkpoint 与 Memory 有什么区别？ | 快照（执行内的时刻留影）vs 跨执行信息（第 7 章区分轴）；权威性语义不同 |
+| Q8 | Checkpoint 与 Memory 有什么区别？ | 本书语义：快照（thread 状态与执行上下文）vs 经过选择治理的跨执行信息（第 7 章区分轴）；**官方术语桥接**：thread 内 Checkpointer 保留状态可被称为 short-term memory（Store = cross-thread long-term），本书仍归入 Checkpoint / thread state persistence |
 | Q9 | Checkpoint 与 Interrupt 是什么关系？ | Checkpoint 是 Interrupt（第 15 章）的承载基础——暂停需要可恢复的持久化；本章只立边界 |
 | Q10 | 已验证什么、未验证什么？ | 已验证：教学边界声明（docstring / graph.py）/ 官方核验记录 / 预留目录；未验证：保存读取行为、崩溃恢复确定性、重放语义、续跑规则、reducer 累积序列化、并发组合、生产恢复策略 |
 
 **本章验收标准：**
 
 - [ ] 能复述固定主线：Graph State 是执行中的当前状态；Checkpoint 是执行时刻的状态与执行上下文快照；Checkpointer 保存 / 读取快照；恢复策略、重放语义、续跑规则由 Runtime 与应用契约共同决定；Checkpoint 不是 Memory、不等于简单 State 字典副本
-- [ ] 能区分 Graph State（当前执行状态）与 Checkpoint（时刻留影）
-- [ ] 能说明 Checkpointer 的职责边界（保存 / 读取机制 vs 恢复策略决策）
-- [ ] 能区分恢复 / 重放 / 续跑三个场景
-- [ ] 能说出持久化内容（字段值 + channel 状态含 reducer 累积 + 执行上下文）
+- [ ] 能区分 Graph State（当前执行状态）与 Checkpoint（时刻留影），并说明完整 checkpoint 通常对应 superstep 边界（pending writes ≠ 完整 checkpoint）
+- [ ] 能说出 StateSnapshot 语义的持久化内容（channel values 含 reducer 合并结果 / next 执行位置 / thread 标识 / metadata / parent 关系 / 任务信息）
+- [ ] 能说明 Checkpointer / persistence layer 的机制职责（写入 / 读取 / 检索 / 列举 / pending writes / 序列化）与 Runtime-应用契约的决策职责（恢复点 / replay-resume 入口 / 副作用幂等 / 治理 / 审批权限）
+- [ ] 能精确区分 Recovery（pending writes 避免重跑）/ Replay（跳过 checkpoint 之前、LLM / Tool 再次触发）/ Resume（中断后继续、可携带新输入）
+- [ ] 能说明"未启用 Checkpointer"的边界（应用仍可获得最终 State 并自行持久化业务结果，但无恢复位置 / 历史快照 / pending writes / 重放续跑协议）
 - [ ] 能说明当前 Demo 未启用的教学边界（docstring / graph.py / 预留示例 / 官方核验记录）
-- [ ] 能区分 Checkpoint 与 Memory（快照 vs 跨执行信息）
+- [ ] 能区分 Checkpoint 与 Memory（快照 vs 经过选择治理的跨执行信息），并桥接官方术语（thread-scoped short-term memory / Store = cross-thread long-term）
 - [ ] 能说明 Checkpoint 与 Interrupt 的关系（承载基础，仅边界）
 - [ ] 能诚实标注证据范围（无实现证据；不推断实现行为）
 - [ ] 术语与 `TERMINOLOGY.md` 一致；只引用不重新定义 Memory / State / 生产恢复语义

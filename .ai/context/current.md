@@ -181,7 +181,8 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；持久化内容 = 字段值 + channel 状态（含 reducer 累积，ch12 衔接）+ 执行上下文；恢复 / 重放 / 续跑三场景区分；Checkpoint 与 Interrupt 承载基础关系（仅边界）；当前 Demo 未启用如实标注（graph.py 无 checkpointer / agent.py docstring / examples/checkpoint_hitl 预留 / references 核验记录 / architecture-map 未决项）；不提前讲 Checkpointer API 与存储后端 / 生产恢复语义（Part 05）/ Interrupt API（ch15）；零 LangChain API
   - **证据诚实**：仓库无 Checkpoint 实现证据——基于教学边界声明与官方核验记录；未验证清单 7 项如实标注，不推断实现行为
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 14 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 14 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #39 Review 七项修正（2026-08-05）**：持久化内容改 StateSnapshot 语义（channel values 含 reducer 合并结果 / next / thread 标识 / metadata / parent 关系 / 任务信息；pending writes ≠ 完整 checkpoint，完整 checkpoint 通常对应 superstep 边界）/ Checkpoint-Memory 官方术语桥接（thread-scoped short-term memory / Store = cross-thread long-term，本书仍归入 Checkpoint / thread state persistence，删除三项绝对化）/ Checkpointer 机制职责扩展（写入读取检索列举 pending writes 序列化 vs Runtime-应用契约的恢复点 replay-resume 入口副作用幂等治理审批）/ Recovery-Replay-Resume 精确区分（pending writes 避免重跑 / 跳过之前 LLM-Tool 再次触发 / 可携带新输入留 ch15）/ 无 Checkpointer 边界（应用仍可得最终 State 并自行持久化，但不拥有恢复协议）/ 版本化边界（update_state 创建新 checkpoint 不修改旧，fork-replay 派生）/ superstep-pending writes 边界（不展开 Pregel）——已应用并推送更新 PR #39
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步
