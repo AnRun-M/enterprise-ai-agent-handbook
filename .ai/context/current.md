@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（Checkpoint，PR #39）均最终完成，下一步 Chapter 15（Interrupt，TASK-0022）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（PR #39）均最终完成；Chapter 15（Interrupt）正文初稿完成待 Architecture Review（TASK-0022）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -184,11 +184,18 @@
   - **PR #39 Review 七项修正（2026-08-05）**：持久化内容改 StateSnapshot 语义（channel values 含 reducer 合并结果 / next / thread 标识 / metadata / parent 关系 / 任务信息；pending writes ≠ 完整 checkpoint，完整 checkpoint 通常对应 superstep 边界）/ Checkpoint-Memory 官方术语桥接（thread-scoped short-term memory / Store = cross-thread long-term，本书仍归入 Checkpoint / thread state persistence，删除三项绝对化）/ Checkpointer 机制职责扩展（写入读取检索列举 pending writes 序列化 vs Runtime-应用契约的恢复点 replay-resume 入口副作用幂等治理审批）/ Recovery-Replay-Resume 精确区分（pending writes 避免重跑 / 跳过之前 LLM-Tool 再次触发 / 可携带新输入留 ch15）/ 无 Checkpointer 边界（应用仍可得最终 State 并自行持久化，但不拥有恢复协议）/ 版本化边界（update_state 创建新 checkpoint 不修改旧，fork-replay 派生）/ superstep-pending writes 边界（不展开 Pregel）——已应用并推送更新 PR #39
   - **PR #39 合并前术语清理（2026-08-05）**：删除 14.1 绝对化句（"执行结束即失效"→"State 的控制语义服务于一次执行；未启用 Checkpointer 时 Graph Runtime 不自动维护可恢复的 thread checkpoint history"）；"reducer 累积 / channel 状态含累积"统一为"包含 Reducer 归并结果的 channel values 与底层 channel versions / pending writes 的持久化行为"；Checkpointer 职责统一为"写入、读取、组织检索、列举 checkpoint，并保存恢复所需的 pending writes"、持久化内容统一为 StateSnapshot 六项——同步至正文顶部 / 14.3 / TASK-0021 / current.md / PR #39 描述
   - **PR #39 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 007ae18，CI build/test 双绿）→ Chapter 14 最终完成**；本 Memory PR（docs/post-pr39-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+- **Chapter 15 正文初稿（2026-08-05，TASK-0022，本任务）**：
+  - `docs/03-langgraph-core/ch15-interrupt.md`：15.1-15.10，Q1-Q10，5 张 Mermaid 图
+  - **固定主线已逐字保持**：Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时通过同一 thread 的持久化状态继续执行，并可携带人工输入或控制结果。Interrupt 不是 END，不是普通异常，也不等于完整的 HITL 业务流程；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复协议
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；三条硬边界（≠ END / ≠ 异常 / ≠ 完整 HITL）；Checkpoint 承载 + Interrupt 协议分工（恢复 = ch14 续跑场景）；恢复可携带人工输入（T07 批准 / 拒绝 / 修改）或控制结果（Command——ch13 作用域声明，API 不展开）；ch01 Human Stop 暂停态（RUNNING → INTERRUPTED / WAITING_FOR_HUMAN → RUNNING）状态机对应；T07 人工审批挂载点（审批规则属策略层 ADR-004 / ADR-005）；不提前讲 Interrupt API / 生产 HITL（Part 05）/ 审批 UI / Stream（ch16，正交）/ Subgraph（ch17）；零 LangChain API
+  - **证据诚实**：仓库无 Interrupt 实现证据——基于第 1 章暂停态定义、references 核验记录（刻意未使用）、README 第 18 节、examples/checkpoint_hitl 预留；未验证清单 5 项如实标注，不推断实现行为
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 15 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 15 draft / 待架构审查）
+  - 待 Architecture Review
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 14 最终完成（TASK-0021，PR #39）；下一步 **Chapter 15：Interrupt**（暂停与人工介入，TASK-0022，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 15 核心主线（已固定，写作不得偏离）**：Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时通过同一 thread 的持久化状态继续执行，并可携带人工输入或控制结果。Interrupt 不是 END，不是普通异常，也不等于完整的 HITL 业务流程；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复协议。
+1. Part 03（LangGraph Core）：Chapter 15 正文初稿完成（TASK-0022），待 Architecture Review；下一步预告 **Chapter 16：Stream**（流式输出，TASK-0023，按 DAG 拓扑序，Chapter 15 Review 通过后启动）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
