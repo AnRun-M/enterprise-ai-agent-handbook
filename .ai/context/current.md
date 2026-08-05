@@ -127,9 +127,10 @@
   - 未开始任何 Chapter 正文（等用户确认规划）
 - **Chapter 08 正文初稿（2026-08-03，TASK-0015，本任务）**：
   - `docs/03-langgraph-core/ch08-why-graph.md`：8.1-8.9，Q1-Q10，4 张 Mermaid 图
-  - 主线：Runtime 可图化三性质（循环可显式 / 连接可声明 / 边界可挂载）；图带来/没带来；不引入新 Runtime 理论
+  - 主线：执行控制结构可图化（循环显式 / 连接可声明 / 执行结构可审查）；LangGraph Runtime 提供 Checkpoint / Interrupt / Streaming 集成机制（集成点 ≠ 能力自动生效）；图不引入新 Runtime 理论
   - 写作约束已执行：Runtime 第一视角、Framework 第二视角；只引用不重新定义 State/Context/Memory/Scheduler/Tool Registry；映射表为全局参考不复制；Demo 未用能力（Checkpoint/Interrupt/Stream）如实标注
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 8 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 08 draft）
+  - **PR #27 Review 二轮修正（2026-08-05）**：8.6 执行控制关切范围（两类关切） / Graph Representation vs LangGraph Runtime 边界 / Routing 纯函数为工程选择（非框架强制） / TASK-0003 观察等价收窄 / Agent Loop 映射修正 / LangChain 边界提示（Future Scope Planning 已记录，不展开）——已应用并推送更新 PR #27
   - 待 Architecture Review（流程：Review → Merge → Memory PR）
 - 官方资料索引（`references/official/`）
 
@@ -140,6 +141,11 @@
 3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 5. 选择许可证
+6. **Future Task：LangChain Scope Planning**（不立即执行，仅记录方向）：
+   - 目标：判断是否新增独立 Part，或仅新增 1-2 个桥接章节；**不在 Part 03 内展开**
+   - 待评估主题：LangChain / LangGraph / Runtime 分层、Models 与 Provider Integration、Messages、Tools 与 Tool Calling、Structured Output、create_agent、Middleware、何时用 LangChain vs 直接用 LangGraph
+   - 推荐方向：Runtime Semantics → LangGraph Core → LangChain Agent Framework → Text-to-SQL Practice
+   - 约束：future planning；当前**不修改** ROADMAP Part 编号、content-map、mkdocs.yml；**不新增** TASK 正式文件；Part 03 完成后再单独创建 Scope Alignment / Architecture Planning 任务
 
 ## 当前阻塞
 

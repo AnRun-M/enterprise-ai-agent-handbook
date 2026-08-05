@@ -7,11 +7,11 @@
 
 **整章主线：**
 
-> **Runtime 的可图化，源于控制流的三个性质：循环可显式、连接可声明、边界可挂载。图不是给 Runtime 换了一个更高级的实现，而是把 Runtime 里"藏在代码里的结构"变成"看得见的声明"；三层职责与业务语义在换载体时不变。**
+> **Runtime 的执行控制结构可以图化，因为循环、步骤和连接能够被显式声明（循环可显式、连接可声明、执行结构可审查）；选择 LangGraph 作为承载后，还可以将持久化、暂停、流式等能力接入其运行时机制——但普通图、DAG 或状态机不天然具备 durable execution，集成点存在也不等于能力自动生效。图不是给 Runtime 换了一个更高级的实现，而是把"藏在代码里的结构"变成"看得见的声明"；三层职责与业务语义在换载体时不变。**
 
 ## 8.1 起点：一个已经发生的迁移
 
-TASK-0003 已经完成过一次真实迁移：`examples/manual_agent_loop` 的手写 while 循环 → `examples/basic_langgraph` 的条件边回路。这不是"规划中"，是**已经验证的事实**——同一组 `FakeLLM` / `FakeSQLValidator` / `FakeSQLExecutor` 被两个载体复用（零复制），`test_direct_equivalence_with_manual` 逐字段断言两个实现的 State 序列等价（status / current_sql / execution_result / final_answer / iteration / history 动作序列）。
+TASK-0003 已经完成过一次真实迁移：`examples/manual_agent_loop` 的手写 while 循环 → `examples/basic_langgraph` 的条件边回路。同一组 `FakeLLM` / `FakeSQLValidator` / `FakeSQLExecutor` 被两个载体复用（零复制），`test_direct_equivalence_with_manual` 断言两个实现的**最终 State 在关键字段、终止行为和 history 动作序列上保持观察等价**（仓库实际断言项：status / current_sql / execution_result / final_answer / iteration / history 动作序列）。必须诚实标注验证边界：这是**当前教学 Demo 范围内的观察等价**，不是一般性 Runtime 可替换的证明——concurrency、side-effect ordering、retry semantics、checkpoint / recovery、delivery guarantees 均未验证（第 6 章 6.8 的替换契约只覆盖其中一部分）。
 
 这次迁移证明了第 1 章 1.8 的一句话：
 
@@ -23,13 +23,13 @@ TASK-0003 已经完成过一次真实迁移：`examples/manual_agent_loop` 的�
 
 | 载体承载的 Runtime 语义 | 定义在哪 | 图里的对应物（第 9-17 章展开） |
 |---|---|---|
-| Agent Loop：Observe → Decide → Act → Update State | 第 1 章 | 图的执行结构（StateGraph） |
+| Agent Loop：Observe → Decide → Act → Update State | 第 1 章 | 编译后图的执行过程 + 条件边形成的回路 + Lifecycle / Termination Guard |
 | Execution State：控制事实的唯一来源 | 第 2 章 | Graph State |
 | Routing / Dispatch：下一步把控制权交给谁 | 第 6 章 / 第 5 章 | 条件边（Conditional Edge） |
 | 生命周期与终止：继续 / 终止 / 暂停 | 第 1 章 / 第 6 章 | 图的终止守卫与终止节点 |
 | 状态合并：多节点写入如何汇合 | 第 2 章 | Reducer |
 
-> 这张表只是**概念配对**，不是逐项映射表。完整的 20 项 Runtime → LangGraph 映射是 Part 03 的全局参考（独立文档或前言），后续每个原语章都会引用它对应的那几行。本章的任务是解释"为什么每一对都存在"。
+> 这张表只是**概念配对**，不是逐项映射表。完整的 20 项 Runtime → LangGraph 映射是 Part 03 的全局参考（独立文档或前言），后续每个原语章都会引用它对应的那几行。本章的任务是解释"为什么每一对都存在"。注意：StateGraph 是图定义 / 构建入口、Graph State 是状态载体、条件边形成回路、编译后的 Graph Runtime 执行这些结构、Lifecycle Guard 控制继续 / 终止 / 暂停——**不要把 StateGraph 构建器本身等同于 Agent Loop**。
 
 ## 8.2 性质一：循环可显式
 
@@ -96,32 +96,32 @@ elif action.type is ActionType.FINALIZE:
 图把连接关系变成**声明的边**：
 
 - **边（Edge）**：声明确定连接——`finalize → END`、`max_iterations → END`（`graph.py`）。"终止节点之后没有下一步"被写死在结构里，第 1 章 1.5 说的"已经 SUCCESS 后继续执行在图中不可能发生"就是这个性质的结果。
-- **条件边（Conditional Edge）**：声明运行时连接——`route_decide_or_max` 与 `route_by_next_action`（`routing.py`）。路由函数是**纯函数**：输入 State，输出"下一个节点名"，无副作用。这正好实现第 6 章 6.9 的测试主张——Routing Decision 纯函数化之后可以像普通函数一样单元测试（`test_router_decide_or_max_is_pure` / `test_router_by_next_action_is_pure`）。
+- **条件边（Conditional Edge）**：声明运行时连接——`route_decide_or_max` 与 `route_by_next_action`（`routing.py`）。**当前 Demo 将路由决策函数设计为纯函数**：输入 State，输出"下一个节点名"，无副作用——这是为了可测试和可重放的工程选择，**不是 LangGraph 的强制约束**（LangGraph 接受 routing callable，但并不强制所有 routing callable 都是数学意义上的纯函数）。
 
-**为什么这回答了"连接可声明"**：手写时连接关系是代码的执行顺序，图里连接关系是**独立的、可审查、可测试的声明**。第 6 章想要的结构（路由是纯函数、集中、可测）正是图声明天然给出来的结构。而且声明化的连接不改变"谁有决策权"——`route_by_next_action` 只按 `next_action` 分发，决定"下一步做什么"的仍然是 decide 节点的模型调用。
+**为什么这回答了"连接可声明"**：手写时连接关系是代码的执行顺序，图里连接关系是**独立的、可审查、可测试的声明**。路由决策函数在工程上应尽量确定性、无副作用、可重复测试、显式接收所需 runtime facts——这是第 6 章 6.9 的测试主张（Routing Decision 纯函数化之后可以像普通函数一样单元测试：`test_router_decide_or_max_is_pure` / `test_router_by_next_action_is_pure`）。若路由依赖 request-scoped configuration、feature flags、quota、policy result 或 runtime facts，应将这些依赖显式化，避免隐藏副作用。声明化的连接不改变"谁有决策权"——`route_by_next_action` 只按 `next_action` 分发，决定"下一步做什么"的仍然是 decide 节点的模型调用。
 
-## 8.4 性质三：边界可挂载
+## 8.4 LangGraph Runtime：运行时能力有明确集成点
 
 **Runtime 语义先行**：architecture-map 第六层把 Runtime Control Plane 的职责列得很清楚——除了 Loop、State、Dispatch，还有"**Retry / Resume 挂载点**"和"终止与暂停调度"。第 1 章 1.5 的 Human Stop 是暂停态（INTERRUPTED / WAITING_FOR_HUMAN → RUNNING），当时就标注了"**当前 Demo 未实现，留待 Interrupt 章节**"。第 2 章与 architecture-map 把 Checkpoint 定义为"Execution State 在某个执行时刻的持久化快照"，同样标注"**未启用**"。
 
-这些"未实现 / 未启用"不是一个缺口，而是一个事实：**挂载点先存在，能力后插入**。手写 while 循环里要加"断点续跑"，你得改循环体本身；要在图里加，是把能力挂在图执行层预留的位置上：
+**先分清两件事**：循环可显式、连接可声明、执行结构可审查（8.2 / 8.3 讲的）属于 **Graph Representation** 的核心价值；而持久化、暂停、流式是 **LangGraph Runtime** 提供的运行时机制——普通图、DAG 或状态机**不天然具备 durable execution**。这些"未实现 / 未启用"不是一个缺口，而是一个事实：**集成点先存在，能力后接入**。手写 while 循环里要加"断点续跑"，你得改循环体本身；LangGraph 为 Checkpoint、Interrupt 和 Streaming 提供明确的**集成机制与执行协议**，使应用不必从零设计基础接入方式：
 
 ```mermaid
 flowchart TD
-    subgraph RUN["图执行（compile 后的运行时）"]
+    subgraph RUN["LangGraph Runtime（compile 后的执行）"]
         N1["节点执行"]
         N2["节点执行"]
         R0{"路由"}
         N1 --> R0 --> N2
     end
-    CK["Checkpoint：State 快照（第 14 章）"] -. "执行到断点处持久化" .-> N1
-    IN["Interrupt：暂停等人工（第 15 章）"] -. "节点处暂停 / 恢复" .-> N2
-    ST["Stream：逐节点输出（第 16 章）"] -. "执行过程可见" .-> RUN
+    CK["Checkpointer / Persistence（第 14 章）"] -. "LangGraph Runtime 集成机制" .-> N1
+    IN["Interrupt / HITL 集成（第 15 章）"] -. "LangGraph Runtime 集成机制" .-> N2
+    ST["Streaming（第 16 章）"] -. "LangGraph Runtime 集成机制" .-> RUN
 ```
 
-必须诚实：**basic_langgraph 一个都没启用**——没有 Checkpointer（`agent.py` 的 docstring 明确写出"无 Checkpointer 时不保留部分执行状态，这是明确的教学边界"）、没有 `interrupt()`、没有流式调用。第 18 节说得很直接："Checkpoint（恢复）、HITL（Interrupt）、Memory（跨会话）属于 v0.4.0 / v0.6.0 里程碑，届时基于本 Demo 扩展。"这些插座是**空的**，但插座的**位置**已经由图的执行模型定好了——这正是"边界可挂载"的含义。
+必须诚实：**basic_langgraph 一个都没启用**——没有 Checkpointer（`agent.py` 的 docstring 明确写出"无 Checkpointer 时不保留部分执行状态，这是明确的教学边界"）、没有 `interrupt()`、没有流式调用。第 18 节说得很直接："Checkpoint（恢复）、HITL（Interrupt）、Memory（跨会话）属于 v0.4.0 / v0.6.0 里程碑，届时基于本 Demo 扩展。"**集成点存在 ≠ 能力自动生效**——是否启用、挂载位置和治理策略仍由应用 Runtime / Policy 决定。
 
-**为什么这回答了"边界可挂载"**：手写 Runtime 里"在哪个执行点挂载恢复 / 暂停 / 流式"是每写一个功能都要重新设计的边界；图执行模型把这些边界**固定成执行模型的一部分**。挂载点存在 ≠ 能力启用——第 14-16 章逐个插上，语义都先由 Part 02 定义过了（Checkpoint 边界在第 2 章 / architecture-map，Interrupt 语义在第 1 章 Human Stop）。
+**为什么用 LangGraph Runtime 承载这些能力**：手写 Runtime 里"在哪个执行点接入恢复 / 暂停 / 流式"是每写一个功能都要重新设计的边界；LangGraph 为这些能力提供了明确的集成机制与执行协议，应用不必从零设计基础接入方式。同时必须明确：框架**不会**自动提供业务恢复策略、审批权限、幂等 / 补偿 / 完整审计——这些生产治理语义属于 Part 05；各能力的语义先由 Part 02 定义过了（Checkpoint 边界在第 2 章 / architecture-map，Interrupt 语义在第 1 章 Human Stop），第 14-16 章逐个启用。
 
 ## 8.5 图带来了什么、没带来什么
 
@@ -130,9 +130,9 @@ flowchart TD
 | 图带来 | 对应 Runtime 关切 |
 |---|---|
 | 循环从"散落在业务代码里的 while"变成**显式的图声明** | 第 1 章：循环属于 Runtime；现在循环看得见 |
-| 控制流集中：路由函数是唯一决定"下一步去哪"的地方，可独立测试 | 第 6 章：Routing 纯函数化（6.9） |
+| 控制流集中：路由函数是唯一决定"下一步去哪"的地方，可独立测试 | 第 6 章：Routing 决策纯函数化是工程选择（6.9），非框架强制 |
 | 状态更新规则声明化：channel 合并 + reducer，不再手写 apply 逻辑 | 第 2 章：State 更新机制 |
-| 为 Checkpoint / Interrupt / Streaming 等基础设施提供**挂载点** | architecture-map：Retry / Resume 挂载点 |
+| 选择 LangGraph 后：Checkpoint / Interrupt / Streaming 有**明确集成点**（第 14-16 章逐个启用） | architecture-map：Retry / Resume 挂载点；集成点 ≠ 能力自动生效 |
 
 同样在承载方式层面，图**没有带来**四样东西（README 第 17 节）：
 
@@ -143,31 +143,42 @@ flowchart TD
 
 更本质地说：**图没有带来新的 Runtime 理论**。State 还是执行控制状态的唯一事实来源（第 2 章），Context 还是单次调用可见的输入（第 3 章），Memory 还是跨执行边界的信息（第 7 章），策略层还是由代码保证确定性治理（ADR-004）。**框架在语义层之上，不在语义层里面**——这是全书的立场，也是本章回答"为什么可以用图表达"而不越过界的护栏。
 
-## 8.6 为什么每个 Runtime 概念都能入图
+## 8.6 为什么 Runtime 的核心执行控制关切能够用图表达
 
-前面三节给了三个性质（循环可显式、连接可声明、边界可挂载）。现在回答一个自然的追问：**为什么是"每个"Runtime 概念都能入图，而不是碰巧有几个？**
+前面三节讲了图能表达什么。现在回答一个自然的追问：**是"每个"Runtime 概念都能入图吗？**答案是否定的——需要区分两类关系。
 
-因为图原语的设计，本就是围绕 Runtime 需要的那几类关切设计的。把 Part 02 每章的核心关切列出来，你会发现每一类都能落到一个图原语上（概念配对，完整逐项表见全局参考）：
+**第一类：可以直接映射到图执行原语的关切**（执行控制结构）：
 
-| Runtime 章节的核心关切 | 图原语 | 展开章节 |
+| Runtime 核心执行控制关切 | 图原语 | 展开章节 |
 |---|---|---|
-| 执行控制状态（第 2 章） | Graph State（状态 schema 定义图） | 第 9 章 |
-| 可执行动作 / work item（第 6 章）、Tool / LLM 调用（第 5 章） | Node（图中的执行单元） | 第 10 章 |
-| 路由与终止（第 6 章）、Loop（第 1 章） | Edge / Conditional Edge | 第 11 章 |
-| 状态合并（第 2 章） | Reducer | 第 12 章 |
-| 动态控制流（第 6 章 Scheduler 的并发 / 扇出） | Command / Send | 第 13 章 |
-| 挂载点（architecture-map）：恢复 / 暂停 / 流式 | Checkpoint / Interrupt / Stream | 第 14-16 章 |
-| 子流程复用（第 6 章模块化编排） | Subgraph | 第 17 章 |
+| Execution State（第 2 章） | Graph State（状态 schema 定义图） | 第 9 章 |
+| Executable Step / Work Item（第 6 章） | Node（图中的执行单元） | 第 10 章 |
+| Routing（第 6 章） | Conditional Edge | 第 11 章 |
+| Lifecycle Guard：继续 / 终止 / 暂停（第 1/6 章） | 终止守卫 + 终止节点 + Interrupt 集成点 | 第 11/15 章 |
+| State Merge（第 2 章） | Reducer | 第 12 章 |
+| Dynamic Fan-out（第 6 章并发 / 扇出） | Send | 第 13 章 |
+| Pause / Resume / Stream integration（architecture-map 挂载点） | Checkpoint / Interrupt / Stream | 第 14-16 章 |
+| Subflow composition（第 6 章模块化编排） | Subgraph | 第 17 章 |
 
-这不是巧合。Agent 的运行时关切（状态、执行单元、控制流、合并、暂停、恢复、流式、组合）是跨实现稳定的——手写 Runtime 有，LangGraph 有，将来换任何 Durable Execution Runtime 也还得有（第 6 章 6.8 的替换契约）。**图原语只是把这些稳定关切各自收进一个明确的概念**，所以"每个 Runtime 概念都能入图"才成立。
+**第二类：不会自动变成图原语的 Runtime 组件**：Model Context（第 3 章）、Prompt Builder（第 4 章）、Tool Registry（第 5 章）、Memory（第 7 章）、Policy（确定性策略层）、External Source of Truth。它们通常通过以下方式参与图执行：
+
+- 在 Node 内被调用（如节点内构造 Context、调用已注册工具）
+- 作为图外依赖注入（如 `build_graph` 的参数注入 FakeLLM / Validator / Executor）
+- 在路由或执行前后提供策略结果（Policy 的确定性治理决策）
+- 由 Runtime 读取并组装（State 切片 → Context）
+- 保持在 External System 中，由引用访问（不复制进 State）
+
+> **图主要承载 Runtime 的执行控制结构；Context、Registry、Memory、Policy 和外部事实源通常作为节点依赖、输入来源或外围能力参与执行，而不是被转换为图原语。**
+
+这不是巧合，也不是缺憾：Agent 的**执行控制关切**（状态、执行单元、控制流、合并、暂停、恢复、流式、组合）是跨实现稳定的——手写 Runtime 有，LangGraph 有，将来换任何 Durable Execution Runtime 也还得有（第 6 章 6.8 的替换契约）。图原语把这些稳定关切各自收进一个明确的概念；而 Context / Registry / Memory / Policy 属于"组装输入与治理"侧，它们服务的对象是模型与策略，不需要也不应该被图化。
 
 ## 8.7 什么时候该用图、什么时候 while 就够
 
 图表达了全部 Runtime 语义，不等于**所有 Agent 都必须用图**。第 0 章 0.7 的结论在这里是判据：从手写到框架是**表示迁移，不是能力获得**。
 
-**适合用图的**：多步骤、有分支、有循环、需要恢复 / 暂停 / 流式、控制流需要被审查和测试的系统——图的显式化收益明显。
+**适合用图的**：多步骤、有分支、有循环、控制流需要被审查和测试的系统——图的显式化收益明显；若还需要持久化 / 暂停 / 流式，LangGraph Runtime 提供集成点（第 14-16 章）。
 
-**while / 函数就够的**：单程线性流程、没有恢复需求、控制流简单到一眼看穿的系统——图声明是多余的重载。第 6 章 6.8 说得更准确：Runtime 载体可替换的前提是替换契约成立；图这个载体带来的价值，取决于你的控制流需不需要"显式、声明化、可挂载"这三样。
+**while / 函数就够的**：单程线性流程、没有恢复需求、控制流简单到一眼看穿的系统——图声明是多余的重载。第 6 章 6.8 说得更准确：Runtime 载体可替换的前提是替换契约成立；图这个载体带来的价值，取决于你的控制流需不需要"显式、声明化、可审查"这三样。
 
 **三个常见误区（展开在后续章节，这里先立边界）：**
 
@@ -188,25 +199,28 @@ flowchart TD
 
 | # | 问题 | 答案 |
 |---|---|---|
-| Q1 | Runtime 为什么可以用 Graph 表达？ | 控制流的三个性质：循环可显式、连接可声明、边界可挂载；语义层不因换载体而变 |
-| Q2 | "用图表达"改变了什么、没改变什么？ | 改变承载方式（循环/连接/挂载点的表示）；不改变三层职责与业务语义 |
+| Q1 | Runtime 为什么可以用 Graph 表达？ | 执行控制结构可图化：循环、步骤和连接能够被显式声明（循环可显式 / 连接可声明 / 执行结构可审查）；语义层不因换载体而变 |
+| Q2 | "用图表达"改变了什么、没改变什么？ | 改变承载方式（循环/连接的表示）；当前教学 Demo 在最终 State 关键字段、终止行为和 history 动作序列上保持观察等价；不改变三层职责与业务语义；并发 / 重试 / Checkpoint / Delivery 等未验证 |
 | Q3 | 循环如何显式化？ | while 藏在执行流程里，条件边回路是可见的声明；decide 节点仍调用模型、route_decide_or_max 仍保证确定性终止 |
-| Q4 | 连接如何声明化？ | if/elif 散落分发变成 Edge / Conditional Edge；路由函数是纯函数，只分发不决策 |
-| Q5 | 边界如何挂载？ | 图执行模型固定 Checkpoint / Interrupt / Stream 挂载点；basic_langgraph 未启用（如实标注），插座是空的 |
-| Q6 | 图带来了什么？ | 循环显式、控制流集中可测、状态更新声明化、基础设施挂载点 |
+| Q4 | 连接如何声明化？ | if/elif 散落分发变成 Edge / Conditional Edge；当前 Demo 将路由决策函数设计为纯函数（可测试与可重放的工程选择，非 LangGraph 强制约束），只分发不决策 |
+| Q5 | 运行时能力如何接入？ | 普通图 / DAG / 状态机不天然具备 durable execution；Checkpoint / Interrupt / Streaming 是 LangGraph Runtime 提供的能力，有明确集成点；basic_langgraph 未启用（集成点 ≠ 能力自动生效） |
+| Q6 | 图带来了什么？ | 循环显式、控制流集中可测、状态更新声明化；选择 LangGraph 后 Checkpoint / Interrupt / Streaming 有明确集成点 |
 | Q7 | 图没有带来什么？ | 不替代业务规则 / 执行引擎、不消除上下文成本、不消灭 Loop、不引入新 Runtime 理论 |
-| Q8 | 为什么每个 Runtime 概念都能入图？ | 图原语围绕 Runtime 稳定关切（状态/执行单元/控制流/合并/暂停/恢复/流式/组合）设计，是一一对应的概念 |
-| Q9 | 什么时候该用图、什么时候 while 就够？ | 多步分支 + 恢复需求用图；单程线性无需恢复则 while/函数足够；图是表示迁移不是能力获得 |
-| Q10 | 为什么 LangGraph 是 Runtime 的实现而非新理论？ | State/Context/Memory/Policy 边界全部由 Part 02 定义，图只换承载方式；框架在语义层之上 |
+| Q8 | 为什么 Runtime 的核心执行控制关切能入图？ | 执行控制关切（状态/执行单元/控制流/合并/暂停/恢复/流式/组合）跨实现稳定，图原语一一收容；Context / Registry / Memory / Policy / 外部事实源作为节点依赖、输入来源或外围能力参与，不被图化 |
+| Q9 | 什么时候该用图、什么时候 while 就够？ | 多步分支 + 控制流需审查用图；单程线性无需恢复则 while/函数足够；图是表示迁移不是能力获得 |
+| Q10 | 为什么 LangGraph 是 Runtime 的实现而非新理论？ | State/Context/Memory/Policy 边界全部由 Part 02 定义，图只换承载方式；框架在语义层之上；LangGraph 可独立使用，不要求 LangChain |
 
 **本章验收标准：**
 
-- [ ] 能解释 Runtime 可图化的三个性质（循环可显式 / 连接可声明 / 边界可挂载）
-- [ ] 能说明"用图表达"改变承载方式而不改变三层职责与业务语义
-- [ ] 能指出循环、连接、边界挂载在 manual 版与 graph 版各长什么样，且不展开 API 写法
+- [ ] 能区分 Graph Representation（循环可显式 / 连接可声明 / 执行结构可审查）与 LangGraph Runtime 能力（Checkpoint / Interrupt / Streaming 集成机制），并说明"集成点 ≠ 能力自动生效"
+- [ ] 能说明"用图表达"改变承载方式而不改变三层职责与业务语义；当前教学 Demo 仅验证最终 State 关键字段、终止行为与 history 动作序列的观察等价（并发 / 重试 / Checkpoint / Delivery 未验证）
+- [ ] 能区分两类 Runtime 关切：可直接映射图原语的执行控制关切 vs 作为节点依赖 / 输入来源 / 外围能力参与的 Context / Registry / Memory / Policy
+- [ ] 能说明路由决策函数纯函数化是当前 Demo 的工程选择，而非 LangGraph 强制约束
 - [ ] 能区分图带来 / 没带来的内容，并说明"图没有引入新 Runtime 理论"
-- [ ] 能说明为什么每个 Runtime 概念都能找到图原语对应（概念配对，引用全局映射表而非复制）
 - [ ] 能用第 0 章 0.7 判据说明什么时候该用图、什么时候 while 就够
+- [ ] 能说明 LangGraph 可独立使用、不要求 LangChain（LangChain 为更高层抽象，本 Part 不展开）
 - [ ] 术语与 `TERMINOLOGY.md` 一致；只引用不重新定义 State / Context / Memory / Scheduler / Tool Registry
 
 **本章边界**：Runtime → LangGraph 完整映射表（全局参考文档，非本章正文）；StateGraph / Node / Edge / Conditional Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream / Subgraph 的写法与机制——第 9-17 章；生产级恢复 / HITL / 流式交付语义——Part 05；MCP / A2A——Part 06。
+
+**技术栈边界（LangChain）**：LangGraph 可以独立使用，不要求应用必须采用 LangChain。LangChain 位于更高层，提供模型、消息、工具、预构建 Agent 与 Middleware 等抽象；LangChain 的 create_agent 使用 LangGraph 作为图式 Agent Runtime。本 Part 只讲 LangGraph Core；LangChain 将在 Part 03 完成后通过独立 Scope Planning 决定章节范围（见 `.ai/context/current.md` Future Task）。

@@ -4,7 +4,7 @@
 
 ## 章节
 
-- [第 8 章：为什么是图——为什么 Runtime 可以用 Graph 表达](ch08-why-graph.md)（定位章：循环可显式 / 连接可声明 / 边界可挂载）
+- [第 8 章：为什么是图——为什么 Runtime 可以用 Graph 表达](ch08-why-graph.md)（定位章：执行控制结构可图化；Graph Representation vs LangGraph Runtime）
 - 第 9 章：Graph State（状态 schema 定义图）
 - 第 10 章：Execution Nodes（Node 执行模型）
 - 第 11 章：Edge & Conditional Edge（静态边与条件路由）
