@@ -154,7 +154,8 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；Edge 是连接描述不是执行者；Conditional Edge 不等于模型决策；Route Decision（纯函数化是工程选择）≠ Scheduling Execution；模型语义决策在 decide 节点、route_by_next_action 只分发（未知值 RuntimeError → invoke 兜底）；route_decide_or_max 按真实代码三条顺序（终止守卫最先 → 上限检查 → decide），定位 Lifecycle Guard + 确定性路由，上限检查先于模型动作，off-by-one 语义；END ≠ 业务成功、暂停 ≠ END；不提前讲 Reducer/Command/Send/Checkpoint/Interrupt/Stream/Subgraph；零 LangChain API
   - **代码差异如实报告**：任务书建议结构中的「START → decide 确定性入口」与实际代码不符——START 出口实为条件边（`add_conditional_edges(START, route_decide_or_max, ...)`），本 Demo 静态边仅 finalize→END / max_iterations→END 两条；正文按代码为准并在 11.2 显式注明
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 11 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 11 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #33 Review 六项修正（2026-08-05）**：Routing error 归属（非法 next_action = 应用路由契约错误，应用 callable 产生 / Graph Runtime 传播 / 应用级 invoke 兜底，非框架自动转换）/ Conditional Edge 两层定义（概念层 vs 当前 Demo path map，path map 非必经结构）/ next_action 写入 State 收窄为当前 Demo 显式契约（非框架强制，Command 留 ch13）/ Route Decision 纯函数三层（定义 / 工程推荐 / Demo 事实，"纯函数化"非定义组成部分）/ Edge-Conditional Edge 边界（静态 Edge 不读 State，读 State 的是 routing callable，declaration 与 callable 都不执行 Node）/ Edge-Scheduler 关系（"Edge 是 Runtime 控制流的声明载体，不是 Scheduler 本身"）——已应用并推送更新 PR #33
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步

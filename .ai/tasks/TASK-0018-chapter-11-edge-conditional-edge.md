@@ -34,10 +34,13 @@
 
 - **核心主线固定**（见目标），不得偏离
 - **Runtime 第一视角、Framework 第二视角**：先引用 Part 02 语义（ch01 Loop / ch06 Routing + Lifecycle Guard / ch09 START-END / ch10 Node），再讲 LangGraph 承载；禁止从 API 出发解释概念
-- **Edge 是连接描述，不是执行者**：不调用节点、不做业务判断；执行节点与解释路径的是 Graph Runtime
-- **Conditional Edge 是运行时路径选择机制，不等于模型决策**：不得写"Conditional Edge 自己调用节点"
-- **Route Decision ≠ Scheduling Execution**：路由函数产生 route result（纯函数化是工程选择非框架强制）；Graph Runtime 负责解释与调度
-- **模型语义决策在 decide 节点发生**：route_by_next_action 只按 State 中 next_action 分发，不重新判断业务意图、不调用 LLM、不重写 next_action；未知值以实际代码为准（RuntimeError → invoke 兜底）
+- **三层职责（Edge/Scheduler 关系）**：Edge / Conditional Edge declaration 描述固定连接或路由挂载关系（不执行 Node）→ Routing callable 产生路径结果（也不执行 Node）→ Graph Runtime / Scheduling Execution 解释路径结果并调度下一 Node；**"Edge 是 Runtime 控制流的声明载体，不是 Scheduler 本身"**
+- **普通静态 Edge 是构建期声明的固定连接，不读取 State，也不执行运行时判断**；读取 State 的是与 Conditional Edge 关联的 routing callable（在运行时被调用）
+- **Conditional Edge 两层定义**：概念层 = 关联 routing callable，返回 Graph Runtime 可解释的路径结果；当前 Demo = 符号化 route key + path map（`_DECIDE_OR_MAX_MAP` / `_BY_ACTION_MAP`）映射节点——**path map 是当前 Demo 的接线方式，不是所有 Conditional Edge 的必经结构**（不展开其他 API 形式）
+- **Route Decision 三层**：定义 = 根据 State 与显式 runtime facts 产生路径结果；工程推荐 = 尽量确定性 / 无副作用 / 可独立测试 / 依赖显式化；当前 Demo 事实 = 两个路由函数被实现并测试为纯函数——**"纯函数化"不是 Route Decision 的定义组成部分**
+- **next_action 写入 State 是当前 Demo 的显式契约设计，非框架强制**（收益：解耦 / 独立测试路由 / 双 Runtime 对照 / 为 Trace-审计提供可记录依据——不是"写进 State 就等于已实现审计"）；Command 等其他控制结果表达方式留第 13 章；不得写"所有模型决策都必须进入普通 State 字段"或"Conditional Edge 必须从 next_action 字段路由"
+- **Routing error 归属**：route_by_next_action 是应用定义的 routing callable，非法 next_action 是应用路由契约错误——异常由应用 callable 产生、Graph Runtime 调用与传播、应用级 invoke 外层兜底构造 FAILED State；**不是 LangGraph 自动业务错误转换，不称其为 LangGraph 内部错误**
+- **模型语义决策在 decide 节点发生**：route_by_next_action 只按 State 中 next_action 分发，不重新判断业务意图、不调用 LLM、不重写 next_action
 - **route_decide_or_max 按真实代码讲**（终止守卫最先 → iteration >= max → max_iterations；否则 → decide）；定位为 Lifecycle Guard + 确定性路由，不是语义动作决策器；上限检查先于模型动作；off-by-one 语义
 - **END 是执行终点 ≠ 业务成功**；FAILED / MAX_ITERATIONS_REACHED 也进 END；Human Stop / Interrupt 是暂停不能画成 END（API 留第 15 章）
 - **不提前展开**：Reducer（ch12）/ Command / Send（ch13）/ Checkpoint（ch14）/ Interrupt（ch15）/ Stream（ch16）/ Subgraph（ch17）
@@ -55,8 +58,16 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0018 Status = in_progress；ROADMAP Chapter 11 = draft / 待架构审查；content-map 第 11 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-11-edge-conditional-edge，commit `docs: draft chapter 11 edge and conditional edge`）
+- [ ] PR #33 Architecture Review 六项修正全部应用（Routing error 归属 / Conditional Edge 两层定义 / next_action 作用域 / Route Decision 三层 / Edge-Conditional Edge 边界 / Edge-Scheduler 关系）
 - [ ] 等待 Architecture Review
 
 ## 完成记录
 
-- 2026-08-05：任务创建，正文初稿完成（待补）
+- 2026-08-05：任务创建，正文初稿完成；四源更新；PR #33 创建。
+- 2026-08-05：**PR #33 Architecture Review 六项修正**（commit：docs: refine edge routing and error ownership boundaries）全部应用并推送更新 PR #33：
+  1. **Routing error 归属修正**：route_by_next_action 非法 next_action 抛 application-defined routing error——应用 callable 产生、Graph Runtime 调用与传播、应用级 invoke 兜底构造 FAILED State；不是 LangGraph 自动业务错误转换、不称 Graph Runtime 内部错误（11.7 / Q7 / 11.9 / 验收标准）
+  2. **Conditional Edge 两层定义**：概念层（routing callable → Graph Runtime 可解释的路径结果）+ 当前 Demo（符号化 route key + path map）；path map 不是必经结构（11.3 / 11.4 Mermaid / Q3 / Q4 / 总结 / 验收标准）
+  3. **next_action 作用域收窄**：写入 State 是当前 Demo 的显式契约设计非框架强制（四项收益；"为 Trace/审计提供可记录依据"非"已实现审计"）；Command 留 ch13；误区 #6 重写（11.5 / Q6 / 误区 #6）
+  4. **Route Decision 纯函数三层**：定义 = State + runtime facts → 路径结果；工程推荐 = 确定性/无副作用/可测/依赖显式化；Demo 事实 = 实现并测试为纯函数；"纯函数化"不是定义组成部分（11.4 表格 / Q4 / 验收标准）
+  5. **Edge / Conditional Edge 边界**：普通静态 Edge 不读 State 不判断；读取 State 的是 routing callable；declaration 与 callable 都不执行 Node（11.2 / 11.3 / 误区 #1）
+  6. **Edge / Scheduler 关系**：三层（declaration / routing callable / Graph Runtime-Scheduling Execution）；"Edge 是 Runtime 控制流的声明载体，不是 Scheduler 本身"（11.1 / Q1 / Q4 / 总结）

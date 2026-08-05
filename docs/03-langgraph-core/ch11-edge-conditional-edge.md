@@ -35,11 +35,11 @@ flowchart LR
     M --> E2
 ```
 
-**Edge 是连接描述，不是执行者**：Edge 不调用节点、不读 State 执行逻辑、不做业务判断——它只声明"从 X 到 Y 有一条路"。真正执行节点、解释路径的是 Graph Runtime（11.4）。这一层职责划分与第 6 章完全一致：**Scheduler 决定"把控制权交给谁"，不制定规则**（第 6 章 6.7）——Edge 是这条原则的图化形态。本章不重新定义 Scheduler（第 6 章的语义是唯一事实源）。
+**Edge 是 Runtime 控制流的声明载体，不是 Scheduler 本身**：三件事各司其职——① **Edge / Conditional Edge declaration** 描述固定连接或路由挂载关系（declaration 不执行 Node）；② **Routing callable** 产生路径结果（同样不执行 Node）；③ **Graph Runtime / Scheduling Execution** 解释路径结果并调度下一 Node。职责划分与第 6 章一致：**Scheduler 决定"把控制权交给谁"，不制定规则**（第 6 章 6.7）。本章不重新定义 Scheduler（第 6 章的语义是唯一事实源）。
 
 ## 11.2 Edge：确定性连接
 
-**Edge（静态边）表达"已知当前节点完成后，固定进入下一节点"**（Q2 的回答）——不需要读 State、不需要运行时判断，连接关系在构建时就写死。
+**Edge（静态边）表达"已知当前节点完成后，固定进入下一节点"**（Q2 的回答）——**普通静态 Edge 是构建期声明的固定连接，不读取 State，也不执行运行时判断**，连接关系在构建时就写死。
 
 `examples/basic_langgraph/graph.py` 里的静态边实例：
 
@@ -60,7 +60,12 @@ graph.add_edge("max_iterations", END)
 
 ## 11.3 Conditional Edge：运行时选择路径
 
-**Conditional Edge（条件边）表达"根据运行时结果选择后续路径"**（Q3 的回答）：它关联一个**路由 callable**，该函数读取当前 State（及显式传入的 runtime facts），返回一个 route key；Graph Runtime 用 path map 把 route key 映射到下一节点名，并调度执行。
+**Conditional Edge（条件边）表达"根据运行时结果选择后续路径"**（Q3 的回答），分两层理解：
+
+- **LangGraph 概念层**：Conditional Edge 关联 routing callable；routing callable 根据 State 与显式传入的 runtime facts，返回 **Graph Runtime 可解释的路径结果**，由 Graph Runtime 调度后续执行
+- **当前 Demo 的 path map 用法**：本 Demo 的 routing callable 返回**符号化 route key**，`_DECIDE_OR_MAX_MAP` / `_BY_ACTION_MAP` 把 route key 映射为节点名或 END——这是当前 Demo 的具体接线方式，**不是所有 Conditional Edge 的必经结构**（LangGraph 还有其他路径结果表达方式，本章不展开其他 API 形式）
+
+**边界澄清**：Conditional Edge 本身同样是控制流声明（不读取 State）——**读取 State 的是与其关联的 routing callable**（在运行时被调用）。Edge declaration 不执行 Node，routing callable 也不执行 Node，执行调度的是 Graph Runtime。
 
 `graph.py` 的接线（三条条件边 + 两条路径映射表）：
 
@@ -94,19 +99,19 @@ flowchart LR
 
 | 概念 | 内容 | 当前 Demo |
 |---|---|---|
-| **Route Decision（路由决策）** | State + runtime facts → route result（下一步去哪）；**尽量纯函数化**，可独立单元测试 | `route_decide_or_max` / `route_by_next_action`（`routing.py`） |
-| **Scheduling Execution（调度执行）** | Graph Runtime 解释 route result、调度下一 Node、管理执行顺序与控制流 | LangGraph Runtime（compile 后的执行；机制属 Graph Runtime 执行路径，本章不展开） |
+| **Route Decision（路由决策）** | **定义**：根据 State 与显式 runtime facts 产生路径结果。**工程推荐**：尽量确定性、尽量无副作用、可独立测试、依赖显式化。**当前 Demo 事实**：`route_decide_or_max` / `route_by_next_action` 被实现并测试为纯函数——"纯函数化"是工程选择，**不是 Route Decision 的定义组成部分** | `route_decide_or_max` / `route_by_next_action`（`routing.py`） |
+| **Scheduling Execution（调度执行）** | Graph Runtime 解释路径结果、调度下一 Node、管理执行顺序与控制流 | LangGraph Runtime（compile 后的执行；机制属 Graph Runtime 执行路径，本章不展开） |
 
 **关键边界：路由函数不执行下一个 Node。** `route_by_next_action` 返回字符串 `"generate_sql"`，它不调用 `make_generate_sql_node` 返回的函数——把字符串变成实际节点调用的是 Graph Runtime。
 
 ```mermaid
 flowchart LR
-    R["路由函数（Route Decision）\n只读 State → 返回 route key"] --> GR["Graph Runtime（Scheduling Execution）\n解释 route key → 调度下一 Node → 合并 State"]
+    R["Routing callable（Route Decision）\n根据 State 与 runtime facts → 路径结果"] --> GR["Graph Runtime（Scheduling Execution）\n解释路径结果 → 调度下一 Node → 合并 State"]
     GR --> N["下一执行步骤"]
     R -. "不调用节点" .-> N
 ```
 
-**纯函数定位（边界 4）**：当前 Demo 将路由决策函数设计为纯函数——只读 State、返回节点名、无副作用——这是**可测试与可重放的工程选择，不是 LangGraph 的强制约束**（第 8 章 8.3 原话）。路由若依赖 request-scoped config、feature flags、quota 或 policy result，应将这些依赖显式化，避免隐藏副作用（第 6 章 6.9）。
+**纯函数定位（边界 4）**：路由决策函数的工程推荐是"尽量确定性、无副作用、可独立测试、依赖显式化"；当前 Demo 将两个路由函数**实现并测试为纯函数**（只读 State、返回节点名、无副作用）——这是**可测试与可重放的工程选择，不是 LangGraph 的强制约束，也不是 Route Decision 的定义本身**（第 8 章 8.3 原话）。路由若依赖 request-scoped config、feature flags、quota 或 policy result，应将这些依赖显式化，避免隐藏副作用（第 6 章 6.9）。
 
 ## 11.5 模型决策与路由分发（本章核心）
 
@@ -129,9 +134,14 @@ flowchart LR
 
 **为什么先把 next_action 写入 State，再由路由函数分发（Q6 的回答）**：
 
+**这是当前 Demo 的显式契约设计，不是所有 LangGraph Agent 的框架强制要求。** 当前 Demo 选择把 `next_action` 写入 State，作为模型语义决策与确定性路由之间的显式契约，收益：
+
 1. **决策与分发解耦**：模型"决定做什么"与路由"决定把控制权交给谁"是两个职责（第 6 章 6.7）——State 是它们之间的契约载体（第 9 章：影响下一轮控制决策的信息必须进入 State，第 2 章 2.5）
-2. **可观测与可测试**：决策结果落在 State 里，可以被断言（`test_model_decision_finalize_is_routed`）、可以被审计，而不是藏在模型返回值里
-3. **避免路由层替代模型**：如果路由函数直接根据校验结果决定 generate / fix / finalize，就是 PR #4 Blocker 1 的等价破坏——路由重新判断了业务意图
+2. **独立测试路由**：路由函数可以脱离模型单独测试（`test_router_by_next_action_is_pure`）
+3. **支持双 Runtime 行为对照**：决策结果落在 State 里，manual 与 graph 版本可以逐字段对照（`test_direct_equivalence_with_manual`）
+4. **为 Trace / 审计提供可记录的决策依据**：决策结果可被断言（`test_model_decision_finalize_is_routed`）、可被记录——是"提供可记录依据"，不是"写进 State 就等于已经实现审计"（完整审计事实由 Observability 层负责）
+
+**同时必须收窄边界**：LangGraph 还支持其他控制结果表达方式——Node 通过 Command 携带 State Update 与路由意图的机制留第 13 章；不要写"所有模型决策都必须进入普通 State 字段"，也不要写"Conditional Edge 必须从 next_action 字段路由"（那是本 Demo 的 path map 用法，11.3）。
 
 **必须同时强调两条不冲突的事实**：
 
@@ -200,9 +210,9 @@ def route_by_next_action(state: GraphState) -> str:
 | 读 State 中的 `next_action` | 重新调用模型判断业务意图 |
 | 映射到 generate_sql / fix_sql / finalize 节点名 | 重写 `next_action`（模型决定什么就分发什么） |
 | 终止状态守卫（status 非 RUNNING → end） | 替代 decide 节点做决策 |
-| 未知值抛 `RuntimeError`（明确失败，不静默兜底） | 猜测或修正模型的决策 |
+| 未知值抛 `RuntimeError`（application-defined routing error，明确失败，不静默兜底） | 猜测或修正模型的决策 |
 
-**未知 / 缺失值处理（以实际代码为准）**：`next_action` 不在三个合法枚举值中时，`route_by_next_action` 抛 `RuntimeError("unknown next_action: ...")`——这是**显式失败**：异常逃逸到 Graph Runtime，由 `agent.py` 的 invoke 层兜底转为 FAILED State（第 10 章 10.7 的外层边界）。静默兜底（例如"未知动作就去 generate"）会掩盖模型或 State 写入的 bug，本 Demo 选择不这么做。
+**未知 / 缺失值处理（以实际代码为准，错误归属要准确）**：`next_action` 不在三个合法枚举值中时，`route_by_next_action` 抛 `RuntimeError("unknown next_action: ...")`——这是**显式失败**。**错误归属**：`route_by_next_action` 是应用定义的 routing callable，非法 next_action 是**应用路由契约错误**——该异常由应用 routing callable 产生，发生在图执行期间，由 **Graph Runtime 负责调用与传播**（向调用边界传播），最终由 `agent.py` 的**应用级 invoke 外层兜底捕获，并由应用构造 FAILED State**。这不是 LangGraph 自动的业务错误转换，也不是 LangGraph 内部错误。静默兜底（例如"未知动作就去 generate"）会掩盖模型或 State 写入的 bug，本 Demo 选择不这么做。
 
 **挂载位置**：`route_by_next_action` 只挂在 decide 节点的出口（`graph.add_conditional_edges("decide", route_by_next_action, _BY_ACTION_MAP)`）——它不参与 START 与回路（那些是 `route_decide_or_max` 的职责）。
 
@@ -249,17 +259,17 @@ flowchart LR
 - **没有**验证动态节点创建（图结构在编译后固定）
 - **没有**验证 Interrupt resume（第 15 章）与 Checkpoint recovery（第 14 章）
 - **没有**验证分布式 Scheduler（生产调度属 Part 05）
-- **没有**证明一般性路径等价——路由纯函数测试只覆盖当前两个 callable 的既有分支；`route_by_next_action` 的未知动作 raise 路径无专项测试（以代码为准，显式失败语义由 invoke 层兜底）
+- **没有**证明一般性路径等价——路由纯函数测试只覆盖当前两个 callable 的既有分支；`route_by_next_action` 的未知动作 raise 路径无专项测试（以代码为准：应用路由契约错误由应用级 invoke 兜底构造 FAILED State，非框架自动转换）
 - 测试数量以最新 CI 为准，不在正文写死
 
 ## 11.10 常见误区
 
-1. **Edge 会执行 Node**——Edge 是连接描述；执行节点、解释路径的是 Graph Runtime
+1. **Edge 会执行 Node**——Edge declaration 不执行 Node，routing callable 也不执行 Node；执行节点、解释路径的是 Graph Runtime
 2. **Conditional Edge 就是模型决策**——它是运行时路径选择机制；模型决策发生在 decide 节点的 `model.decide_next`
 3. **路由函数应该重新调用模型判断业务意图**——PR #4 Blocker 1：路由只按 State 中的决策结果分发，重新判断 = 替代模型
 4. **Route Decision 等于 Scheduling Execution**——路由函数产出的 route result 只是数据；调度执行（解释结果、调用节点）是 Graph Runtime 的职责
 5. **Conditional Edge 必须是纯函数**——当前 Demo 把路由函数设计为纯函数是工程选择（可测试 / 可重放），不是 LangGraph 强制约束
-6. **所有分支都必须写进 State**——只有**影响下一轮控制决策**的信息才进 State（第 2 章 2.5）；`next_action` 进 State 是因为它决定路由
+6. **所有模型决策都必须进入普通 State 字段**——把 `next_action` 写入 State 是当前 Demo 的显式契约设计（解耦 / 独立测试 / 双 Runtime 对照 / 记录依据），不是框架强制；LangGraph 支持其他控制结果表达方式（Command 留第 13 章）；只有影响下一轮控制决策的信息才进 State（第 2 章 2.5）
 7. **END 等于成功**——END 是执行终点；FAILED / MAX_ITERATIONS_REACHED 也进入 END，业务结局看 `status`
 8. **max_iterations 是模型决定**——它是确定性策略层的兜底（ADR-004），`route_decide_or_max` 先于模型决策执行，达到上限根本不调用模型
 9. **路由可以绕过权限与生命周期守卫**——路由只是分发；权限 / 安全 / 终止由确定性代码保证（ADR-004），Lifecycle Guard 优先于动作分发
@@ -269,13 +279,13 @@ flowchart LR
 
 | # | 问题 | 答案 |
 |---|---|---|
-| Q1 | 为什么 Node 之间需要 Edge？ | 只有执行单元没有连接，Runtime 不知道下一步；Edge 把"下一步连接谁"变成显式声明（第 6 章 Routing 职责的图化） |
+| Q1 | 为什么 Node 之间需要 Edge？ | 只有执行单元没有连接，Runtime 不知道下一步；Edge 是 Runtime 控制流的声明载体（固定连接或路由挂载关系），不是 Scheduler 本身——调度执行在 Graph Runtime |
 | Q2 | 普通 Edge 表达什么语义？ | 确定性连接：当前节点完成后固定进入下一节点（本 Demo：`finalize → END`、`max_iterations → END`）；不是执行者、不是决策器 |
-| Q3 | Conditional Edge 表达什么语义？ | 运行时路径选择：路由 callable 读 State 返回 route key，Graph Runtime 经 path map 调度下一节点；不自己调用节点 |
-| Q4 | Edge、Route Decision、Scheduler 三者关系？ | Edge 是连接声明；路由函数产生 Route Decision（纯函数化，可测）；Scheduler / Graph Runtime 负责 Scheduling Execution（解释结果、调度节点） |
+| Q3 | Conditional Edge 表达什么语义？ | 运行时路径选择：关联 routing callable，后者根据 State 与 runtime facts 返回 Graph Runtime 可解释的路径结果；当前 Demo 用符号化 route key + path map（`_DECIDE_OR_MAX_MAP` / `_BY_ACTION_MAP`）映射节点——这是本 Demo 的接线方式，非必经结构 |
+| Q4 | Edge、Route Decision、Scheduler 三者关系？ | 三层：Edge / Conditional Edge declaration 描述连接或路由挂载；Routing callable 产生路径结果（定义 = State + runtime facts → 路径结果；纯函数化是工程推荐与当前 Demo 事实，非定义组成部分）；Graph Runtime 负责 Scheduling Execution（解释结果、调度节点） |
 | Q5 | 模型语义决策与路由函数决策如何区分？ | 模型决定"做什么"（decide 节点）；路由决定"把控制权交给谁"（分发）；路由不重新判断业务意图、不调用 LLM |
-| Q6 | 为什么先把 next_action 写入 State 再由路由分发？ | 决策与分发解耦（State 是契约载体）；决策结果可断言、可审计；避免路由层替代模型（PR #4 Blocker 1） |
-| Q7 | route_decide_or_max 与 route_by_next_action 各自负责什么？ | 前者 = Lifecycle Guard + 确定性上限（终止守卫 → 上限检查 → decide）；后者 = Dispatch Routing（只按 next_action 分发，未知值显式失败） |
+| Q6 | 为什么先把 next_action 写入 State 再由路由分发？ | 当前 Demo 的显式契约设计（非框架强制）：解耦决策与分发 / 独立测试路由 / 双 Runtime 行为对照 / 为 Trace-审计提供可记录依据；其他控制结果表达方式（Command）留第 13 章 |
+| Q7 | route_decide_or_max 与 route_by_next_action 各自负责什么？ | 前者 = Lifecycle Guard + 确定性上限（终止守卫 → 上限检查 → decide）；后者 = Dispatch Routing（只按 next_action 分发；未知值抛 application-defined routing error，由应用级 invoke 兜底构造 FAILED State，非框架自动转换） |
 | Q8 | Lifecycle Guard 如何优先于模型动作分发？ | route_decide_or_max 挂在 START 与回路出口、先于 decide 执行：达到上限或终止状态就不调用模型；route_by_next_action 的终止守卫同样优先 |
 | Q9 | START、END 与 Edge 的关系？ | START 是入口（本 Demo 以条件边接出）；END 是执行终点（静态边与 TERMINAL_ROUTE 都通向它）；END ≠ 业务成功；暂停 ≠ END |
 | Q10 | 当前 Demo 的路径与路由测试验证了什么、未验证什么？ | 已验证：终止守卫 / 上限 off-by-one / 模型决策分发 / 纯函数路由 / 观察等价路径；未验证：Command / Send / 并发调度 / 动态节点 / Interrupt resume / Checkpoint recovery / 分布式调度 / 一般性路径等价 |
@@ -283,11 +293,12 @@ flowchart LR
 **本章验收标准：**
 
 - [ ] 能复述固定主线：Edge 确定性连接；Conditional Edge 运行时选路；路由函数产生 Route Decision；Graph Runtime 解释并调度；模型决策写入 State 后由确定性路由分发
-- [ ] 能区分 Edge（连接声明）与执行者（Graph Runtime 调度），说明"Edge 不调用节点"
-- [ ] 能区分 Route Decision（纯函数化，可测）与 Scheduling Execution（Graph Runtime 解释与调度）
-- [ ] 能说明模型语义决策（decide 节点）与路由分发（route_by_next_action）的边界，并解释 next_action 为什么先进 State
+- [ ] 能区分三层：Edge / Conditional Edge declaration（连接或路由挂载，不执行 Node）、Routing callable（产生路径结果，也不执行 Node）、Graph Runtime（解释路径结果并调度）
+- [ ] 能说明 Conditional Edge 的概念定义（routing callable → Graph Runtime 可解释的路径结果）与本 Demo 的 path map 用法（符号化 route key + 映射表，非必经结构）
+- [ ] 能区分 Route Decision（定义 = State + runtime facts → 路径结果；纯函数化是工程推荐与当前 Demo 事实，非定义组成部分）与 Scheduling Execution（Graph Runtime 解释与调度）
+- [ ] 能说明模型语义决策（decide 节点）与路由分发（route_by_next_action）的边界，并说明 next_action 写入 State 是当前 Demo 的显式契约设计而非框架强制
 - [ ] 能按真实代码说出 route_decide_or_max 的三条判断顺序（终止守卫 → 上限检查 → decide）与 off-by-one 语义
-- [ ] 能说明 route_by_next_action 只分发、不重写、未知值显式失败（RuntimeError → invoke 兜底）
+- [ ] 能说明 route_by_next_action 只分发、不重写；未知值抛 application-defined routing error——由应用 routing callable 产生、Graph Runtime 传播、应用级 invoke 兜底构造 FAILED State（非 LangGraph 自动业务错误转换）
 - [ ] 能说明 Lifecycle Guard 先于模型动作执行（上限检查先于模型调用）
 - [ ] 能区分 END（执行终点）与业务成功、暂停态（Interrupt 留第 15 章）
 - [ ] 能诚实陈述已验证与未验证的路径测试范围
