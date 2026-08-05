@@ -15,7 +15,7 @@
 
 ## 目标
 
-编写 Part 03 第五个原语章 `docs/03-langgraph-core/ch13-command-send.md`：回答「Conditional Edge 之外的动态控制流需求如何表达？」。**核心主线固定（用户 2026-08-05 指定，写作不得偏离）**：Conditional Edge 根据图外定义的 routing callable 选择路径；Command 允许 Node 的返回结果同时携带 State Update 与路由意图；Send 根据运行时数据动态创建多个 work item，实现 fan-out。Command 与 Send 都属于动态控制流原语，但一个解决"更新与导航绑定"，另一个解决"按数据动态展开并行工作"。
+编写 Part 03 第五个原语章 `docs/03-langgraph-core/ch13-command-send.md`：回答「Conditional Edge 之外的动态控制流需求如何表达？」。**核心主线固定（用户 2026-08-05 指定，2026-08-05 复审统一为最新表述，写作不得偏离）**：Conditional Edge 根据图外定义的 routing callable，返回 Graph Runtime 可解释的一个或多个路径目标；在本章讨论的场景中，Command 允许 Node 返回结果同时携带 State Update 与 goto 路由意图；Send 由 routing callable 根据运行时数据返回，用于描述多个带独立输入的 work items，并由 Graph Runtime 解释、实例化和调度。Command 与 Send 都属于动态控制流原语：Command 解决更新与导航绑定；Send 解决按运行时数据描述动态 fan-out work items。
 
 **两条硬边界（用户强调）**：不要把 Command 与 Send 混成同一个原语；不要把 Send 简化成普通 Conditional Edge。
 
