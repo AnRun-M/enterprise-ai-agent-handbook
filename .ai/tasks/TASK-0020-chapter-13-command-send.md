@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-05 |
 | Updated | 2026-08-05 |
@@ -58,8 +58,10 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0020 Status = in_progress；ROADMAP Chapter 13 = draft / 待架构审查；content-map 第 13 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-13-command-send，commit `docs: draft chapter 13 command and send`）
-- [ ] PR #37 Architecture Review 七项修正全部应用（Conditional Edge 多目标语义 / Send 产生链路 / Send 独立输入语义 / Command 作用域 / Command 等价性收窄 / 动态实例与节点定义边界 / Send 与并行收窄）
-- [ ] 等待 Architecture Review
+- [x] PR #37 Architecture Review 七项修正全部应用（Conditional Edge 多目标语义 / Send 产生链路 / Send 独立输入语义 / Command 作用域 / Command 等价性收窄 / 动态实例与节点定义边界 / Send 与并行收窄）
+- [x] PR #37 Review 复审三项跨章节一致性修正全部应用（固定主线统一最新表述 / Node 不拥有 Scheduling Execution 边界 / Send-work item 职责四层）
+- [x] PR #37 复审通过并 squash merge 到 main（commit 0da1938，CI build/test 双绿，2026-08-05）→ Chapter 13 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -72,3 +74,5 @@
   5. **Command 等价性收窄**："同一意图" → "单图 Node update + goto 场景可表达相近意图；表达位置 / 耦合方式 / 扩展能力不同；不宣称全面等价；仓库未实现等价性测试"——13.3 / Q3 / 13.9
   6. **动态实例与节点定义边界**："动态创建执行单元" → "动态实例化已注册目标 Node 的多个 work items"（首次严格表述）；Send 不注册新 Node 类型——13.4 / 13.5 / 13.7
   7. **Send 与并行收窄**："Send 表达 fan-out；Graph Runtime 解释、实例化并调度"；未自动保证并发度 / 调度顺序 / 稳定结果顺序 / 线程安全 / 重试 / delivery semantics / fan-in 确定性（加入未验证清单）——13.4 / 13.5 / 13.9 / 误区 #4
+- 2026-08-05：**PR #37 Review 复审三项跨章节一致性修正**（commit：docs: align command send control-result responsibilities）：固定主线统一为最新表述（Conditional Edge 返回一个或多个路径目标 / Command = Node 返回的 State Update + goto / Send 由 routing callable 返回、Graph Runtime 解释实例化调度）；"节点不决定下一步"改写为"Node 不自己执行跳转、不拥有 Scheduling Execution"（第 10 章两层边界延续）；Send / work item 职责四层（routing callable / descriptor / Graph Runtime / Scheduler，"Send 不是主动创建者或执行者"）。
+- 2026-08-05：PR #37 经 Architecture Review 复审通过，squash merge 到 main（commit 0da1938，CI build/test 双绿）→ **TASK-0020 标记 completed；Chapter 13 最终完成**；本 Memory PR（docs/post-pr37-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
