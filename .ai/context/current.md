@@ -137,7 +137,8 @@
   - 主线：Execution State 是 Runtime 语义；Graph State 是 LangGraph 承载；State schema 是数据契约不是业务规则引擎
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；TypedDict 标注为当前 Demo 选择非唯一方案；START/END 为图结构哨兵（END ≠ 成功，暂停 ≠ END）；Node 返回部分更新（Reducer 留 ch12）；不展开 Checkpoint/Interrupt/Stream；证据诚实（未验证清单如实标注，不夸大 TASK-0003）
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 9 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 09 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #29 Review 七项修正（2026-08-05）**：Initial State 完整字段为 Demo 契约非框架要求（input/output schema、internal/private state 属 LangGraph 通用能力）/ StateProxy 只读表述收窄（属性访问适配器，按逻辑只读，非强制不可变、非安全边界、不等于 Model Context）/ Graph State 可见范围两层（具体节点可读字段取决于 schema 划分与节点输入契约）/ Checkpoint 定义修正（状态与执行上下文快照，非简单字典副本）/ 生命周期归属三层（应用设计定契约 / 执行路径实现演化 / schema 只声明形态）/ 测试证据归属拆分（路由纯函数测试不覆盖所有 Node 输入不可变性）/ TypedDict 静态检查为条件非门禁（CI 未启用 mypy --strict）——已应用并推送更新 PR #29
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步

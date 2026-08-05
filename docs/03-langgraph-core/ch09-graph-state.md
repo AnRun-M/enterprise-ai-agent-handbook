@@ -7,7 +7,7 @@
 
 **整章主线：**
 
-> **Execution State 是 Runtime 语义——一次执行中的唯一控制事实源；Graph State 是 LangGraph 对该状态契约的承载方式。State Schema 声明图中有哪些状态字段、节点可以读取什么、可以返回什么更新、哪些字段需要合并规则、初始状态如何进入图——它定义的是数据契约，不是业务规则。**
+> **Execution State 是 Runtime 语义——一次执行中的唯一控制事实源；Graph State 是 LangGraph 对该状态契约的承载方式。State Schema 声明图运行时可用的状态 channels 及其更新规则——有哪些状态字段、节点可以返回什么更新、哪些字段需要合并规则、初始状态如何进入图；具体节点可读取哪些字段取决于 schema 划分与节点输入契约。它定义的是数据契约，不是业务规则。**
 
 ## 9.1 从 Execution State 到 Graph State
 
@@ -78,7 +78,7 @@ class GraphState(TypedDict):
     history: Annotated[list[StepEvent], operator.add]
 ```
 
-**谁决定字段的类型、语义和生命周期（Q5 的回答）**：**写这份 schema 的人——应用开发者。** LangGraph 不解释任何字段的含义（`iteration` 为什么存在、`status` 的取值域——那是第 2 章与 `AgentStatus` 枚举的职责），也不决定字段的生命周期（RUNNING → SUCCESS / FAILED / MAX_ITERATIONS_REACHED 的演化由执行过程决定）。LangGraph 承担的只有一件事：**按 schema 执行读写协议**——把当前字段值传给节点、合并节点返回的更新、把结果交给下一个节点。字段语义与生命周期属于 Runtime 语义层，schema 是它们的声明形式。
+**谁决定字段的类型、语义和生命周期（Q5 的回答）**：三件事归属不同——① **应用设计决定字段语义、类型、合法状态与生命周期契约**（`iteration` 为什么存在、`status` 的取值域——那是第 2 章与 `AgentStatus` 枚举的职责）；② **Node / Edge / Lifecycle Guard / Graph Runtime 在执行中实现状态演化**（RUNNING → SUCCESS / FAILED / MAX_ITERATIONS_REACHED 的转换发生在执行路径上，不在 schema 里）；③ **schema 只声明数据形态与 reducer 挂载点，不执行生命周期规则**。LangGraph 承担的是读写协议——按 schema 把当前字段值传给节点、合并节点返回的更新。
 
 **`history` 字段的 `Annotated[list[StepEvent], operator.add]` 是 reducer 的挂载点**：它声明"这个字段的更新方式与其他字段不同（追加而非覆盖）"。挂载点在这里先立住——合并机制（reducer 如何工作、默认覆盖语义何时危险、自定义 reducer 怎么写、与手写 `apply_*` 的语义等价如何被测试证明）在第 12 章展开，本章不做机制讲解。
 
@@ -95,7 +95,7 @@ class GraphState(TypedDict):
 
 TypedDict 在当前 Demo 里解决的三个实际问题：
 
-1. **静态字段契约**：字段名与类型在 schema 里一次性声明，IDE / 静态类型检查工具可检查；节点读写字段时拼写错误在静态检查阶段暴露，而不是运行到某一轮才炸
+1. **静态字段契约**：字段名与类型在 schema 里一次性声明，为 IDE 和静态类型检查器**发现**字段拼写与类型问题提供条件；是否形成实际门禁（例如提交前拦截）取决于类型检查配置——当前 CI 未启用 `mypy --strict`，因此不宣称所有错误一定在提交前被发现。TypedDict 的主要价值是声明契约，不是自动保证正确
 2. **节点输入输出一致**：节点签名是 `Callable[[GraphState], dict]`——输入是完整 State（TypedDict），输出是部分更新 dict；两者都是字典形态，节点之间、节点与 LangGraph Runtime 之间没有对象转换层
 3. **与手写 schema 的字段语义对齐**：TASK-0003 要求 `GraphState` 与 `AgentState` 字段一一对应；TypedDict 让"两个 schema 对齐"成为可直接 diff 的声明，等价测试也因此可以逐字段断言
 
@@ -128,7 +128,9 @@ flowchart LR
 | 字段类型（field types） | `str` / `int` / `AgentStatus` / `ToolResult | None` / `list[StepEvent]` |
 | 更新形状（update shape） | 节点返回 dict（部分更新）；LangGraph 负责合并 |
 | reducer 挂载点（reducer attachment point） | `history` 的 `Annotated[list, operator.add]` |
-| Runtime 可见状态结构 | 图中每个节点能读到的字段全集 |
+| Runtime 可见状态结构 | 当前 Demo：所有节点采用同一 `GraphState` 输入 schema，类型契约上可读取该 schema 中的字段；LangGraph 通用能力：可定义独立 input/output schema 与 internal / private state channels、节点可使用更窄的输入 schema——**不是所有节点天然看见所有内部字段** |
+
+State schema 定义图运行时可用的**状态 channels 及其更新规则**；具体节点可读取哪些字段，取决于 schema 划分和节点输入契约——不要把"所有节点看到所有字段"当成框架语义。
 
 **不定义（业务与治理层，坚决不进入 schema）**：
 
@@ -164,11 +166,13 @@ def build_initial_state(user_question: str, max_iterations: int) -> GraphState:
     }
 ```
 
+> **表述修正**：`state.py` 的 docstring 写的是"LangGraph 要求初始 invoke 提供全部字段"——这是本 Demo 的约定表述，**不是 LangGraph 的普遍强制要求**：LangGraph 支持独立 input_schema / output_schema 与 internal / private state，调用方只需提供输入 schema 所要求的字段，其余内部 State 可以在节点执行中产生。**完整 Initial State 是本 Demo 的设计选择和测试契约**，不是框架要求。
+
 **Initial State 是一次执行的起始快照**，三个边界（Q6 的回答）：
 
 1. **不是长期 Memory**：跨执行的信息（第 7 章）不进入初始 State——每次执行从零开始，`test_no_cross_invoke_pollution` 验证了"两次 invoke 互不污染"
 2. **不是配置中心副本**：`max_iterations` 进入 State 是因为它**影响本轮控制决策**（终止判定，第 2 章 2.5），配置本体仍由 `AgentConfig` 持有；不要把整个配置树复制进 State
-3. **字段必须完整**：LangGraph 的初始 `invoke(initial)` 要求提供全部字段（`state.py` docstring 原话）——这与手写版本"构造时只填必需字段"不同，是承载方式的差异，不是语义差异
+3. **完整字段是本 Demo 的设计选择与测试契约**：`build_initial_state` 给所有字段确定默认值——简化节点实现（节点不需要判空）、方便与 `AgentState` 逐字段对照、便于测试初始快照（`test_initial_state_complete`）。这是本 Demo 的选择，不是 LangGraph 的普遍强制要求；不要把它说成"框架要求初始输入包含所有 State 字段"
 
 进入图的路径：`agent.py` 的 `invoke` 构造 initial → `self._graph.invoke(initial)` → 图从 START 出发执行。这是本章对 `invoke` 的最小用法——执行机制本身属于 Graph Runtime（第 10-11 章），本章不展开。
 
@@ -206,7 +210,7 @@ flowchart LR
 
 第 2 章 2.3 的关键性质："Update 是显式的——所有变更必须经过 `apply_*` 方法（manual）或**节点返回部分更新**（graph）"。本章把后半句展开（Q8 的回答）：
 
-**节点如何读取**：每个节点收到完整 Graph State 作为输入参数（`nodes.py` 所有节点签名 `state: GraphState`）。但模型看到的是 `StateProxy`——一个只读属性视图（`state.py`）：
+**节点如何读取**：每个节点收到完整 Graph State 作为输入参数（`nodes.py` 所有节点签名 `state: GraphState`）。但模型看到的是 `StateProxy`——一个属性访问适配器（`state.py`）：
 
 ```python
 class StateProxy:
@@ -219,7 +223,7 @@ class StateProxy:
         return self._state[name]
 ```
 
-`StateProxy` 解决的工程问题：`FakeLLM` 按 dataclass 属性访问编写（`state.current_sql`），而 Graph State 是 TypedDict——为了**复用 FakeLLM 而不修改它**，节点通过这个适配器调用模型（`decide` 节点：`model.decide_next(StateProxy(state))`）。它同时是一个教学边界：**模型只能读、不能写、看不到字典外的任何东西**——第 3 章 3.1 的同一事实：模型看到的是 Runtime 构造给它的那一次调用输入。
+`StateProxy` 解决的工程问题：`FakeLLM` 按 dataclass 属性访问编写（`state.current_sql`），而 Graph State 是 TypedDict——为了**复用 FakeLLM 而不修改它**，节点通过这个适配器调用模型（`decide` 节点：`model.decide_next(StateProxy(state))`）。**必须收窄它的边界**：StateProxy 持有底层 state 引用（`self._state`），`__getattr__` 返回底层值，不提供业务字段 setter——当前 FakeLLM 按约定只读取字段，因此在教学语义上**按逻辑只读使用**。但它在实现上**不提供强制不可变保证**（可变字段可能返回可变对象），**也不应被当作权限或安全边界**。真正的模型输入边界应由 Model Context / Context Builder 控制（第 3 章 3.1：模型看到的是 Runtime 构造给它的那一次调用输入）——**StateProxy 不等于 Model Context**，且当前 Demo 没有实现独立 Context Builder。
 
 **节点如何返回更新**：节点返回**部分字段更新**的 dict——只含本轮变化：
 
@@ -239,7 +243,7 @@ def generate_sql(state: GraphState) -> dict:
 ```mermaid
 flowchart LR
     S["当前 Graph State"] --> N["Node\n（读取 State）"]
-    S -. "模型只经只读视图 StateProxy 访问" .-> N
+    S -. "模型经 StateProxy 按只读约定访问" .-> N
     N --> P["返回部分更新 dict"]
     P --> M["Graph Runtime 合并\n（channel 合并）"]
     M --> S2["新 Graph State"]
@@ -247,7 +251,7 @@ flowchart LR
 
 **三个必须避免的误解（Q8 的负向边界）**：
 
-- **"Node 直接修改整个 State"**：节点既不原地改对象，也不需要返回完整 State；`test_router_decide_or_max_is_pure` / `test_router_by_next_action_is_pure` 验证了纯函数式读写（路由调用前后 State 不变）
+- **"Node 直接修改整个 State"**：节点既不原地改对象，也不需要返回完整 State——当前实现按"返回部分更新"模式编写（`nodes.py` 各节点只返回更新 dict）。注意证据归属：`test_router_decide_or_max_is_pure` / `test_router_by_next_action_is_pure` 只证明**当前两个路由 callable** 调用前后输入 State 不变，**不覆盖所有 Node**；仓库目前没有专门测试断言每个 Node 调用前后输入对象完全不变——输入不可变性是当前实现模式的约定，尚未被统一测试固化
 - **"节点之间传递的是同一个可变对象"**：部分更新经 channel 合并后才成为下一节点的输入——更新路径由 Runtime 收敛，不是对象引用链
 - **"把对象可变性当成行为契约"**：手写版是可变 dataclass + `apply_*`，Graph 版是部分更新 + channel 合并——**行为契约是字段语义与转换结果，不是可变性**（第 2 章 2.4 原话）
 
@@ -259,16 +263,16 @@ flowchart LR
 |---|---|---|
 | **Execution State** | 一次执行的控制事实唯一来源（第 2 章） | **被承载的对象**：Graph State 是它在 LangGraph 中的 schema / runtime representation |
 | **Graph State** | LangGraph 对 State 契约的承载（本章） | 本体 |
-| **Model Context** | 一次模型调用可见的组装输入（第 3 章） | **≠ Graph State**：Context 是快照式组装产物，State 是持续演进的事实源；模型经 `StateProxy` 读到的只是 State 的只读切片入口，且只拿到被传入的那份数据（第 3 章 3.1） |
+| **Model Context** | 一次模型调用可见的组装输入（第 3 章） | **≠ Graph State**：Context 是快照式组装产物，State 是持续演进的事实源；模型输入边界应由 Model Context / Context Builder 控制——当前 Demo 的模型适配路径（`StateProxy`）按只读约定使用，但 StateProxy **不等于** Model Context，也不提供强制不可变保证（第 3 章 3.1：模型只拿到被传入的那份数据） |
 | **Memory** | 跨执行边界的信息（第 7 章） | **≠ Graph State**：区分轴是"是否跨越单次执行边界"；Graph State 只服务一次执行，每次 `invoke` 从 `build_initial_state` 重新开始（`test_no_cross_invoke_pollution`） |
-| **Checkpoint** | State 的持久化快照（第 2 章 / architecture-map 第五节） | **≠ Graph State**：Checkpoint 是 Graph State 的序列化副本，不是 State 本身；本 Demo 未启用 Checkpointer（`agent.py` docstring），机制在第 14 章 |
+| **Checkpoint** | State 的持久化快照（第 2 章 / architecture-map 第五节） | **≠ Graph State**：Checkpoint 是图在某个执行时刻**持久化的状态与执行上下文快照**——Graph State 的字段值是其核心组成部分，但 Checkpoint 不等同于一个简单的 State 字典副本；本 Demo 未启用 Checkpointer（`agent.py` docstring），具体结构与机制在第 14 章 |
 
 ```mermaid
 flowchart TD
     ES["Execution State\n（第 2 章：一次执行的控制事实源）"] --> GS["Graph State\n（LangGraph 承载，本章）"]
     GS -. "≠" .-> CTX["Model Context\n（第 3 章：一次调用可见的组装快照）"]
     GS -. "≠" .-> MEM["Memory\n（第 7 章：跨执行边界）"]
-    GS -. "≠" .-> CK["Checkpoint\n（持久化快照，第 14 章，未启用）"]
+    GS -. "≠" .-> CK["Checkpoint\n（状态与执行上下文快照，第 14 章，未启用）"]
 ```
 
 一句话：**Graph State 是 Execution State 的 LangGraph 承载形式；它不是 Context、不是 Memory、不是 Checkpoint——第 2 章 / 第 3 章 / 第 7 章建立的区分轴（跨调用 vs 跨执行 vs 快照时刻）全部原样成立，换载体不换边界。**
@@ -279,8 +283,9 @@ flowchart TD
 
 | 结论 | 证据 | 测试 |
 |---|---|---|
-| Initial State 字段完整、默认值正确 | `build_initial_state` | `test_initial_state_complete`（断言全部字段、iteration=0、status=RUNNING、history=[]） |
-| 节点读 State、返回部分更新、不改输入 | `nodes.py` 各节点 + `StateProxy` | `test_router_decide_or_max_is_pure` / `test_router_by_next_action_is_pure`（调用前后 State 不变） |
+| Initial State 字段完整、默认值正确（Demo 契约） | `build_initial_state` | `test_initial_state_complete`（断言全部字段、iteration=0、status=RUNNING、history=[]） |
+| 路由 callable 不修改输入 State | `routing.py` | `test_router_decide_or_max_is_pure` / `test_router_by_next_action_is_pure`（**仅覆盖当前两个路由函数**） |
+| Node 按"返回部分更新"模式编写 | `nodes.py` 各节点返回更新 dict | 节点测试（`test_fix_exception_preserves_state_and_history` 等）；**尚无统一测试断言每个 Node 调用前后输入对象完全不变** |
 | 最终 State 关键字段与手写版观察等价 | 双 Runtime 对照 | `test_direct_equivalence_with_manual`（status / current_sql / execution_result / final_answer / iteration / history 动作序列） |
 | 无跨 invoke 污染（每次执行从初始 State 开始） | 两次 invoke 对比 | `test_no_cross_invoke_pollution` |
 | 异常保留异常前 State | 节点级 `_failure_boundary` | `test_fix_exception_preserves_state_and_history` |
@@ -288,6 +293,7 @@ flowchart TD
 
 **必须诚实标注未验证的范围（Q10 的回答）**：
 
+- **没有**用统一测试证明"所有 Node 不修改输入 State"——`test_router_*_is_pure` 只覆盖两个路由 callable；Node 的输入不可变性是当前实现模式的约定，未单独固化
 - **不是**完整逐轮 State Snapshot 等价——等价测试断言的是**最终 State 关键字段、终止行为和 history 动作序列**的观察等价（第 8 章 8.1 原话）
 - **没有**验证 Checkpoint recovery（未启用 Checkpointer）
 - **没有**验证并发 / 并行合并（多节点同时写同一字段的合并语义——第 12 章 reducer 的边界）
@@ -302,12 +308,14 @@ flowchart TD
 2. **TypedDict 是唯一选择**——当前 Demo 的选择；State schema 不限定必须是 TypedDict，换表示不换语义
 3. **START / END 是业务字段**——图结构哨兵；业务结果看 `status`（END ≠ 成功，暂停 ≠ END）
 4. **Node 必须返回完整 State**——节点返回部分更新 dict，Graph Runtime 负责合并
-5. **Graph State 等于 Model Context**——State 是持续演进的事实源，Context 是单次调用快照（第 3 章）；模型只经 `StateProxy` 读到只读切片
-6. **Graph State 等于 Checkpoint**——Checkpoint 是序列化快照；本 Demo 未启用（第 14 章）
+5. **Graph State 等于 Model Context**——State 是持续演进的事实源，Context 是单次调用快照（第 3 章）；模型经 StateProxy 按只读约定读取，但 StateProxy 不等于 Model Context，也不提供强制不可变保证
+6. **Graph State 等于 Checkpoint**——Checkpoint 是图执行时刻持久化的状态与执行上下文快照（Graph State 字段值是其核心组成部分，但不等于简单字典副本）；本 Demo 未启用（第 14 章）
 7. **State schema 可以替代权限规则**——schema 是数据契约不是规则引擎；权限 / 安全 / 终止由确定性代码保证（ADR-004）
 8. **所有外部事实都应复制进 Graph State**——第 2 章 2.6：默认只保存 ID / URI / version / digest / summary 引用
 9. **Graph State 自动持久化**——不启用 Checkpointer 时，执行结束状态即失（第 8 章 8.4：集成点 ≠ 能力自动生效）
 10. **使用 Graph State 就自动线程安全或并发安全**——并发合并语义未验证（9.9 未验证清单）
+11. **调用 LangGraph 时必须传入内部 Graph State 的所有字段**——取决于 input schema 和应用设计；完整 Initial State 是本 Demo 的设计选择和测试契约，不是 LangGraph 的普遍强制要求
+12. **StateProxy 是安全隔离边界**——它只是属性访问适配器，按只读约定使用；不提供强制不可变保证，真正的模型输入边界由 Model Context / Context Builder 控制
 
 ## 9.11 总结
 
@@ -315,23 +323,25 @@ flowchart TD
 |---|---|---|
 | Q1 | Graph State 与第 2 章 Execution State 是什么关系？ | 承载关系：Execution State 是 Runtime 语义（控制事实唯一来源），Graph State 是 LangGraph 对该契约的 schema / runtime representation；字段语义与行为契约不变 |
 | Q2 | 为什么 Graph State 是承载契约，不是新的业务状态定义？ | 字段为什么存在由第 2 章回答；schema 只声明结构与读写协议，不裁决业务 |
-| Q3 | State schema 定义了什么？ | 字段名、字段类型、更新形状、reducer 挂载点、Runtime 可见状态结构；不定义业务口径 / 权限 / Memory / Context / Prompt |
-| Q4 | TypedDict 在本 Demo 解决了什么问题？ | 静态字段契约、节点输入输出一致、与手写 schema 对齐；是当前选择而非唯一方案 |
-| Q5 | 字段的类型、语义和生命周期由谁决定？ | 应用开发者（schema 作者）决定字段语义与生命周期；LangGraph 只按 schema 执行读写协议 |
-| Q6 | Initial State 如何构造并进入图？ | `build_initial_state` 构造完整起始快照 → `graph.invoke(initial)`；是一次执行的起始快照，不是 Memory、不是配置中心副本 |
+| Q3 | State schema 定义了什么？ | 字段名、字段类型、更新形状、reducer 挂载点、状态 channels 及其更新规则；具体节点可读取哪些字段取决于 schema 划分与节点输入契约；不定义业务口径 / 权限 / Memory / Context / Prompt |
+| Q4 | TypedDict 在本 Demo 解决了什么问题？ | 声明契约（为静态检查提供条件，是否成门禁取决于配置）、节点输入输出一致、与手写 schema 对齐；是当前选择而非唯一方案 |
+| Q5 | 字段的类型、语义和生命周期由谁决定？ | 应用设计决定字段语义 / 类型 / 合法状态 / 生命周期契约；Node / Edge / Lifecycle Guard / Graph Runtime 在执行中实现状态演化；schema 只声明数据形态与 reducer 挂载点，不执行生命周期规则 |
+| Q6 | Initial State 如何构造并进入图？ | `build_initial_state` 构造完整起始快照 → `graph.invoke(initial)`；是一次执行的起始快照，不是 Memory、不是配置中心副本；完整字段是本 Demo 的设计选择与测试契约，不是 LangGraph 普遍强制要求 |
 | Q7 | START 与 END 是什么？属于业务 State 吗？ | 图结构哨兵：START=执行入口、END=图执行结束；不属于业务 State 字段；END ≠ 成功（FAILED / MAX_ITERATIONS_REACHED 也终止到 END）；暂停 ≠ END |
-| Q8 | Node 如何读 State、如何返回部分更新？ | 节点接收完整 State（模型只经只读 `StateProxy` 访问）；返回部分更新 dict，由 Graph Runtime 合并；不原地改 State、不返回完整 State |
-| Q9 | Graph State 与 Context / Memory / Checkpoint 如何区分？ | 沿用第 2 / 3 / 7 章区分轴：Context=单次调用快照、Memory=跨执行边界、Checkpoint=持久化快照；Graph State 是 Execution State 的承载，三者均不是它 |
-| Q10 | 当前 Demo 的 Graph State 已验证什么、未验证什么？ | 已验证：Initial State 完整、节点纯函数读写、最终 State 关键字段与终止行为观察等价、无跨 invoke 污染、异常保留 State；未验证：完整逐轮快照等价、Checkpoint recovery、并发合并、Send / Command、一般性可替换 |
+| Q8 | Node 如何读 State、如何返回部分更新？ | 节点接收完整 State（模型经 StateProxy 按只读约定访问——适配器而非强制不可变边界）；返回部分更新 dict，由 Graph Runtime 合并；当前实现不原地改输入，但输入不可变性尚无统一测试固化 |
+| Q9 | Graph State 与 Context / Memory / Checkpoint 如何区分？ | 沿用第 2 / 3 / 7 章区分轴：Context=单次调用快照、Memory=跨执行边界、Checkpoint=执行时刻持久化的状态与执行上下文快照（未启用）；Graph State 是 Execution State 的承载，三者均不是它 |
+| Q10 | 当前 Demo 的 Graph State 已验证什么、未验证什么？ | 已验证：Initial State 完整（Demo 契约）、路由 callable 纯函数、Node 按返回更新模式编写、最终 State 关键字段与终止行为观察等价、无跨 invoke 污染、异常保留 State；未验证：所有 Node 输入不可变性（无统一测试）、完整逐轮快照等价、Checkpoint recovery、并发合并、Send / Command、一般性可替换 |
 
 **本章验收标准：**
 
 - [ ] 能区分 Execution State（Runtime 语义）与 Graph State（LangGraph 承载），并说明"换承载不换语义"
 - [ ] 能说出 State schema 定义的五个成分（字段名 / 类型 / 更新形状 / reducer 挂载点 / Runtime 可见结构）与不定义的范围（业务口径 / 权限 / Memory / Context / Prompt / 完整外部数据）
 - [ ] 能说明 TypedDict 是当前 Demo 的选择而非唯一方案
-- [ ] 能说明 Initial State 是一次执行的起始快照（不是 Memory / 配置中心副本），并说出它如何进入图
+- [ ] 能说明 Initial State 是一次执行的起始快照（不是 Memory / 配置中心副本），并说出它如何进入图；完整 Initial State 是本 Demo 设计选择与测试契约，不是 LangGraph 普遍强制要求
 - [ ] 能区分 START / END（图结构哨兵）与 `status`（业务生命周期），并说明 END ≠ 成功、暂停 ≠ END
-- [ ] 能说明节点读取完整 State、返回部分更新、由 Graph Runtime 合并；模型只经只读视图访问
+- [ ] 能说明节点读取完整 State、返回部分更新、由 Graph Runtime 合并；模型经 StateProxy 按只读约定访问（适配器，非强制不可变 / 非安全边界）
+- [ ] 能区分 schema（声明数据形态）与生命周期执行（Node / Edge / Lifecycle Guard / Graph Runtime）的归属
+- [ ] 能说明路由纯函数测试只覆盖路由 callable，不延伸到所有 Node 的输入不可变性
 - [ ] 能画出 Graph State 与 Context / Memory / Checkpoint 的边界
 - [ ] 能诚实陈述已验证与未验证范围（不夸大 TASK-0003 证据）
 - [ ] 术语与 `TERMINOLOGY.md` 一致；只引用不重新定义 State / Context / Memory / Policy

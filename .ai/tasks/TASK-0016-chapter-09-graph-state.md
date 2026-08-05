@@ -34,6 +34,13 @@
 
 - **Runtime 第一视角、Framework 第二视角**：先引用第 2 章 Execution State 语义（只引用不重新定义），再讲 LangGraph 承载；禁止从 API 出发解释概念
 - **TypedDict 是当前 Demo 选择，不是唯一方案**：State schema 不限定必须是 TypedDict，不写死框架强制
+- **完整 Initial State 是本 Demo 的设计选择与测试契约，不是 LangGraph 普遍强制要求**（LangGraph 支持独立 input/output schema 与 internal / private state）；禁止写"框架要求初始输入包含所有 State 字段"
+- **StateProxy 是属性访问适配器**：按只读约定使用，但不提供强制不可变保证、不是权限/安全边界、不等于 Model Context（当前 Demo 无独立 Context Builder）
+- **Graph State 可见范围两层**：当前 Demo 所有节点同一输入 schema；LangGraph 通用能力支持 input/output schema 划分与 internal/private state——不是所有节点天然看见所有内部字段
+- **Checkpoint 定义**：图执行时刻持久化的状态与执行上下文快照（Graph State 字段值是其核心组成部分，但不等于简单字典副本）；结构机制留第 14 章
+- **字段生命周期归属三层**：应用设计定契约 / Node-Edge-Lifecycle Guard-Graph Runtime 在执行中实现演化 / schema 只声明形态与 reducer 挂载点
+- **测试证据归属**：`test_router_*_is_pure` 只覆盖两个路由 callable 不修改输入；Node 输入不可变性无统一测试，不得用路由测试证明
+- **TypedDict 静态检查为"提供条件"非"实际门禁"**：当前 CI 未启用 mypy --strict，不宣称所有错误提交前必被发现
 - **START / END 是图结构哨兵，不是业务 State 字段**：END ≠ 业务成功；Human Stop / Interrupt 是暂停态，不等同 END（不提前展开 Interrupt API）
 - **Node 返回部分更新**，不要求返回完整 State；Reducer 只作为挂载点提及，机制留第 12 章
 - 不展开 Checkpoint / Interrupt / Stream 机制（只立边界，标注第 14 / 15 / 16 章）
@@ -53,8 +60,17 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0016 Status = in_progress；ROADMAP Chapter 09 = draft / 待架构审查；content-map 第 9 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-09-graph-state，commit `docs: draft chapter 09 graph state`）
+- [ ] PR #29 Architecture Review 七项修正全部应用（Initial State 框架误述 / StateProxy 只读收窄 / Graph State 可见范围 / Checkpoint 定义 / 生命周期归属 / 测试证据归属 / TypedDict 静态检查表述）
 - [ ] 等待 Architecture Review
 
 ## 完成记录
 
-- 2026-08-05：任务创建，正文初稿完成（待补）
+- 2026-08-05：任务创建，正文初稿完成；四源更新；PR #29 创建。
+- 2026-08-05：**PR #29 Architecture Review 七项修正**（commit：docs: refine graph state schema and visibility boundaries）全部应用并推送更新 PR #29：
+  1. **Initial State 框架误述修正**：完整 Initial State 是本 Demo 的设计选择与测试契约，不是 LangGraph 普遍强制要求（LangGraph 支持独立 input/output schema、internal/private state）；新增常见误区 #11
+  2. **StateProxy 只读表述收窄**：属性访问适配器（持有底层引用、无 setter），教学语义按逻辑只读；不提供强制不可变保证、不是权限/安全边界、不等于 Model Context；"模型只能读不能写"改为"模型适配路径按只读约定使用"；新增常见误区 #12
+  3. **Graph State 可见范围收窄**：两层表述——当前 Demo 所有节点同一输入 schema；LangGraph 通用能力支持 input/output schema 与 internal/private state；主线与 9.4 增加推荐表述"具体节点可读取哪些字段取决于 schema 划分和节点输入契约"
+  4. **Checkpoint 定义修正**：图执行时刻持久化的状态与执行上下文快照（Graph State 字段值是其核心组成部分，但不等于简单字典副本）；不展开 metadata / storage / thread / replay
+  5. **生命周期归属修正**：应用设计定契约（语义/类型/合法状态/生命周期契约）、Node/Edge/Lifecycle Guard/Graph Runtime 执行中实现演化、schema 只声明形态不执行规则
+  6. **测试证据归属修正**：路由纯函数测试只覆盖两个路由 callable；Node 输入不可变性无统一测试，如实标注（9.7 误解、9.9 证据表与未验证清单、Q8/Q10）
+  7. **TypedDict 静态检查表述收窄**："为静态检查提供条件，是否成门禁取决于配置"；CI 未启用 mypy --strict；不宣称提交前必发现
