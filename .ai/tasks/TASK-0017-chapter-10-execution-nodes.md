@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-05 |
 | Updated | 2026-08-05 |
@@ -59,8 +59,9 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0017 Status = in_progress；ROADMAP Chapter 10 = draft / 待架构审查；content-map 第 10 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-10-execution-nodes，commit `docs: draft chapter 10 execution nodes`）
-- [ ] PR #31 Architecture Review 九项修正全部应用（Node/Routing 通用边界两层 / Graph Runtime 与应用职责 / Failure Boundary 控制流分叉 / Node 输出契约 / 四类节点分类 / Tool Registry 证据边界 / Node 输入来源 / State Update 范围 / 异常前状态保留条件 / LangChain API 清理）
-- [ ] 等待 Architecture Review
+- [x] PR #31 Architecture Review 九项修正全部应用（Node/Routing 通用边界两层 / Graph Runtime 与应用职责 / Failure Boundary 控制流分叉 / Node 输出契约 / 四类节点分类 / Tool Registry 证据边界 / Node 输入来源 / State Update 范围 / 异常前状态保留条件 / LangChain API 清理）
+- [x] PR #31 复审通过并 squash merge 到 main（commit 06a9142，CI build/test 双绿，2026-08-05）→ Chapter 10 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -76,3 +77,4 @@
   8. **State Update 范围收窄**：仅"当前 Demo 图执行阶段"由 Node 返回 Update 发起、Runtime 按 channel 合并；不覆盖 Initial State / Reducer / Command / Checkpoint / resume
   9. **异常前状态保留条件化**：未被 Update 覆盖的 channel 保留已有值；非事务回滚；前提 Node 未原地修改可变对象；测试仅覆盖具体场景
   10. **LangChain API 清理**：删除"create_agent 底层使用 LangGraph Runtime"；仅保留"Node 可以包装兼容 callable / Runnable"一句；正文不再出现 create_agent / AgentExecutor / PromptTemplate / Messages / Middleware
+- 2026-08-05：PR #31 经 Architecture Review 复审通过，squash merge 到 main（commit 06a9142，CI build/test 双绿）→ **TASK-0017 标记 completed；Chapter 10 最终完成**；本 Memory PR（docs/post-pr31-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
