@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（Edge 与 Conditional Edge，PR #33）均最终完成，下一步 Chapter 12（Reducer，TASK-0019）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）均最终完成；Chapter 12（Reducer）正文初稿完成待 Architecture Review（TASK-0019）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -156,11 +156,19 @@
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 11 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 11 draft / 待架构审查）
   - **PR #33 Review 六项修正（2026-08-05）**：Routing error 归属（非法 next_action = 应用路由契约错误，应用 callable 产生 / Graph Runtime 传播 / 应用级 invoke 兜底，非框架自动转换）/ Conditional Edge 两层定义（概念层 vs 当前 Demo path map，path map 非必经结构）/ next_action 写入 State 收窄为当前 Demo 显式契约（非框架强制，Command 留 ch13）/ Route Decision 纯函数三层（定义 / 工程推荐 / Demo 事实，"纯函数化"非定义组成部分）/ Edge-Conditional Edge 边界（静态 Edge 不读 State，读 State 的是 routing callable，declaration 与 callable 都不执行 Node）/ Edge-Scheduler 关系（"Edge 是 Runtime 控制流的声明载体，不是 Scheduler 本身"）——已应用并推送更新 PR #33
   - **PR #33 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 6f7c33f，CI build/test 双绿）→ Chapter 11 最终完成**；本 Memory PR（docs/post-pr33-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+- **Chapter 12 正文初稿（2026-08-05，TASK-0019，本任务）**：
+  - `docs/03-langgraph-core/ch12-reducer.md`：12.1-12.12，Q1-Q10，6 张 Mermaid 图
+  - **固定主线已逐字保持**：Node 返回 State Update；Reducer 定义同一 State channel 收到更新时如何合并；Graph Runtime 应用该合并规则，形成新的 State。Reducer 是数据合并规则，不是业务决策器、不是路由器、不是 Scheduler、不是权限系统、不是生命周期守卫、也不是并发控制器。当前 Demo：history 使用追加语义；其他字段使用默认覆盖语义
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；三方职责（Node 产更新 / Reducer 定规则 / Runtime 应用规则，三个"不得写"）；overwrite 与 append 无高低之分（取决于 channel 数据契约）；Reducer ≠ 业务逻辑（含 Conflict Resolution Policy 边界：机械合并 vs 权威性裁决）；并发边界严格收窄（不宣称线程安全/事务隔离/确定性并发，当前 Demo 无并发写测试 → 明确"未验证"）；Annotated 是声明挂载关系的一种 Python 表达方式而非 Reducer 本身、operator.add 非唯一追加实现；不提前讲 Annotated API/自定义 Reducer/Pregel/Channel 内部实现/Command/Send/Checkpoint/Interrupt/Stream/Subgraph；零 LangChain API
+  - 真实实现已核实（与任务书一致，无差异）：history = `Annotated[list[StepEvent], operator.add]`（state.py:36）、其余字段默认覆盖、Node 返回 history 增量、无并发写同 channel 测试（未验证）、Reducer 专项测试存在（`test_history_reducer_appends_without_duplicates` / `test_reducer_semantics_operator_add`）、无自定义 Reducer、无 Pregel 使用
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 12 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 12 draft / 待架构审查）
+  - **PR #35 Review 七项修正（2026-08-05）**：默认覆盖与同一步多更新冲突分离（默认覆盖 = 单个新值替换，不是并行冲突解决机制，新增误区 #11）/ Reducer 业务边界（不是业务决策器，可承载应用定义的数据合并语义，职责限制在值的组合与归并）/ 纯函数工程约束三层（定义 / 工程推荐 / 框架事实——LangGraph 不自动保证无副作用）/ 默认更新证据归属三层（代码 / 执行 / 非并发专项范围）/ Graph Runtime 表述（按已编译 schema 查找并应用规则，非每轮动态制定）/ Append 只是一个示例（不把 Reducer 等同 operator.add）/ history 顺序证据收窄（仅顺序执行路径，并行顺序未验证）——已应用并推送更新 PR #35
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 11 最终完成（TASK-0018，PR #33）；下一步 **Chapter 12：Reducer**（状态合并语义，TASK-0019，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 12 核心主线（已固定，写作不得偏离）**：Node 返回 State Update，Reducer 定义同一 State channel 收到更新时如何合并。Reducer 是数据合并规则，不是业务决策器、路由器或并发控制器；当前 Demo 的 history 使用追加语义，其余字段默认覆盖。
+1. Part 03（LangGraph Core）：Chapter 12 正文初稿完成（TASK-0019），待 Architecture Review；下一步预告 **Chapter 13：Command 与 Send**（动态控制流，TASK-0020，按 DAG 拓扑序，Chapter 12 Review 通过后启动）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证

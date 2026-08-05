@@ -50,6 +50,7 @@
 - [x] Chapter 09：Graph State——状态如何进入图（最终完成，2026-08-05，PR #29）
 - [x] Chapter 10：Execution Nodes——Node 执行模型（最终完成，2026-08-05，PR #31）
 - [x] Chapter 11：Edge 与 Conditional Edge——静态边与条件路由（最终完成，2026-08-05，PR #33）
+- [ ] Chapter 12：Reducer——状态合并语义（draft / 待架构审查，2026-08-05）
 - [ ] StateGraph
 - [ ] Node
 - [ ] Edge
