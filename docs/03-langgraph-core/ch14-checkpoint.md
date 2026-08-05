@@ -7,7 +7,7 @@
 
 **整章主线（固定）：**
 
-> **Graph State 是执行中的当前状态；Checkpoint 是图在某个执行时刻持久化的状态与执行上下文快照。Checkpointer 负责保存和读取这些快照，使 Runtime 能够恢复、重放或继续执行；Checkpoint 不是 Memory，也不等于一个简单的 State 字典副本。**
+> **Graph State 是执行中的当前状态；Checkpoint 是图在某个执行时刻持久化的状态与执行上下文快照。Checkpointer 负责写入、读取、组织检索、列举 checkpoint，并保存恢复所需的 pending writes，使 Runtime 能够恢复、重放或继续执行；Checkpoint 不是 Memory，也不等于一个简单的 State 字典副本。**
 
 **三条核心边界（本章必须守住）：**
 
@@ -21,7 +21,7 @@
 
 > "无 Checkpointer 时 Graph Runtime 级异常不保留部分执行状态——这是本 Demo 的明确边界（Checkpoint 能力在 v0.4.0 / v0.6.0 里程碑引入）。"
 
-**手写 Runtime 的对应问题**：`examples/manual_agent_loop` 与当前 graph Demo 一样，执行全部在内存中——进程崩溃、进程重启、中断后再续跑，**已执行的可恢复状态全部丢失**（`.ai/principles/state-design.md`：两个 Runtime 都没有 Checkpointer 时，State 是唯一可延续的信息，但那只延续到进程存活期间）。第 2 章 2.2 的边界里已经埋下伏笔：State 只服务一次执行，**执行结束即失效，除非被 Checkpoint 持久化**。
+**手写 Runtime 的对应问题**：`examples/manual_agent_loop` 与当前 graph Demo 一样，执行全部在内存中——进程崩溃、进程重启、中断后再续跑，**已执行的可恢复状态全部丢失**（`.ai/principles/state-design.md`：两个 Runtime 都没有 Checkpointer 时，State 是唯一可延续的信息，但那只延续到进程存活期间）。第 2 章 2.2 的边界里已经埋下伏笔：**State 的控制语义服务于一次执行**；未启用 Checkpointer 时，Graph Runtime 不会自动维护可恢复的 thread checkpoint history。
 
 **"没有 Checkpointer 就全部失效"必须收窄（边界修正）**：未启用 Checkpointer 时，**Graph Runtime 不会自动维护可恢复的 thread checkpoint history**——但**应用仍可获得最终 State**（`agent.py` 的 `invoke` 返回最终 GraphState），**也可以自行将业务结果持久化**（例如把最终 SQL / 结果写入外部存储）。**仅保存最终字段值，不等于拥有 Graph Runtime 的恢复位置、历史快照、pending writes、重放与续跑协议**——后者才是 Checkpoint 提供的执行可恢复性。
 
@@ -56,7 +56,7 @@ flowchart LR
 
 **固定主线第二部分（边界 2）**：
 
-> **Checkpointer 负责保存和读取这些快照，使 Runtime 能够恢复、重放或继续执行。**
+> **Checkpointer 负责写入、读取、组织检索、列举 checkpoint，并保存恢复所需的 pending writes，使 Runtime 能够恢复、重放或继续执行。**
 
 ```mermaid
 flowchart LR
@@ -173,7 +173,7 @@ Q8 的回答——**Checkpoint 不是 Memory**（固定主线第三部分 + 边�
 - Recovery 的具体机制（pending writes 如何避免重跑已完成节点——未在仓库验证）
 - Replay 的再次触发语义（后续 LLM / Tool / API / Interrupt 重新执行的行为）
 - Resume 的续跑规则（中断后合并新输入的语义）
-- reducer 累积状态的序列化（第 12 章 12.12 留待本章的问题——本章也只能立语义，实现未验证）
+- 包含 Reducer 归并结果的 channel values，以及底层 channel versions / pending writes 的持久化行为（实现未验证）
 - Checkpoint 与并发 / 动态 work item（第 13 章）的组合
 - 生产恢复策略（幂等重试 / 补偿 / 审计——Part 05）
 
@@ -205,11 +205,11 @@ Q8 的回答——**Checkpoint 不是 Memory**（固定主线第三部分 + 边�
 | Q7 | 为什么当前 Demo 未启用？ | 教学边界：graph.py 无 checkpointer、docstring 明确未启用、examples/checkpoint_hitl 预留、官方核验记录刻意未使用 |
 | Q8 | Checkpoint 与 Memory 有什么区别？ | 本书语义：快照（thread 状态与执行上下文）vs 经过选择治理的跨执行信息（第 7 章区分轴）；**官方术语桥接**：thread 内 Checkpointer 保留状态可被称为 short-term memory（Store = cross-thread long-term），本书仍归入 Checkpoint / thread state persistence |
 | Q9 | Checkpoint 与 Interrupt 是什么关系？ | Checkpoint 是 Interrupt（第 15 章）的承载基础——暂停需要可恢复的持久化；本章只立边界 |
-| Q10 | 已验证什么、未验证什么？ | 已验证：教学边界声明（docstring / graph.py）/ 官方核验记录 / 预留目录；未验证：保存读取行为、崩溃恢复确定性、重放语义、续跑规则、reducer 累积序列化、并发组合、生产恢复策略 |
+| Q10 | 已验证什么、未验证什么？ | 已验证：教学边界声明（docstring / graph.py）/ 官方核验记录 / 预留目录；未验证：写入读取检索行为、崩溃恢复确定性、重放语义、续跑规则、Reducer 归并结果与底层 versions / pending writes 的持久化行为、并发组合、生产恢复策略 |
 
 **本章验收标准：**
 
-- [ ] 能复述固定主线：Graph State 是执行中的当前状态；Checkpoint 是执行时刻的状态与执行上下文快照；Checkpointer 保存 / 读取快照；恢复策略、重放语义、续跑规则由 Runtime 与应用契约共同决定；Checkpoint 不是 Memory、不等于简单 State 字典副本
+- [ ] 能复述固定主线：Graph State 是执行中的当前状态；Checkpoint 是执行时刻的状态与执行上下文快照；Checkpointer 写入、读取、组织检索、列举 checkpoint 并保存恢复所需的 pending writes；恢复策略、重放语义、续跑规则由 Runtime 与应用契约共同决定；Checkpoint 不是 Memory、不等于简单 State 字典副本
 - [ ] 能区分 Graph State（当前执行状态）与 Checkpoint（时刻留影），并说明完整 checkpoint 通常对应 superstep 边界（pending writes ≠ 完整 checkpoint）
 - [ ] 能说出 StateSnapshot 语义的持久化内容（channel values 含 reducer 合并结果 / next 执行位置 / thread 标识 / metadata / parent 关系 / 任务信息）
 - [ ] 能说明 Checkpointer / persistence layer 的机制职责（写入 / 读取 / 检索 / 列举 / pending writes / 序列化）与 Runtime-应用契约的决策职责（恢复点 / replay-resume 入口 / 副作用幂等 / 治理 / 审批权限）
@@ -221,4 +221,4 @@ Q8 的回答——**Checkpoint 不是 Memory**（固定主线第三部分 + 边�
 - [ ] 能诚实标注证据范围（无实现证据；不推断实现行为）
 - [ ] 术语与 `TERMINOLOGY.md` 一致；只引用不重新定义 Memory / State / 生产恢复语义
 
-**本章边界**：Graph State（当前执行状态）——第 9 章；Reducer（channel 状态含累积，序列化语义留本章语义层）——第 12 章；动态 work item 与快照组合——第 13 章；Interrupt（暂停与恢复，依赖 Checkpointer）——第 15 章；Stream——第 16 章；Subgraph——第 17 章；生产恢复语义（HITL 策略 / 幂等重试 / 补偿 / 审计）——Part 05；Memory 存储与检索——第 7 章；LangChain——Future LangChain Scope Planning（`.ai/context/current.md` Future Task），不在本章展开。
+**本章边界**：Graph State（当前执行状态）——第 9 章；Reducer（归并结果体现在 channel values 中；底层 channel versions 与 pending writes 的持久化实现不展开）——第 12 章；动态 work item 与快照组合——第 13 章；Interrupt（暂停与恢复，依赖 Checkpointer）——第 15 章；Stream——第 16 章；Subgraph——第 17 章；生产恢复语义（HITL 策略 / 幂等重试 / 补偿 / 审计）——Part 05；Memory 存储与检索——第 7 章；LangChain——Future LangChain Scope Planning（`.ai/context/current.md` Future Task），不在本章展开。

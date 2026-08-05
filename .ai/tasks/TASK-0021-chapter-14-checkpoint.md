@@ -15,9 +15,9 @@
 
 ## 目标
 
-编写 Part 03 第六个原语章 `docs/03-langgraph-core/ch14-checkpoint.md`：回答「图执行如何从"内存易失"变成"可恢复"？」。**核心主线固定（用户 2026-08-05 指定，写作不得偏离）**：Graph State 是执行中的当前状态；Checkpoint 是图在某个执行时刻持久化的状态与执行上下文快照。Checkpointer 负责保存和读取这些快照，使 Runtime 能够恢复、重放或继续执行；Checkpoint 不是 Memory，也不等于一个简单的 State 字典副本。
+编写 Part 03 第六个原语章 `docs/03-langgraph-core/ch14-checkpoint.md`：回答「图执行如何从"内存易失"变成"可恢复"？」。**核心主线固定（用户 2026-08-05 指定，2026-08-05 合并前术语清理统一 Checkpointer 职责表述，写作不得偏离）**：Graph State 是执行中的当前状态；Checkpoint 是图在某个执行时刻持久化的状态与执行上下文快照。Checkpointer 负责写入、读取、组织检索、列举 checkpoint，并保存恢复所需的 pending writes，使 Runtime 能够恢复、重放或继续执行；Checkpoint 不是 Memory，也不等于一个简单的 State 字典副本。
 
-**三条核心边界（必须守住）**：① Graph State = 当前执行状态；Checkpoint = 执行时刻快照；② Checkpointer 负责保存 / 读取，但恢复策略、重放语义、续跑规则由 Runtime 与应用契约共同决定；③ Checkpoint 不是 Memory、不等于简单 State 字典副本。
+**三条核心边界（必须守住）**：① Graph State = 当前执行状态；Checkpoint = 执行时刻快照；② Checkpointer 负责写入、读取、组织检索、列举 checkpoint，并保存恢复所需的 pending writes，但恢复策略、重放语义、续跑规则由 Runtime 与应用契约共同决定；③ Checkpoint 不是 Memory、不等于简单 State 字典副本。
 
 ## 需要新增
 
@@ -45,7 +45,7 @@
 - **Checkpoint 与 Interrupt**：承载基础关系（第 15 章依赖），本章只立边界
 - **当前 Demo 未启用**：如实标注教学边界（graph.py 无 checkpointer / agent.py docstring / examples/checkpoint_hitl 预留 / references 核验记录 / architecture-map 未决项）
 - **不提前展开**：Checkpointer API 写法与存储后端（框架 API 教程 / 实现细节）、生产恢复语义（HITL / 幂等 / 补偿 / 审计——Part 05）、Interrupt API（ch15）、Stream（ch16）、Subgraph（ch17）
-- **证据诚实**：仓库无 Checkpoint 实现证据——基于 docstring / graph.py / 预留目录 / 官方核验记录；未验证清单如实标注（保存读取行为 / 崩溃恢复确定性 / 重放语义 / 续跑规则 / reducer 累积序列化 / 并发组合 / 生产恢复策略）；不推断实现行为
+- **证据诚实**：仓库无 Checkpoint 实现证据——基于 docstring / graph.py / 预留目录 / 官方核验记录；未验证清单如实标注（写入读取检索行为 / 崩溃恢复确定性 / 重放语义 / 续跑规则 / 包含 Reducer 归并结果的 channel values 与底层 versions-pending writes 的持久化行为 / 并发组合 / 生产恢复策略）；不推断实现行为
 - 测试数量以最新 CI 为准不写死
 - 不修改 TASK-0014、Chapter 08-13、examples、tests、principles、ADR、依赖、Part 03 冻结顺序、Future LangChain Scope、Part 编号
 
