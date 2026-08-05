@@ -4,10 +4,10 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-03 |
-| Updated | 2026-08-03 |
+| Updated | 2026-08-05 |
 | Related ADR | ADR-0001 / ADR-0003 / ADR-0004 / ADR-0005 / ADR-0006 |
 | Related Chapter | 第 1 章（Loop）、第 2 章（Execution State）、第 6 章（Scheduler & Orchestration）、第 7 章；TASK-0014（Part 03 规划） |
 | Related Example | examples/basic_langgraph（README 第 16/17/18 节）、examples/manual_agent_loop |
@@ -48,7 +48,10 @@
 - [x] 4 张 Mermaid 图（while vs 图回路 / LangGraph Runtime 集成点 / 图带来与没带来 / 执行控制关切→图原语概念映射）
 - [x] `mkdocs build --strict`、`git diff --check` 通过；全量测试在 CI 中通过（具体数量以最新 CI 为准）；`ruff check .` 通过
 - [x] content-map / ROADMAP / index / mkdocs 四源更新
-- [ ] 创建 PR 等待 Architecture Review（不 Merge）
+- [x] PR #27 创建
+- [x] Architecture Review 通过（八项修正全部应用）
+- [x] CI 双绿（build / test）
+- [x] PR #27 squash merge 到 main（commit 2a19809，2026-08-05）
 - [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
@@ -64,3 +67,4 @@
   6. **「固定边界」表述收窄**：改为「LangGraph 提供明确集成机制与执行协议，应用不必从零设计基础接入方式」；框架不自动提供业务恢复策略 / 审批权限 / 幂等补偿审计（属 Part 05）
   7. **LangChain 边界提示**：本章边界新增技术栈边界（LangGraph 可独立使用；LangChain 为更高层抽象；create_agent 使用 LangGraph 作为图式 Agent Runtime；后续独立 Scope Planning），不展开实现
   8. **Future LangChain Scope Planning 记录**：`.ai/context/current.md` 新增 future task（不立即执行，不改 ROADMAP / content-map / mkdocs，Part 03 完成后单独创建 Scope Alignment 任务）
+- 2026-08-05：PR #27 经 Architecture Review 复审通过，squash merge 到 main（commit 2a19809，CI build/test 双绿）→ **TASK-0015 标记 completed；Chapter 08 最终完成**；本 Memory PR（docs/post-pr27-merge-memory）收敛状态（ROADMAP / content-map / current.md）。

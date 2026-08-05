@@ -131,13 +131,13 @@
   - 写作约束已执行：Runtime 第一视角、Framework 第二视角；只引用不重新定义 State/Context/Memory/Scheduler/Tool Registry；映射表为全局参考不复制；Demo 未用能力（Checkpoint/Interrupt/Stream）如实标注
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 8 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 08 draft）
   - **PR #27 Review 二轮修正（2026-08-05）**：8.6 执行控制关切范围（两类关切） / Graph Representation vs LangGraph Runtime 边界 / Routing 纯函数为工程选择（非框架强制） / TASK-0003 观察等价收窄 / Agent Loop 映射修正 / LangChain 边界提示（Future Scope Planning 已记录，不展开）——已应用并推送更新 PR #27
-  - 待 Architecture Review（流程：Review → Merge → Memory PR）
+  - **PR #27 已通过 Architecture Review 并 squash merge 到 main（2026-08-05，commit 2a19809，CI build/test 双绿）→ Chapter 08 最终完成**；本 Memory PR（docs/post-pr27-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. **post-merge Memory PR**（分支 feature/memory-pr-0013-part02-close）已提交推送等待确认——确认后合并
-2. Part 03（LangGraph Core）：Chapter 08 正文初稿完成（TASK-0015，**待 Architecture Review**）；Review 通过并 Merge 后按 DAG 拓扑序写 ch09-ch17
+1. Part 03（LangGraph Core）：Chapter 08 最终完成（TASK-0015）；下一步 **Chapter 09：Graph State**（TASK-0016，按 DAG 拓扑序，Memory PR 合并后启动）
+2. **post-merge Memory PR**（分支 feature/memory-pr-0013-part02-close）已提交推送等待确认——确认后合并
 3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 5. 选择许可证

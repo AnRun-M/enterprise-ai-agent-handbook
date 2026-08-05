@@ -46,7 +46,7 @@
 
 ## v0.4.0：LangGraph Core
 
-- [ ] Chapter 08：为什么是图——为什么 Runtime 可以用 Graph 表达（draft 2026-08-03，Part 03 定位章）
+- [x] Chapter 08：为什么是图——为什么 Runtime 可以用 Graph 表达（最终完成，2026-08-05，PR #27）
 - [ ] StateGraph
 - [ ] Node
 - [ ] Edge
