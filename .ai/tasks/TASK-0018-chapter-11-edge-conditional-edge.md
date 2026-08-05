@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-05 |
 | Updated | 2026-08-05 |
@@ -58,8 +58,9 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0018 Status = in_progress；ROADMAP Chapter 11 = draft / 待架构审查；content-map 第 11 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-11-edge-conditional-edge，commit `docs: draft chapter 11 edge and conditional edge`）
-- [ ] PR #33 Architecture Review 六项修正全部应用（Routing error 归属 / Conditional Edge 两层定义 / next_action 作用域 / Route Decision 三层 / Edge-Conditional Edge 边界 / Edge-Scheduler 关系）
-- [ ] 等待 Architecture Review
+- [x] PR #33 Architecture Review 六项修正全部应用（Routing error 归属 / Conditional Edge 两层定义 / next_action 作用域 / Route Decision 三层 / Edge-Conditional Edge 边界 / Edge-Scheduler 关系）
+- [x] PR #33 复审通过并 squash merge 到 main（commit 6f7c33f，CI build/test 双绿，2026-08-05）→ Chapter 11 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -71,3 +72,4 @@
   4. **Route Decision 纯函数三层**：定义 = State + runtime facts → 路径结果；工程推荐 = 确定性/无副作用/可测/依赖显式化；Demo 事实 = 实现并测试为纯函数；"纯函数化"不是定义组成部分（11.4 表格 / Q4 / 验收标准）
   5. **Edge / Conditional Edge 边界**：普通静态 Edge 不读 State 不判断；读取 State 的是 routing callable；declaration 与 callable 都不执行 Node（11.2 / 11.3 / 误区 #1）
   6. **Edge / Scheduler 关系**：三层（declaration / routing callable / Graph Runtime-Scheduling Execution）；"Edge 是 Runtime 控制流的声明载体，不是 Scheduler 本身"（11.1 / Q1 / Q4 / 总结）
+- 2026-08-05：PR #33 经 Architecture Review 复审通过，squash merge 到 main（commit 6f7c33f，CI build/test 双绿）→ **TASK-0018 标记 completed；Chapter 11 最终完成**；本 Memory PR（docs/post-pr33-merge-memory）收敛状态（ROADMAP / content-map / current.md）。

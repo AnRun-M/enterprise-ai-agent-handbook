@@ -49,7 +49,7 @@
 - [x] Chapter 08：为什么是图——为什么 Runtime 可以用 Graph 表达（最终完成，2026-08-05，PR #27）
 - [x] Chapter 09：Graph State——状态如何进入图（最终完成，2026-08-05，PR #29）
 - [x] Chapter 10：Execution Nodes——Node 执行模型（最终完成，2026-08-05，PR #31）
-- [ ] Chapter 11：Edge 与 Conditional Edge——静态边与条件路由（draft / 待架构审查，2026-08-05）
+- [x] Chapter 11：Edge 与 Conditional Edge——静态边与条件路由（最终完成，2026-08-05，PR #33）
 - [ ] StateGraph
 - [ ] Node
 - [ ] Edge
