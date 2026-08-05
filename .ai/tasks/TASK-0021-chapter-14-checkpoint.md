@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-05 |
 | Updated | 2026-08-05 |
@@ -58,8 +58,10 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0021 Status = in_progress；ROADMAP Chapter 14 = draft / 待架构审查；content-map 第 14 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-14-checkpoint，commit `docs: draft chapter 14 checkpoint`）
-- [ ] PR #39 Architecture Review 七项修正全部应用（持久化内容 StateSnapshot / Memory 术语桥接 / Checkpointer 机制职责 / Recovery-Replay-Resume 精确区分 / 无 Checkpointer 边界 / 版本化边界 / superstep-pending writes 边界）
-- [ ] 等待 Architecture Review
+- [x] PR #39 Architecture Review 七项修正全部应用（持久化内容 StateSnapshot / Memory 术语桥接 / Checkpointer 机制职责 / Recovery-Replay-Resume 精确区分 / 无 Checkpointer 边界 / 版本化边界 / superstep-pending writes 边界）
+- [x] PR #39 合并前术语清理全部应用（绝对化 State 句清理 / Reducer 持久化术语统一 / 固定主线与 PR 摘要同步——Checkpointer 职责统一为"写入、读取、组织检索、列举 checkpoint，并保存恢复所需的 pending writes"）
+- [x] PR #39 复审通过并 squash merge 到 main（commit 007ae18，CI build/test 双绿，2026-08-05）→ Chapter 14 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -72,3 +74,5 @@
   5. **无 Checkpointer 边界修正**（14.1 / Q1 / 14.6 / 误区）：未启用时应用仍可获得最终 State 并可自行持久化业务结果；仅保存最终字段值 ≠ 拥有恢复位置 / 历史快照 / pending writes / 重放与续跑协议
   6. **版本化边界**（14.2 / 误区）：历史 checkpoint 固定；update_state 或后续运行创建新 checkpoint、不原地修改旧 checkpoint、fork / replay 派生新轨迹（time-travel 细节不展开）
   7. **superstep / pending writes 边界**（14.1 / 14.2 / 14.5 / Q2 / Q6）：完整 checkpoint 通常对应 superstep 边界；节点级 pending writes 可更早持久化但不等于完整 checkpoint（不展开 Pregel 内部算法）
+- 2026-08-05：**PR #39 合并前术语清理**（commit：docs: align checkpoint summary and persistence terminology）：删除 14.1 绝对化句（"执行结束即失效"→"State 的控制语义服务于一次执行；未启用 Checkpointer 时 Graph Runtime 不自动维护可恢复的 thread checkpoint history"）；"reducer 累积状态的序列化 / channel 状态含 reducer 累积"统一为"包含 Reducer 归并结果的 channel values，以及底层 channel versions / pending writes 的持久化行为"；Checkpointer 职责统一为"写入、读取、组织检索、列举 checkpoint，并保存恢复所需的 pending writes"、持久化内容统一为 StateSnapshot 六项——同步至正文顶部 / 14.3 / TASK-0021 / current.md / PR #39 描述（章节定位 / Q6 / 关键边界）。
+- 2026-08-05：PR #39 经 Architecture Review 复审通过，squash merge 到 main（commit 007ae18，CI build/test 双绿）→ **TASK-0021 标记 completed；Chapter 14 最终完成**；本 Memory PR（docs/post-pr39-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
