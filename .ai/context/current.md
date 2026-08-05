@@ -162,7 +162,8 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；三方职责（Node 产更新 / Reducer 定规则 / Runtime 应用规则，三个"不得写"）；overwrite 与 append 无高低之分（取决于 channel 数据契约）；Reducer ≠ 业务逻辑（含 Conflict Resolution Policy 边界：机械合并 vs 权威性裁决）；并发边界严格收窄（不宣称线程安全/事务隔离/确定性并发，当前 Demo 无并发写测试 → 明确"未验证"）；Annotated 是声明挂载关系的一种 Python 表达方式而非 Reducer 本身、operator.add 非唯一追加实现；不提前讲 Annotated API/自定义 Reducer/Pregel/Channel 内部实现/Command/Send/Checkpoint/Interrupt/Stream/Subgraph；零 LangChain API
   - 真实实现已核实（与任务书一致，无差异）：history = `Annotated[list[StepEvent], operator.add]`（state.py:36）、其余字段默认覆盖、Node 返回 history 增量、无并发写同 channel 测试（未验证）、Reducer 专项测试存在（`test_history_reducer_appends_without_duplicates` / `test_reducer_semantics_operator_add`）、无自定义 Reducer、无 Pregel 使用
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 12 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 12 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #35 Review 七项修正（2026-08-05）**：默认覆盖与同一步多更新冲突分离（默认覆盖 = 单个新值替换，不是并行冲突解决机制，新增误区 #11）/ Reducer 业务边界（不是业务决策器，可承载应用定义的数据合并语义，职责限制在值的组合与归并）/ 纯函数工程约束三层（定义 / 工程推荐 / 框架事实——LangGraph 不自动保证无副作用）/ 默认更新证据归属三层（代码 / 执行 / 非并发专项范围）/ Graph Runtime 表述（按已编译 schema 查找并应用规则，非每轮动态制定）/ Append 只是一个示例（不把 Reducer 等同 operator.add）/ history 顺序证据收窄（仅顺序执行路径，并行顺序未验证）——已应用并推送更新 PR #35
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步

@@ -34,10 +34,13 @@
 
 - **核心主线固定**（见目标），不得偏离
 - **Runtime 第一视角、Framework 第二视角**：先引用 Part 02 语义（ch02 State 更新机制 / ch09 schema 与 channel / ch10 State Update），再讲 LangGraph 承载；禁止从 API 出发解释概念
-- **三方职责**：Node 产生业务结果与 State Update；Reducer 定义单个 channel 合并规则；Graph Runtime 接收更新、选规则、计算并写入新 State；三个"不得写"（Node 不调用 Reducer、Reducer 不调度 Node、Reducer 不决定业务动作）
-- **Overwrite 与 Append 无高低之分**：选择取决于 channel 数据契约；没有"list 字段天然自动追加"
-- **Reducer ≠ 业务逻辑**：≠ Model Decision / Routing / Scheduler / Policy / Authorization / Lifecycle Guard / Conflict Resolution Policy（机械合并 vs 权威性裁决）/ Transaction Manager
-- **并发边界严格收窄**：为多更新合并提供语义基础；不宣称线程安全 / 事务隔离 / 确定性并发 / 所有 fan-out 合并 / 控制并发顺序；当前 Demo 无并发写同 channel 测试 → 明确"未验证"
+- **默认覆盖与同一步多更新冲突必须分开**：默认覆盖 / last-value 语义 = 单个新值替换当前值（顺序执行中的普通字段更新）；同一步多更新 = 另一类问题（是否允许多值写入、如何合并）；**默认覆盖不是并行冲突解决机制**，不得写"自动取最后一个值""解决并发写冲突""没有 reducer 就能安全合并多个更新"
+- **三方职责**：Node 产生业务结果与 State Update；Reducer 定义单个 channel 合并规则（可承载应用定义的数据合并语义：event append / numeric accumulation / set union / deduplication / map merge）；Graph Runtime 接收更新、**根据已编译的 State schema 查找并应用**该 channel 的更新规则、计算并写入新 State（不是每轮动态制定策略）；三个"不得写"（Node 不调用 Reducer、Reducer 不调度 Node、Reducer 不决定业务动作）
+- **Overwrite 与 Append 无高低之分**：选择取决于 channel 数据契约；没有"list 字段天然自动追加"；**Append 只是一个示例**（Reducer 通用能力不限于序列拼接，不把 Reducer 等同 operator.add）
+- **Reducer ≠ 业务决策器（不是绝对化"与业务无关"）**：可承载应用定义的数据合并语义，但职责限制在 channel 值的组合与归并；≠ Model Decision / Routing / Scheduler / Policy / Authorization / Lifecycle Guard / Conflict Resolution Policy（值组合归并 vs 权威性裁决）/ Transaction Manager；不负责：下一业务动作 / 权限与安全裁决 / 生命周期决策 / 外部事实权威性判断 / 业务版本冲突仲裁 / 调度执行顺序
+- **纯函数是工程约束非框架自动保证（三层）**：定义 = current + incoming → next；工程推荐 = 确定性 / 纯函数化 / 无外部副作用 / 不原地改输入 / 可重复执行 / 可独立测试；框架事实 = Reducer 是应用提供的 callable，LangGraph 不自动保证无副作用（有副作用增加重放/并发/测试风险）；当前 Demo = operator.add 是简单值合并函数，不据此外推所有 reducer 天然纯净
+- **默认更新证据三层**：代码证据（schema 未声明 reducer）/ 执行证据（最终字段断言与 Node update 一致）/ 范围（非并发专项测试）；不写"默认 overwrite 已被专项测试证明"
+- **并发边界严格收窄**：为多更新合并提供语义基础；不宣称线程安全 / 事务隔离 / 确定性并发 / 所有 fan-out 合并 / 控制并发顺序；当前 Demo 无并发写同 channel 测试 → 明确"未验证"；**history 顺序证据收窄**：测试只验证顺序执行路径的追加顺序，未验证并行更新 history 的稳定顺序（operator.add 不等于并发业务顺序保证）
 - **Annotated / operator.add 表述**：Annotated 是声明 reducer 挂载关系的一种 Python 表达方式（不是 Reducer 本身）；operator.add 不是唯一追加实现；如实引用 `state.py` 真实代码
 - **不提前展开**：Annotated API 细节 / 自定义 Reducer 写法 / Pregel / Channel 内部实现 / Command / Send（ch13）/ Checkpoint（ch14）/ Interrupt（ch15）/ Stream（ch16）/ Subgraph（ch17）
 - **不引入 LangChain API**（一句边界：LangChain 不属于本章）；不重新定义 Part 02 语义
@@ -54,8 +57,17 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0019 Status = in_progress；ROADMAP Chapter 12 = draft / 待架构审查；content-map 第 12 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-12-reducer，commit `docs: draft chapter 12 reducer`）
+- [ ] PR #35 Architecture Review 七项修正全部应用（默认覆盖 vs 同一步多更新冲突 / Reducer 业务合并语义边界 / 纯函数工程约束 / 默认更新证据归属三层 / Graph Runtime 应用规则表述 / Append 范围 / history 顺序证据收窄）
 - [ ] 等待 Architecture Review
 
 ## 完成记录
 
-- 2026-08-05：任务创建，正文初稿完成（待补）
+- 2026-08-05：任务创建，正文初稿完成；四源更新；PR #35 创建。
+- 2026-08-05：**PR #35 Architecture Review 七项修正**（commit：docs: refine reducer update and concurrency boundaries）全部应用并推送更新 PR #35：
+  1. **默认覆盖与同一步多更新冲突分离**：默认覆盖 / last-value = 单个新值替换当前值；同一步多更新是另一类问题；"默认覆盖不是并行冲突解决机制"；新增误区 #11（自动取最后一个值）——主线 / 12.1 / 12.2 / 12.4 / 12.9 / Q1-Q4 / Q7 / 总结 / 验收标准
+  2. **Reducer 业务边界**：删除"与业务无关的机械规则"绝对化；"Reducer 不是业务决策器，可承载应用定义的数据合并语义（append / 累加 / set union / 去重 / map merge），职责限制在值的组合与归并"；不负责清单 6 项——12.2 / 12.3 / 12.7 / 12.8 / Q5 / 误区 #1
+  3. **纯函数工程约束三层**：定义 / 工程推荐 / 框架事实（Reducer 是应用 callable，LangGraph 不自动保证无副作用）；当前 Demo 不据此外推——12.2 / 12.7 / 12.8 / 12.9 / 验收标准
+  4. **默认更新证据归属三层**：代码（schema 未声明 reducer）/ 执行（最终字段断言）/ 范围（非并发专项）；不写"专项测试证明 overwrite"——12.10 / Q10
+  5. **Graph Runtime 表述**："选择 channel 规则" → "根据已编译的 State schema 查找并应用"（非每轮动态制定）——Mermaid / 12.3 / 12.5 / 12.7 / Q3 / Q6
+  6. **Append 只是一个示例**：Reducer 通用能力不限于序列拼接；不把 Reducer 等同 operator.add——12.2 / 12.4
+  7. **history 顺序证据收窄**：测试验证的是顺序执行路径；并行 history 稳定顺序未验证；operator.add ≠ 并发业务顺序保证——12.4 / 12.9 / 12.10 / Q7 / Q10
