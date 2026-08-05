@@ -9,7 +9,7 @@
 - [第 10 章：Execution Nodes——Node 执行模型](ch10-execution-nodes.md)（Graph Runtime 管理的执行单元：读 State / 执行能力 / Partial Update / Failure Boundary / Node ≠ Tool）
 - [第 11 章：Edge 与 Conditional Edge——静态边与条件路由](ch11-edge-conditional-edge.md)（Edge 确定性连接 / Conditional Edge 运行时选路 / Route Decision 与调度执行 / 模型决策与路由分发边界 / Lifecycle Guard）
 - [第 12 章：Reducer——状态合并语义](ch12-reducer.md)（Current + Incoming → Next；默认覆盖 vs 追加语义；Reducer 绑定 channel 更新语义；Node / Reducer / Graph Runtime 三方职责）
-- 第 13 章：Command & Send（动态控制流）
+- [第 13 章：Command 与 Send——动态控制流](ch13-command-send.md)（Command：更新与导航绑定；Send：按数据动态 fan-out；二者是不同原语；与 Scheduler 的对应；静态图足够时不需要动态原语）
 - 第 14 章：Checkpoint（持久化与恢复）
 - 第 15 章：Interrupt（暂停与人工介入）
 - 第 16 章：Stream（流式输出）

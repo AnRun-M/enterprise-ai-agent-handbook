@@ -51,6 +51,7 @@
 - [x] Chapter 10：Execution Nodes——Node 执行模型（最终完成，2026-08-05，PR #31）
 - [x] Chapter 11：Edge 与 Conditional Edge——静态边与条件路由（最终完成，2026-08-05，PR #33）
 - [x] Chapter 12：Reducer——状态合并语义（最终完成，2026-08-05，PR #35）
+- [ ] Chapter 13：Command 与 Send——动态控制流（draft / 待架构审查，2026-08-05）
 - [ ] StateGraph
 - [ ] Node
 - [ ] Edge
