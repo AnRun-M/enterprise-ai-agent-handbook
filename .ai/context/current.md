@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（Execution Nodes，PR #31）均最终完成，下一步 Chapter 11（Edge 与 Conditional Edge，TASK-0018）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）均最终完成；Chapter 11（Edge 与 Conditional Edge）正文初稿完成待 Architecture Review（TASK-0018）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -148,11 +148,18 @@
   - **Future LangChain Scope Planning 补全**（并入既有条目，不新增第二份）：目标路线加 Agent Foundations → Production Engineering 全链；预计包含 Runnable 系列 / LCEL / ChatModel / Messages / Tool Calling / Middleware / create_agent / Structured Output / LangSmith 等；原则：LangGraph 可独立使用、LangChain 是更高层 Framework、Part 03 不出现 LangChain API
   - **PR #31 Review 九项修正（2026-08-05）**：Node/Routing 通用边界两层（严格拆分为 Demo 设计非框架强制，Command 留 ch13）/ Graph Runtime 与应用职责拆分（`_failure_boundary` 是应用实现非框架自动机制）/ Failure Boundary 控制流分叉（非同一异常执行两次）/ Node 输出契约收窄（当前 Demo 形态 + 工程建议非绝对禁令）/ 节点分类改四类形态（Semantic Decision / Mixed Capability / External Execution / Deterministic Compute）/ Tool Registry 证据边界（Demo 未实现 lookup，依赖注入，ch05 为未来组织方式）/ Node 输入来源（显式注入，禁止隐式跨轮记忆，dependency 非 State 字段）/ State Update 范围（仅图执行阶段，不覆盖 Initial State / Reducer / Command / Checkpoint）/ 异常前状态保留条件化（非事务回滚）/ LangChain API 清理（删除 create_agent 句，仅保留可包装 callable / Runnable 一句）——已应用并推送更新 PR #31
   - **PR #31 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 06a9142，CI build/test 双绿）→ Chapter 10 最终完成**；本 Memory PR（docs/post-pr31-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+- **Chapter 11 正文初稿（2026-08-05，TASK-0018，本任务）**：
+  - `docs/03-langgraph-core/ch11-edge-conditional-edge.md`：11.1-11.11，Q1-Q10，6 张 Mermaid 图
+  - **固定主线已逐字保持**：Edge 描述确定性连接；Conditional Edge 根据运行时结果选择后续路径；路由函数产生 Route Decision；Graph Runtime 解释该结果并调度下一执行步骤。当前 Demo 将模型语义决策写入 State，再由确定性路由函数分发，避免路由层替代模型决策
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；Edge 是连接描述不是执行者；Conditional Edge 不等于模型决策；Route Decision（纯函数化是工程选择）≠ Scheduling Execution；模型语义决策在 decide 节点、route_by_next_action 只分发（未知值 RuntimeError → invoke 兜底）；route_decide_or_max 按真实代码三条顺序（终止守卫最先 → 上限检查 → decide），定位 Lifecycle Guard + 确定性路由，上限检查先于模型动作，off-by-one 语义；END ≠ 业务成功、暂停 ≠ END；不提前讲 Reducer/Command/Send/Checkpoint/Interrupt/Stream/Subgraph；零 LangChain API
+  - **代码差异如实报告**：任务书建议结构中的「START → decide 确定性入口」与实际代码不符——START 出口实为条件边（`add_conditional_edges(START, route_decide_or_max, ...)`），本 Demo 静态边仅 finalize→END / max_iterations→END 两条；正文按代码为准并在 11.2 显式注明
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 11 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 11 draft / 待架构审查）
+  - 待 Architecture Review
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 10 最终完成（TASK-0017，PR #31）；下一步 **Chapter 11：Edge 与 Conditional Edge**（TASK-0018，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 11 核心主线（已固定，写作不得偏离）**：Edge 描述确定性连接，Conditional Edge 根据运行时结果选择后续路径；路由函数产生 Route Decision，Graph Runtime 解释该结果并调度下一执行步骤。当前 Demo 将模型语义决策写入 State，再由确定性路由函数分发，避免路由层替代模型决策。
+1. Part 03（LangGraph Core）：Chapter 11 正文初稿完成（TASK-0018），待 Architecture Review；下一步预告 **Chapter 12：Reducer**（状态合并语义，TASK-0019，按 DAG 拓扑序，Chapter 11 Review 通过后启动）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
