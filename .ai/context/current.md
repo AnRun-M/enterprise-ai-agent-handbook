@@ -1,8 +1,8 @@
 # Current Session
 
-日期：2026-08-03
+日期：2026-08-05
 
-阶段：`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03（LangGraph Core）章节规划已通过 Architecture Review（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用），正文待确认后从 Chapter 08 开始
+阶段：Part 03（LangGraph Core）进行中——Chapter 08 最终完成（PR #27），Chapter 09（Graph State）正文初稿完成待 Architecture Review（TASK-0016）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -132,16 +132,21 @@
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 8 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 08 draft）
   - **PR #27 Review 二轮修正（2026-08-05）**：8.6 执行控制关切范围（两类关切） / Graph Representation vs LangGraph Runtime 边界 / Routing 纯函数为工程选择（非框架强制） / TASK-0003 观察等价收窄 / Agent Loop 映射修正 / LangChain 边界提示（Future Scope Planning 已记录，不展开）——已应用并推送更新 PR #27
   - **PR #27 已通过 Architecture Review 并 squash merge 到 main（2026-08-05，commit 2a19809，CI build/test 双绿）→ Chapter 08 最终完成**；本 Memory PR（docs/post-pr27-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+- **Chapter 09 正文初稿（2026-08-05，TASK-0016，本任务）**：
+  - `docs/03-langgraph-core/ch09-graph-state.md`：9.1-9.11，Q1-Q10，5 张 Mermaid 图
+  - 主线：Execution State 是 Runtime 语义；Graph State 是 LangGraph 承载；State schema 是数据契约不是业务规则引擎
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；TypedDict 标注为当前 Demo 选择非唯一方案；START/END 为图结构哨兵（END ≠ 成功，暂停 ≠ END）；Node 返回部分更新（Reducer 留 ch12）；不展开 Checkpoint/Interrupt/Stream；证据诚实（未验证清单如实标注，不夸大 TASK-0003）
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 9 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 09 draft / 待架构审查）
+  - 待 Architecture Review
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 08 最终完成（TASK-0015）；下一步 **Chapter 09：Graph State**（TASK-0016，按 DAG 拓扑序，Memory PR 合并后启动）
-2. **post-merge Memory PR**（分支 feature/memory-pr-0013-part02-close）已提交推送等待确认——确认后合并
-3. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-4. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-5. 选择许可证
-6. **Future Task：LangChain Scope Planning**（不立即执行，仅记录方向）：
+1. Part 03（LangGraph Core）：Chapter 09 正文初稿完成（TASK-0016），待 Architecture Review；下一步 **Chapter 10：Execution Nodes**（TASK-0017，按 DAG 拓扑序，Chapter 09 Review 通过后启动）
+2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+4. 选择许可证
+5. **Future Task：LangChain Scope Planning**（不立即执行，仅记录方向）：
    - 目标：判断是否新增独立 Part，或仅新增 1-2 个桥接章节；**不在 Part 03 内展开**
    - 待评估主题：LangChain / LangGraph / Runtime 分层、Models 与 Provider Integration、Messages、Tools 与 Tool Calling、Structured Output、create_agent、Middleware、何时用 LangChain vs 直接用 LangGraph
    - 推荐方向：Runtime Semantics → LangGraph Core → LangChain Agent Framework → Text-to-SQL Practice
