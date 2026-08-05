@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）均最终完成；Chapter 12（Reducer）正文初稿完成待 Architecture Review（TASK-0019）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（Reducer，PR #35）均最终完成，下一步 Chapter 13（Command 与 Send，TASK-0020）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -163,12 +163,12 @@
   - 真实实现已核实（与任务书一致，无差异）：history = `Annotated[list[StepEvent], operator.add]`（state.py:36）、其余字段默认覆盖、Node 返回 history 增量、无并发写同 channel 测试（未验证）、Reducer 专项测试存在（`test_history_reducer_appends_without_duplicates` / `test_reducer_semantics_operator_add`）、无自定义 Reducer、无 Pregel 使用
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 12 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 12 draft / 待架构审查）
   - **PR #35 Review 七项修正（2026-08-05）**：默认覆盖与同一步多更新冲突分离（默认覆盖 = 单个新值替换，不是并行冲突解决机制，新增误区 #11）/ Reducer 业务边界（不是业务决策器，可承载应用定义的数据合并语义，职责限制在值的组合与归并）/ 纯函数工程约束三层（定义 / 工程推荐 / 框架事实——LangGraph 不自动保证无副作用）/ 默认更新证据归属三层（代码 / 执行 / 非并发专项范围）/ Graph Runtime 表述（按已编译 schema 查找并应用规则，非每轮动态制定）/ Append 只是一个示例（不把 Reducer 等同 operator.add）/ history 顺序证据收窄（仅顺序执行路径，并行顺序未验证）——已应用并推送更新 PR #35
-  - 待 Architecture Review 复审
+  - **PR #35 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 8dfc260，CI build/test 双绿）→ Chapter 12 最终完成**；本 Memory PR（docs/post-pr35-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 12 正文初稿完成（TASK-0019），待 Architecture Review；下一步预告 **Chapter 13：Command 与 Send**（动态控制流，TASK-0020，按 DAG 拓扑序，Chapter 12 Review 通过后启动）
+1. Part 03（LangGraph Core）：Chapter 12 最终完成（TASK-0019，PR #35）；下一步 **Chapter 13：Command 与 Send**（动态控制流，TASK-0020，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 13 核心主线（已固定，写作不得偏离）**：Conditional Edge 根据图外定义的 routing callable 选择路径；Command 允许 Node 的返回结果同时携带 State Update 与路由意图；Send 根据运行时数据动态创建多个 work item，实现 fan-out。Command 与 Send 都属于动态控制流原语，但一个解决"更新与导航绑定"，另一个解决"按数据动态展开并行工作"。
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证

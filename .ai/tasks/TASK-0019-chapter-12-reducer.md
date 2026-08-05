@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-05 |
 | Updated | 2026-08-05 |
@@ -57,8 +57,9 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0019 Status = in_progress；ROADMAP Chapter 12 = draft / 待架构审查；content-map 第 12 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-12-reducer，commit `docs: draft chapter 12 reducer`）
-- [ ] PR #35 Architecture Review 七项修正全部应用（默认覆盖 vs 同一步多更新冲突 / Reducer 业务合并语义边界 / 纯函数工程约束 / 默认更新证据归属三层 / Graph Runtime 应用规则表述 / Append 范围 / history 顺序证据收窄）
-- [ ] 等待 Architecture Review
+- [x] PR #35 Architecture Review 七项修正全部应用（默认覆盖 vs 同一步多更新冲突 / Reducer 业务合并语义边界 / 纯函数工程约束 / 默认更新证据归属三层 / Graph Runtime 应用规则表述 / Append 范围 / history 顺序证据收窄）
+- [x] PR #35 复审通过并 squash merge 到 main（commit 8dfc260，CI build/test 双绿，2026-08-05）→ Chapter 12 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -71,3 +72,4 @@
   5. **Graph Runtime 表述**："选择 channel 规则" → "根据已编译的 State schema 查找并应用"（非每轮动态制定）——Mermaid / 12.3 / 12.5 / 12.7 / Q3 / Q6
   6. **Append 只是一个示例**：Reducer 通用能力不限于序列拼接；不把 Reducer 等同 operator.add——12.2 / 12.4
   7. **history 顺序证据收窄**：测试验证的是顺序执行路径；并行 history 稳定顺序未验证；operator.add ≠ 并发业务顺序保证——12.4 / 12.9 / 12.10 / Q7 / Q10
+- 2026-08-05：PR #35 经 Architecture Review 复审通过，squash merge 到 main（commit 8dfc260，CI build/test 双绿）→ **TASK-0019 标记 completed；Chapter 12 最终完成**；本 Memory PR（docs/post-pr35-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
