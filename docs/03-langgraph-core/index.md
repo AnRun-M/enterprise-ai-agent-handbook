@@ -6,7 +6,7 @@
 
 - [第 8 章：为什么是图——为什么 Runtime 可以用 Graph 表达](ch08-why-graph.md)（定位章：执行控制结构可图化；Graph Representation vs LangGraph Runtime）
 - [第 9 章：Graph State——状态如何进入图](ch09-graph-state.md)（Execution State 的 LangGraph 承载：schema / 字段契约 / Initial State / START 与 END / 节点部分更新）
-- 第 10 章：Execution Nodes（Node 执行模型）
+- [第 10 章：Execution Nodes——Node 执行模型](ch10-execution-nodes.md)（Graph Runtime 管理的执行单元：读 State / 执行能力 / Partial Update / Failure Boundary / Node ≠ Tool）
 - 第 11 章：Edge & Conditional Edge（静态边与条件路由）
 - 第 12 章：Reducer（状态合并语义）
 - 第 13 章：Command & Send（动态控制流）

@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08 最终完成（PR #27）、Chapter 09（Graph State）最终完成（PR #29），下一步 Chapter 10（Execution Nodes，TASK-0017）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08 最终完成（PR #27）、Chapter 09 最终完成（PR #29），Chapter 10（Execution Nodes）正文初稿完成待 Architecture Review（TASK-0017）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -140,19 +140,27 @@
   - **PR #29 Review 七项修正（2026-08-05）**：Initial State 完整字段为 Demo 契约非框架要求（input/output schema、internal/private state 属 LangGraph 通用能力）/ StateProxy 只读表述收窄（属性访问适配器，按逻辑只读，非强制不可变、非安全边界、不等于 Model Context）/ Graph State 可见范围两层（具体节点可读字段取决于 schema 划分与节点输入契约）/ Checkpoint 定义修正（状态与执行上下文快照，非简单字典副本）/ 生命周期归属三层（应用设计定契约 / 执行路径实现演化 / schema 只声明形态）/ 测试证据归属拆分（路由纯函数测试不覆盖所有 Node 输入不可变性）/ TypedDict 静态检查为条件非门禁（CI 未启用 mypy --strict）——已应用并推送更新 PR #29
   - **PR #29 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 06ea299，CI build/test 双绿）→ Chapter 09 最终完成**；本 Memory PR（docs/post-pr29-merge-memory）收敛状态（ROADMAP / content-map / current.md）
   - **Future maintenance（不立即执行）**：修正 `examples/basic_langgraph/state.py` 中 `build_initial_state` docstring「LangGraph 要求初始 invoke 提供全部字段」→「构造本 Demo 约定的完整初始状态」——属于 examples 文档修正（对齐 Chapter 09 概念边界），不属于 Chapter 09，随 examples 维护任务处理
+- **Chapter 10 正文初稿（2026-08-05，TASK-0017，本任务）**：
+  - `docs/03-langgraph-core/ch10-execution-nodes.md`：10.1-10.12，Q1-Q10，5 张 Mermaid 图
+  - 主线：Node 在实现上可以是普通 Python callable，但在架构语义上是 Graph Runtime 管理的执行单元（读 State → 执行能力 → 返回部分更新 → Runtime 合并 → 下一执行步骤）；Node 不是孤立函数、不是 Tool、不是调度器
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；节点不调用下一节点、不写 while（调度权在路由 / Graph Runtime）；compile/invoke 归 Graph Runtime 执行路径不展开；三类节点（LLM / Tool / Pure Compute）；节点级 `_failure_boundary` 两层错误边界；Node≠Tool / ≠Python function / ≠Runnable（Runnable 仅一句边界）；不提前讲 Reducer/Checkpoint/Interrupt/Streaming/Subgraph；证据诚实（Node 输入不可变性无统一测试如实标注）
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 10 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 10 draft / 待架构审查）
+  - **Future LangChain Scope Planning 补全**（并入既有条目，不新增第二份）：目标路线加 Agent Foundations → Production Engineering 全链；预计包含 Runnable 系列 / LCEL / ChatModel / Messages / Tool Calling / Middleware / create_agent / Structured Output / LangSmith 等；原则：LangGraph 可独立使用、LangChain 是更高层 Framework、Part 03 不出现 LangChain API
+  - 待 Architecture Review
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 09 最终完成（TASK-0016，PR #29）；下一步 **Chapter 10：Execution Nodes / Node Execution Model**（TASK-0017，按 DAG 拓扑序，Memory PR 合并后启动）
+1. Part 03（LangGraph Core）：Chapter 10 正文初稿完成（TASK-0017），待 Architecture Review；下一步 **Chapter 11：Edge & Conditional Edge**（TASK-0018，按 DAG 拓扑序，Chapter 10 Review 通过后启动）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
-5. **Future Task：LangChain Scope Planning**（不立即执行，仅记录方向）：
-   - 目标：判断是否新增独立 Part，或仅新增 1-2 个桥接章节；**不在 Part 03 内展开**
-   - 待评估主题：LangChain / LangGraph / Runtime 分层、Models 与 Provider Integration、Messages、Tools 与 Tool Calling、Structured Output、create_agent、Middleware、何时用 LangChain vs 直接用 LangGraph
-   - 推荐方向：Runtime Semantics → LangGraph Core → LangChain Agent Framework → Text-to-SQL Practice
-   - 约束：future planning；当前**不修改** ROADMAP Part 编号、content-map、mkdocs.yml；**不新增** TASK 正式文件；Part 03 完成后再单独创建 Scope Alignment / Architecture Planning 任务
+5. **Future Task：LangChain Scope Planning**（不立即执行，仅记录方向；本条目已按 2026-08-05 规划合并补全，不新增第二份）：
+   - 目标：未来增加一个 **LangChain Framework 部分**（判断是否新增独立 Part，或仅新增 1-2 个桥接章节）；**不在 Part 03 内展开**
+   - 目标路线：Agent Foundations → Runtime Semantics → LangGraph Core → **LangChain Framework** → Text-to-SQL Practice → Production Engineering
+   - 预计包含：Runnable / RunnableSequence / RunnableParallel / RunnableBranch / LCEL / PromptTemplate / ChatModel / Messages / Tool Calling / Middleware / create_agent / AgentExecutor（如保留）/ Structured Output / LangSmith（如果未来规划）
+   - 原则：LangGraph 可独立使用；LangChain 是更高层 Framework；Part 03 不出现 LangChain API（LangGraph Node 可包装 Runnable，仅作一句边界）
+   - 约束：future planning；当前**不修改** ROADMAP Part 编号、content-map、mkdocs.yml；**不新增** TASK 正式文件、不新增章节；Part 03 完成后再单独执行 Scope Planning
 
 ## 当前阻塞
 
