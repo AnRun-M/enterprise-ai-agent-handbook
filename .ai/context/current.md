@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（Reducer，PR #35）均最终完成，下一步 Chapter 13（Command 与 Send，TASK-0020）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）均最终完成；Chapter 13（Command 与 Send）正文初稿完成待 Architecture Review（TASK-0020）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -164,11 +164,21 @@
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 12 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 12 draft / 待架构审查）
   - **PR #35 Review 七项修正（2026-08-05）**：默认覆盖与同一步多更新冲突分离（默认覆盖 = 单个新值替换，不是并行冲突解决机制，新增误区 #11）/ Reducer 业务边界（不是业务决策器，可承载应用定义的数据合并语义，职责限制在值的组合与归并）/ 纯函数工程约束三层（定义 / 工程推荐 / 框架事实——LangGraph 不自动保证无副作用）/ 默认更新证据归属三层（代码 / 执行 / 非并发专项范围）/ Graph Runtime 表述（按已编译 schema 查找并应用规则，非每轮动态制定）/ Append 只是一个示例（不把 Reducer 等同 operator.add）/ history 顺序证据收窄（仅顺序执行路径，并行顺序未验证）——已应用并推送更新 PR #35
   - **PR #35 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 8dfc260，CI build/test 双绿）→ Chapter 12 最终完成**；本 Memory PR（docs/post-pr35-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+- **Chapter 13 正文初稿（2026-08-05，TASK-0020，本任务）**：
+  - `docs/03-langgraph-core/ch13-command-send.md`：13.1-13.11，Q1-Q10，5 张 Mermaid 图
+  - **固定主线已逐字保持（2026-08-05 复审统一为最新表述）**：Conditional Edge 根据图外定义的 routing callable，返回 Graph Runtime 可解释的一个或多个路径目标；在本章讨论的场景中，Command 允许 Node 返回结果同时携带 State Update 与 goto 路由意图；Send 由 routing callable 根据运行时数据返回，用于描述多个带独立输入的 work items，并由 Graph Runtime 解释、实例化和调度。Command 与 Send 都属于动态控制流原语：Command 解决更新与导航绑定；Send 解决按运行时数据描述动态 fan-out work items
+  - **两条硬边界已守**：Command 与 Send 不混成同一个原语（问题不同 / 作用对象不同 / 可组合但先分清）；Send 不简化成普通 Conditional Edge（选一条路 vs 按数据展开多个执行单元）
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；Command 与「先更新 State 再路由」= 表达位置变化、解释权不变（Graph Runtime）；Send 是 work item 产生者、调度在 Scheduler / Graph Runtime（ch06 对应）；Command 的 State Update 走同一 channel 合并（ch12）；静态图足够时不需要动态原语（反例教学）；不提前讲 Command/Send API 签名 / Checkpoint / Interrupt / Stream / Subgraph（仅引用 map-reduce 组合方向）/ Part 05 生产语义；零 LangChain API
+  - **证据诚实**：仓库无 Command / Send 实现证据——基于 `references/official/langgraph.md` 核验记录（刻意未使用）与 README 第 9 节；未验证清单 6 项如实标注，不推断实现行为
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 13 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 13 draft / 待架构审查）
+  - **PR #37 Review 七项修正（2026-08-05）**：Conditional Edge 多目标语义（返回一个或多个路径目标；当前 Demo 单路径；多目标 ≠ Send work-item 语义）/ Send 产生链路（Node 产数据 → conditional routing callable → Send descriptors → Graph Runtime 解释实例化调度；Send 不执行节点不创建线程）/ Send 独立输入语义（目标节点 + 专属输入；同一目标可实例化多次；核心区别 = 目标选择 vs 带独立输入的实例化）/ Command 作用域收窄（本章特指 Node 返回的 State Update + goto；resume / Tool return / parent graph / invoke-stream 输入声明不展开）/ Command 等价性收窄（单图场景相近意图，不宣称全面等价，仓库未测）/ 动态实例边界（实例化已注册目标 Node 的 work items，非注册新 Node 类型）/ Send 与并行收窄（表达 fan-out，不自动保证并发度 / 调度顺序 / 稳定顺序 / 线程安全 / 重试 / delivery / fan-in 确定性）——已应用并推送更新 PR #37
+  - **PR #37 Review 复审三项跨章节一致性修正（2026-08-05）**：固定主线统一为最新表述（Conditional Edge 返回一个或多个路径目标 / Command = Node 返回的 State Update + goto / Send 由 routing callable 返回、Graph Runtime 解释实例化调度）；"节点不决定下一步"旧绝对边界改写（Node 不自己执行跳转、不拥有 Scheduling Execution；Node 表达 Runtime 控制结果、Graph Runtime 解释并调度；第 10 章两层边界延续）；Send / work item 职责四层（routing callable 构造返回 descriptors / descriptor 描述 target + 输入 / Graph Runtime 解释实例化 / Scheduler 安排执行顺序并发；"Send 表达 fan-out 但不是 work item 的主动创建者或执行者"）——已应用并推送更新 PR #37
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 12 最终完成（TASK-0019，PR #35）；下一步 **Chapter 13：Command 与 Send**（动态控制流，TASK-0020，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 13 核心主线（已固定，写作不得偏离）**：Conditional Edge 根据图外定义的 routing callable 选择路径；Command 允许 Node 的返回结果同时携带 State Update 与路由意图；Send 根据运行时数据动态创建多个 work item，实现 fan-out。Command 与 Send 都属于动态控制流原语，但一个解决"更新与导航绑定"，另一个解决"按数据动态展开并行工作"。
+1. Part 03（LangGraph Core）：Chapter 13 正文初稿完成（TASK-0020），待 Architecture Review；下一步预告 **Chapter 14：Checkpoint**（持久化与恢复，TASK-0021，按 DAG 拓扑序，Chapter 13 Review 通过后启动）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证

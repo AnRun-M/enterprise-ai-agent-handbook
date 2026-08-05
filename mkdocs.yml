@@ -58,6 +58,7 @@ nav:
       - 第 10 章: 03-langgraph-core/ch10-execution-nodes.md
       - 第 11 章: 03-langgraph-core/ch11-edge-conditional-edge.md
       - 第 12 章: 03-langgraph-core/ch12-reducer.md
+      - 第 13 章: 03-langgraph-core/ch13-command-send.md
   - Text-to-SQL:
       - 概览: 04-text2sql/index.md
       - 规范流程: 04-text2sql/canonical-pipeline.md
