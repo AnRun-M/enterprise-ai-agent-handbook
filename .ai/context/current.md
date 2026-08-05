@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）均最终完成；Chapter 13（Command 与 Send）正文初稿完成待 Architecture Review（TASK-0020）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（Command 与 Send，PR #37）均最终完成，下一步 Chapter 14（Checkpoint，TASK-0021）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -173,12 +173,12 @@
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 13 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 13 draft / 待架构审查）
   - **PR #37 Review 七项修正（2026-08-05）**：Conditional Edge 多目标语义（返回一个或多个路径目标；当前 Demo 单路径；多目标 ≠ Send work-item 语义）/ Send 产生链路（Node 产数据 → conditional routing callable → Send descriptors → Graph Runtime 解释实例化调度；Send 不执行节点不创建线程）/ Send 独立输入语义（目标节点 + 专属输入；同一目标可实例化多次；核心区别 = 目标选择 vs 带独立输入的实例化）/ Command 作用域收窄（本章特指 Node 返回的 State Update + goto；resume / Tool return / parent graph / invoke-stream 输入声明不展开）/ Command 等价性收窄（单图场景相近意图，不宣称全面等价，仓库未测）/ 动态实例边界（实例化已注册目标 Node 的 work items，非注册新 Node 类型）/ Send 与并行收窄（表达 fan-out，不自动保证并发度 / 调度顺序 / 稳定顺序 / 线程安全 / 重试 / delivery / fan-in 确定性）——已应用并推送更新 PR #37
   - **PR #37 Review 复审三项跨章节一致性修正（2026-08-05）**：固定主线统一为最新表述（Conditional Edge 返回一个或多个路径目标 / Command = Node 返回的 State Update + goto / Send 由 routing callable 返回、Graph Runtime 解释实例化调度）；"节点不决定下一步"旧绝对边界改写（Node 不自己执行跳转、不拥有 Scheduling Execution；Node 表达 Runtime 控制结果、Graph Runtime 解释并调度；第 10 章两层边界延续）；Send / work item 职责四层（routing callable 构造返回 descriptors / descriptor 描述 target + 输入 / Graph Runtime 解释实例化 / Scheduler 安排执行顺序并发；"Send 表达 fan-out 但不是 work item 的主动创建者或执行者"）——已应用并推送更新 PR #37
-  - 待 Architecture Review 复审
+  - **PR #37 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 0da1938，CI build/test 双绿）→ Chapter 13 最终完成**；本 Memory PR（docs/post-pr37-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 13 正文初稿完成（TASK-0020），待 Architecture Review；下一步预告 **Chapter 14：Checkpoint**（持久化与恢复，TASK-0021，按 DAG 拓扑序，Chapter 13 Review 通过后启动）
+1. Part 03（LangGraph Core）：Chapter 13 最终完成（TASK-0020，PR #37）；下一步 **Chapter 14：Checkpoint**（持久化与恢复，TASK-0021，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 14 核心主线（已固定，写作不得偏离）**：Graph State 是执行中的当前状态；Checkpoint 是图在某个执行时刻持久化的状态与执行上下文快照。Checkpointer 负责保存和读取这些快照，使 Runtime 能够恢复、重放或继续执行；Checkpoint 不是 Memory，也不等于一个简单的 State 字典副本。
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
