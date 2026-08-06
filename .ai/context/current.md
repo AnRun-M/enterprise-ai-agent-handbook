@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（PR #39）、Chapter 15（Interrupt，PR #41）均最终完成，下一步 Chapter 16（Stream，TASK-0023）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（PR #39）、Chapter 15（PR #41）均最终完成；Chapter 16（Stream）正文初稿完成待 Architecture Review（TASK-0023）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -193,11 +193,18 @@
   - **PR #41 Review 七项修正（2026-08-06）**：Interrupt 业务语义与实现机制两层（业务语义非失败 ≠ FAILED State；实现上 interrupt() 经特殊控制流异常通知 Runtime 暂停，普通 try/except 不应吞掉信号）/ Resume 时 Node 重执行语义（"从暂停点恢复"是图执行语义非指令级 continuation——Node 从头重新执行直至 interrupt() 取得 resume value；副作用须幂等、不可安全重复写入不得置于 Interrupt 前、多个 Interrupt 顺序须稳定）/ Resume payload 与 Command 区分（payload = 应用或人工产生的内容，Command(resume=payload) = 恢复封装，payload 成为 interrupt() 返回值；Payload Contract：可序列化 / 大小受控 / 无句柄 / 敏感字段受约束 / 大对象用引用）/ WAITING_FOR_HUMAN 生命周期归属（应用生命周期语义非 LangGraph 自动写入的 State 字段，业务状态由应用契约维护）/ 五层职责（Application Node-Policy / Interrupt protocol / Checkpointer / Node-Command-Edge / Graph Runtime，删除"Interrupt 负责恢复后去哪"）/ Checkpointer 持久性限定（Checkpointer + 稳定 thread_id；跨进程恢复需 durable persistence backend，内存型 saver 不等于生产持久化）——已应用并推送更新 PR #41
   - **PR #41 合并前一致性清理（2026-08-06）**：删除 15.1 残留错误句（"从暂停点继续，而不是从头或从异常路径重来"）；PR #41 描述顶部摘要直接同步最终结论（章节定位 / Q2-Q7 / 关键边界 / Mermaid）；固定主线中"可携带人工输入或控制结果"收窄为"恢复调用通过 Runtime 控制封装携带 resume payload；payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入"，最终主线同步至正文顶部 / 15.2 / 15.4 / TASK-0022 / current.md 两处
   - **PR #41 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-06，commit b9ef9fe，CI build/test 双绿）→ Chapter 15 最终完成**；本 Memory PR（docs/post-pr41-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+- **Chapter 16 正文初稿（2026-08-06，TASK-0023，本任务）**：
+  - `docs/03-langgraph-core/ch16-stream.md`：16.1-16.9，Q1-Q10，5 张 Mermaid 图
+  - **固定主线已逐字保持**：Stream 让调用方在图仍在执行时持续接收运行进展与增量输出；它是观察和交付协议，不决定路由、不修改业务状态，也不等于日志系统。Graph Runtime 产生流事件，应用选择消费模式、展示方式与背压策略；Stream 与 Interrupt 正交，一个解决"边跑边看"，一个解决"暂停后再继续"
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；三条硬边界（不决定路由 / 不修改业务状态 / ≠ 日志系统）；最终 State 仍是权威结果（流事件 = 过程视图）；history（State 内行为事件）vs 流事件（交付过程视图）区分；消费模式 / 展示 / 背压由应用选择（Graph Runtime 只产生与交付）；与 Interrupt 正交（可共存、互不依赖）；同步 invoke vs 流式对照（同一张图两种观察方式）；不提前讲 astream API / 生产交付（Part 05）/ token 级流（LLM 内部）/ Subgraph 嵌套流（ch17 仅引用）；零 LangChain API
+  - **证据诚实**：仓库无 Stream 实现证据——基于同步 invoke 代码事实（agent.py）与 references 核验记录（Streaming 刻意未使用）；未验证清单 6 项如实标注，不推断实现行为
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 16 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 16 draft / 待架构审查）
+  - 待 Architecture Review
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 15 最终完成（TASK-0022，PR #41）；下一步 **Chapter 16：Stream**（流式输出，TASK-0023，按 DAG 拓扑序，Memory PR 合并后启动）。**Chapter 16 核心主线（已固定，写作不得偏离）**：Stream 让调用方在图仍在执行时持续接收运行进展与增量输出；它是观察和交付协议，不决定路由、不修改业务状态，也不等于日志系统。Graph Runtime 产生流事件，应用选择消费模式、展示方式与背压策略；Stream 与 Interrupt 正交，一个解决"边跑边看"，一个解决"暂停后再继续"。
+1. Part 03（LangGraph Core）：Chapter 16 正文初稿完成（TASK-0023），待 Architecture Review；下一步预告 **Chapter 17：Subgraph**（图组合与复用，TASK-0024，按 DAG 拓扑序，Chapter 16 Review 通过后启动）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
