@@ -53,6 +53,7 @@
 - [x] Chapter 12：Reducer——状态合并语义（最终完成，2026-08-05，PR #35）
 - [x] Chapter 13：Command 与 Send——动态控制流（最终完成，2026-08-05，PR #37）
 - [x] Chapter 14：Checkpoint——持久化与恢复（最终完成，2026-08-05，PR #39）
+- [ ] Chapter 15：Interrupt——暂停与人工介入（draft / 待架构审查，2026-08-05）
 - [ ] StateGraph
 - [ ] Node
 - [ ] Edge
