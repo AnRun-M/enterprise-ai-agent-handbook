@@ -15,7 +15,7 @@
 
 ## 目标
 
-编写 Part 03 第七个原语章 `docs/03-langgraph-core/ch15-interrupt.md`：回答「图执行如何在可恢复执行点暂停，等待应用或人工参与者？」。**核心主线固定（用户 2026-08-05 指定，2026-08-06 Review 补充 Node 重执行语义，写作不得偏离）**：Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时通过同一 thread 的持久化状态继续执行（包含 Interrupt 的 Node 从头重新执行，直至 `interrupt()` 取得 resume value 后继续后续逻辑），并可携带人工输入或控制结果。Interrupt 不是 END，不是普通异常，也不等于完整的 HITL 业务流程；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复协议。
+编写 Part 03 第七个原语章 `docs/03-langgraph-core/ch15-interrupt.md`：回答「图执行如何在可恢复执行点暂停，等待应用或人工参与者？」。**核心主线固定（用户 2026-08-05 指定，2026-08-06 Review 与合并前清理统一为最终表述，写作不得偏离）**：Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时使用同一 thread 的持久化状态，包含 Interrupt 的 Node 会从头重新执行，直到 `interrupt()` 取得 resume payload 后继续后续逻辑——恢复调用通过 Runtime 控制封装携带 resume payload，payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入；Interrupt 在业务语义上不是失败，但在 LangGraph 实现中通过特殊控制流异常通知 Graph Runtime 暂停；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复值注入协议。
 
 ## 需要新增
 

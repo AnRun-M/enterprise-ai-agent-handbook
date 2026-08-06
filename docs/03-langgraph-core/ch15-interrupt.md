@@ -7,7 +7,7 @@
 
 **整章主线（固定）：**
 
-> **Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时通过同一 thread 的持久化状态继续执行（包含 Interrupt 的 Node 从头重新执行，直至 `interrupt()` 取得 resume value 后继续后续逻辑），并可携带人工输入或控制结果。Interrupt 不是 END，不是普通异常，也不等于完整的 HITL 业务流程；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复协议。**
+> **Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时使用同一 thread 的持久化状态，包含 Interrupt 的 Node 会从头重新执行，直到 `interrupt()` 取得 resume payload 后继续后续逻辑——恢复调用通过 Runtime 控制封装携带 resume payload，payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入；Interrupt 在业务语义上不是失败，但在 LangGraph 实现中通过特殊控制流异常通知 Graph Runtime 暂停；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复值注入协议。**
 
 ## 15.1 为什么需要 Interrupt
 
@@ -21,7 +21,7 @@
 - **普通终止不够**：SUCCESS / FAILED / MAX_ITERATIONS_REACHED 都是"结束"，而暂停是"未结束，等待继续"（第 1 章 1.5 状态机）
 - **普通异常不够**：异常是失败路径，暂停是**预期的、可恢复的**控制点（15.5）
 
-**Interrupt 解决这个问题**：让 Graph Runtime 在**可恢复执行点**暂停，把控制权交还应用或人工参与者；恢复后**从暂停点继续**，而不是从头或从异常路径重来（15.3）。
+**Interrupt 解决这个问题**：让 Graph Runtime 在**可恢复执行点**暂停，把控制权交还应用或人工参与者；**恢复后从持久化的图执行位置继续，而不是重新启动整张图**；但**包含 interrupt() 的 Node 会从头重新执行**，直到 interrupt() 取得 resume value 后继续其后逻辑（15.2）。
 
 ## 15.2 Interrupt 的定义与边界
 
@@ -45,7 +45,7 @@ flowchart LR
 1. **在可恢复执行点暂停**：不是任意位置——暂停点是**可以持久化并恢复**的执行位置（15.3 的 Checkpoint 承载）
 2. **把控制权交还应用或人工参与者**：暂停期间图不再推进；由外部决定"继续、修改后继续、还是放弃"（T07 审批语义）
 3. **恢复时通过同一 thread 的持久化状态继续执行**（固定主线第二部分，15.3）
-4. **恢复时可携带人工输入或控制结果**（固定主线第三部分，15.4）
+4. **恢复调用通过 Runtime 控制封装携带 resume payload**——payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入（固定主线第三部分，15.4）
 
 **三条硬边界（固定主线第四部分）**：
 
@@ -99,7 +99,7 @@ flowchart LR
 
 **固定主线第三部分**：
 
-> **恢复时通过同一 thread 的持久化状态继续执行，并可携带人工输入或控制结果。**
+> **恢复时使用同一 thread 的持久化状态继续执行；恢复调用通过 Runtime 控制封装携带 resume payload——payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入。**
 
 Q6 的回答——**必须区分 Resume Payload 与 Command（两层概念）**：
 
@@ -119,11 +119,11 @@ flowchart LR
     INT --> CONT["Node 后续逻辑"]
 ```
 
-（不展开完整 API 教程，但概念层必须区分 payload 与 Command wrapper——第 13 章 13.2 作用域声明。）
+（不展开完整 API 教程，但概念层必须区分 payload 与 Command wrapper——第 13 章 13.2 作用域声明。）**层级必须明确**：**payload 是业务内容**（审批结果、修改内容、澄清信息等）；**Command 是 Runtime 恢复封装**（携带 payload 恢复同一 thread）；**Command 不是审批决定本身**；恢复后的 State Update / routing intent 由 **Node / Command / Edge 表达**（第 10 / 13 / 11 章），最终由 Graph Runtime 调度（15.3 五层职责）。
 
 **Interrupt Payload Contract（最小边界）**：payload 是向调用方表达"为什么暂停、需要什么输入"的**协议数据**，应当：**可序列化**；**大小受控**；**不直接携带连接对象或运行时句柄**；**敏感字段受权限与脱敏策略约束**；**大对象使用 ID / URI / digest / summary 引用**（第 2 章 2.6 引用策略）。不展开 API 类型签名。
 
-**边界**：恢复时"合并新输入的语义"（如何与已持久化状态结合、拒绝后走什么路径）属于**应用契约与 Part 05 生产语义**（第 14 章 14.3 同款边界）；本章只立"可携带人工输入或控制结果"这一语义。
+**边界**：恢复时"合并新输入的语义"（如何与已持久化状态结合、拒绝后走什么路径）属于**应用契约与 Part 05 生产语义**（第 14 章 14.3 同款边界）；本章只立"恢复调用携带 resume payload"这一语义。
 
 ## 15.5 Interrupt 与 END、异常的区别
 

@@ -186,7 +186,7 @@
   - **PR #39 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-05，commit 007ae18，CI build/test 双绿）→ Chapter 14 最终完成**；本 Memory PR（docs/post-pr39-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 - **Chapter 15 正文初稿（2026-08-05，TASK-0022，本任务）**：
   - `docs/03-langgraph-core/ch15-interrupt.md`：15.1-15.10，Q1-Q10，5 张 Mermaid 图
-  - **固定主线已逐字保持**：Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时通过同一 thread 的持久化状态继续执行，并可携带人工输入或控制结果。Interrupt 不是 END，不是普通异常，也不等于完整的 HITL 业务流程；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复协议
+  - **固定主线已逐字保持（2026-08-06 合并前清理统一为最终表述）**：Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时使用同一 thread 的持久化状态，包含 Interrupt 的 Node 会从头重新执行，直到 `interrupt()` 取得 resume payload 后继续后续逻辑——恢复调用通过 Runtime 控制封装携带 resume payload，payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入；Interrupt 在业务语义上不是失败，但在 LangGraph 实现中通过特殊控制流异常通知 Graph Runtime 暂停；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复值注入协议
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；三条硬边界（≠ END / ≠ 异常 / ≠ 完整 HITL）；Checkpoint 承载 + Interrupt 协议分工（恢复 = ch14 续跑场景）；恢复可携带人工输入（T07 批准 / 拒绝 / 修改）或控制结果（Command——ch13 作用域声明，API 不展开）；ch01 Human Stop 暂停态（RUNNING → INTERRUPTED / WAITING_FOR_HUMAN → RUNNING）状态机对应；T07 人工审批挂载点（审批规则属策略层 ADR-004 / ADR-005）；不提前讲 Interrupt API / 生产 HITL（Part 05）/ 审批 UI / Stream（ch16，正交）/ Subgraph（ch17）；零 LangChain API
   - **证据诚实**：仓库无 Interrupt 实现证据——基于第 1 章暂停态定义、references 核验记录（刻意未使用）、README 第 18 节、examples/checkpoint_hitl 预留；未验证清单 5 项如实标注，不推断实现行为
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 15 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 15 draft / 待架构审查）
@@ -196,7 +196,7 @@
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 15 正文初稿完成（TASK-0022），待 Architecture Review；下一步预告 **Chapter 16：Stream**（流式输出，TASK-0023，按 DAG 拓扑序，Chapter 15 Review 通过后启动）
+1. Part 03（LangGraph Core）：Chapter 15 正文初稿完成（TASK-0022），待 Architecture Review；下一步预告 **Chapter 16：Stream**（流式输出，TASK-0023，按 DAG 拓扑序，Chapter 15 Review 通过后启动）。**Chapter 15 核心主线（已固定，写作不得偏离）**：Interrupt 让 Graph Runtime 在可恢复执行点暂停，并把控制权交还应用或人工参与者；恢复时使用同一 thread 的持久化状态，包含 Interrupt 的 Node 会从头重新执行，直到 `interrupt()` 取得 resume payload 后继续后续逻辑——恢复调用通过 Runtime 控制封装携带 resume payload，payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入；Interrupt 在业务语义上不是失败，但在 LangGraph 实现中通过特殊控制流异常通知 Graph Runtime 暂停；Checkpoint 提供持久化承载，Interrupt 提供暂停与恢复值注入协议。
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
