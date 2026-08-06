@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-05 |
 | Updated | 2026-08-05 |
@@ -58,8 +58,10 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0022 Status = in_progress；ROADMAP Chapter 15 = draft / 待架构审查；content-map 第 15 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-15-interrupt，commit `docs: draft chapter 15 interrupt`）
-- [ ] PR #41 Architecture Review 七项修正全部应用（业务语义 / 特殊异常实现桥接 / Resume 时 Node 重执行 / Resume payload 与 Command 区分 / WAITING_FOR_HUMAN 生命周期归属 / 五层职责 / Payload Contract / durable backend 边界）
-- [ ] 等待 Architecture Review
+- [x] PR #41 Architecture Review 七项修正全部应用（业务语义 / 特殊异常实现桥接 / Resume 时 Node 重执行 / Resume payload 与 Command 区分 / WAITING_FOR_HUMAN 生命周期归属 / 五层职责 / Payload Contract / durable backend 边界）
+- [x] PR #41 合并前一致性清理全部应用（15.1 旧恢复语义清理 / PR 顶部摘要直接同步最终结论 / Resume payload 与 Command 固定主线统一）
+- [x] PR #41 复审通过并 squash merge 到 main（commit b9ef9fe，CI build/test 双绿，2026-08-06）→ Chapter 15 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -72,3 +74,5 @@
   5. **五层职责**（15.3 / 15.4 / 15.6 / Q5 / Q6）：Application Node-Policy / Interrupt protocol / Checkpointer / Node-Command-Edge / Graph Runtime；删除"Interrupt 负责恢复后去哪"
   6. **Interrupt Payload Contract**（15.4）：可序列化 / 大小受控 / 不含连接对象与运行时句柄 / 敏感字段受权限脱敏约束 / 大对象用引用
   7. **Checkpointer 持久性限定**（15.3 / 误区 #4）：Checkpointer + 稳定 thread_id；跨进程恢复还需 durable persistence backend（内存型 saver 不等于生产持久化）
+- 2026-08-06：**PR #41 合并前一致性清理**（commit：docs: align interrupt resume summary and terminology）：删除 15.1 残留错误句（"从暂停点继续，而不是从头或从异常路径重来"→"从持久化的图执行位置继续，而不是重新启动整张图；但包含 interrupt() 的 Node 会从头重新执行"）；PR #41 描述顶部摘要直接同步最终结论（章节定位固定主线 / Q2-Q7 摘要 / 关键边界 / Mermaid 行，非仅追加修正节）；固定主线中"可携带人工输入或控制结果"收窄为"恢复调用通过 Runtime 控制封装携带 resume payload；payload 可以是人工审批结果、修改内容、澄清信息或其他结构化输入"——同步至正文顶部 / 15.2 / 15.4 / TASK-0022 / current.md 两处。
+- 2026-08-06：PR #41 经 Architecture Review 复审通过，squash merge 到 main（commit b9ef9fe，CI build/test 双绿）→ **TASK-0022 标记 completed；Chapter 15 最终完成**；本 Memory PR（docs/post-pr41-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
