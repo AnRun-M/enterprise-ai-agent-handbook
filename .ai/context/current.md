@@ -190,7 +190,8 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；三条硬边界（≠ END / ≠ 异常 / ≠ 完整 HITL）；Checkpoint 承载 + Interrupt 协议分工（恢复 = ch14 续跑场景）；恢复可携带人工输入（T07 批准 / 拒绝 / 修改）或控制结果（Command——ch13 作用域声明，API 不展开）；ch01 Human Stop 暂停态（RUNNING → INTERRUPTED / WAITING_FOR_HUMAN → RUNNING）状态机对应；T07 人工审批挂载点（审批规则属策略层 ADR-004 / ADR-005）；不提前讲 Interrupt API / 生产 HITL（Part 05）/ 审批 UI / Stream（ch16，正交）/ Subgraph（ch17）；零 LangChain API
   - **证据诚实**：仓库无 Interrupt 实现证据——基于第 1 章暂停态定义、references 核验记录（刻意未使用）、README 第 18 节、examples/checkpoint_hitl 预留；未验证清单 5 项如实标注，不推断实现行为
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 15 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 15 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #41 Review 七项修正（2026-08-06）**：Interrupt 业务语义与实现机制两层（业务语义非失败 ≠ FAILED State；实现上 interrupt() 经特殊控制流异常通知 Runtime 暂停，普通 try/except 不应吞掉信号）/ Resume 时 Node 重执行语义（"从暂停点恢复"是图执行语义非指令级 continuation——Node 从头重新执行直至 interrupt() 取得 resume value；副作用须幂等、不可安全重复写入不得置于 Interrupt 前、多个 Interrupt 顺序须稳定）/ Resume payload 与 Command 区分（payload = 应用或人工产生的内容，Command(resume=payload) = 恢复封装，payload 成为 interrupt() 返回值；Payload Contract：可序列化 / 大小受控 / 无句柄 / 敏感字段受约束 / 大对象用引用）/ WAITING_FOR_HUMAN 生命周期归属（应用生命周期语义非 LangGraph 自动写入的 State 字段，业务状态由应用契约维护）/ 五层职责（Application Node-Policy / Interrupt protocol / Checkpointer / Node-Command-Edge / Graph Runtime，删除"Interrupt 负责恢复后去哪"）/ Checkpointer 持久性限定（Checkpointer + 稳定 thread_id；跨进程恢复需 durable persistence backend，内存型 saver 不等于生产持久化）——已应用并推送更新 PR #41
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步
