@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-07 |
 | Updated | 2026-08-07 |
@@ -60,8 +60,9 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0024 Status = in_progress；ROADMAP Chapter 17 = draft / 待架构审查；content-map 第 17 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-17-subgraph，commit `docs: draft chapter 17 subgraph`）
-- [ ] PR #45 Architecture Review（REQUEST CHANGES）八项修正全部应用（Graph Composition 固定表述 / Parent 不拥有 Child / State Exchange 是执行契约 / 不产生新 Runtime / Send 不同层次 / Demo 未使用 = 无组合需求 / Evidence 保持 / Part 03 Ending）
-- [ ] 等待 Architecture Review 复审（复审通过后 APPROVE 并进入 Chapter 17 收尾流程，再单独执行 Part 03 Scope Closure）
+- [x] PR #45 Architecture Review（REQUEST CHANGES）八项修正全部应用（Graph Composition 固定表述 / Parent 不拥有 Child / State Exchange 是执行契约 / 不产生新 Runtime / Send 不同层次 / Demo 未使用 = 无组合需求 / Evidence 保持 / Part 03 Ending）
+- [x] PR #45 复审 APPROVED 并 squash merge 到 main（commit d7befd3，CI build/test 双绿，2026-08-07）→ Chapter 17 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -75,3 +76,5 @@
   6. **当前 Demo 未使用 = 没有组合需求**（17.7）：没有出现值得独立封装并复用的一组图结构，保持单图即可——不是能力缺失
   7. **Evidence 保持**（17.8）：继续"Repository 无 Subgraph → Reference 有 → 只能介绍边界不介绍实现"；不因官方 examples 写"已验证"
   8. **Part 03 Ending**（17.10 收官句）：Part 03 从 Graph State 到 Subgraph 逐步建立 Graph Runtime 执行模型；下一部分进入 StateGraph API 与框架实现层，不重新定义运行时概念
+- 2026-08-07：PR #45 经 Architecture Review 复审 APPROVED，squash merge 到 main（commit d7befd3，CI build/test 双绿）→ **TASK-0024 标记 completed；Chapter 17 最终完成**；本 Memory PR（docs/post-pr45-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
+- **Future maintenance**：None（本任务无遗留 maintenance 项；Part 03 Scope Closure / 收官检查将作为独立流程在 Memory PR 合并后单独执行）。

@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（PR #39）、Chapter 15（PR #41）、Chapter 16（PR #43）均最终完成；Chapter 17（Subgraph，Part 03 收官章）正文初稿完成待 Architecture Review（TASK-0024）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（PR #39）、Chapter 15（PR #41）、Chapter 16（PR #43）、Chapter 17（Subgraph，PR #45）全部最终完成；**Part 03 收官检查（Scope Closure）待执行**（Memory PR 合并后单独执行，未宣布 Part 03 completed、未宣布 v0.4.0 finished）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -210,12 +210,12 @@
   - **证据诚实**：仓库无 Subgraph 实现证据——基于 references 核验记录（刻意未使用）与 README 第 19 节扩展方向声明；未验证清单 7 项如实标注，不推断实现行为（不因官方 examples 写成"已验证"）
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 17 章行+Part 3 行，Part 03 保持进行中）、ROADMAP（v0.4.0 Chapter 17 draft / 待架构审查，标注 Part 03 收官章）
   - **PR #45 Review（REQUEST CHANGES）八项修正（2026-08-07）**：Subgraph = Graph Composition 不是大 Node（固定表述："不是 Node 的增强版，而是 Graph 的组合"；Graph 被 Graph 组合）/ Parent Graph 描述调用关系不拥有 Child 生命周期（生命周期属 Runtime）/ State Exchange 是执行契约（mapping 只是表达方式，真正重要的是 Execution Boundary，非 DTO Mapping）/ Subgraph 不产生新的 Runtime（同一 Runtime 图组合，不讨论 RemoteGraph-A2A-Multi Runtime）/ Send 与 Subgraph 不同层次（Send → Work Items → 同一 Subgraph；可组合但互不替代）/ Demo 未使用 = 没有组合需求非能力缺失 / Evidence 保持（只介绍边界不介绍实现）/ Part 03 Ending 收官句（从 Graph State 到 Subgraph 建立 Graph Runtime 执行模型，下一部分进入 StateGraph API 与框架实现层）——已应用并推送更新 PR #45
-  - 待 Architecture Review 复审（复审通过后 APPROVE 并进入 Chapter 17 收尾流程，再单独执行 Part 03 Scope Closure）
+  - **PR #45 已通过 Architecture Review 复审 APPROVED 并 squash merge 到 main（2026-08-07，commit d7befd3，CI build/test 双绿）→ Chapter 17 最终完成（Part 03 全部十章完成）**；本 Memory PR（docs/post-pr45-merge-memory）收敛状态（ROADMAP / content-map / current.md）；**Part 03 尚未宣布 completed、v0.4.0 尚未宣布 finished——收官检查待 Memory PR 合并后单独执行**
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 17 正文初稿完成（TASK-0024，Part 03 收官章），待 Architecture Review；下一步预告 **Part 03 Scope Closure / 收官检查**（Chapter 17 Review 通过并合并后单独执行——检查 ROADMAP v0.4.0 剩余项 / content-map Part 3 行 / Part 03 index / 未决项对账，不把 Part 03 提前标记最终完成）。**Chapter 17 核心主线（已固定，写作不得偏离）**：Subgraph 将一组 Node、State channels 与控制流封装为可组合的图级执行单元。父图负责调用与整体编排，子图维护自身内部执行结构；父子图如何交换 State，取决于共享 schema、输入输出映射与显式适配契约。Subgraph 不是普通 Node 的同义词，也不是微服务或独立 Agent 的必然边界。
+1. Part 03（LangGraph Core）：Chapter 17 最终完成（TASK-0024，PR #45）——**Part 03 全部十章（Chapter 08-17）最终完成**；下一步 **Part 03 Scope Closure / 收官检查**（待用户确认后单独执行：统一 Part 03 Ending / ROADMAP / content-map / current.md / 版本状态 / 最终一致性检查——不把 Part 03 提前标记最终完成、不宣布 v0.4.0 finished）。**Chapter 17 核心主线（已固定）**：Subgraph 将一组 Node、State channels 与控制流封装为可组合的图级执行单元。父图负责调用与整体编排，子图维护自身内部执行结构；父子图如何交换 State，取决于共享 schema、输入输出映射与显式适配契约。Subgraph 不是普通 Node 的同义词，也不是微服务或独立 Agent 的必然边界。
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
