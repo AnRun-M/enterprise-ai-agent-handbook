@@ -199,7 +199,8 @@
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；三条硬边界（不决定路由 / 不修改业务状态 / ≠ 日志系统）；最终 State 仍是权威结果（流事件 = 过程视图）；history（State 内行为事件）vs 流事件（交付过程视图）区分；消费模式 / 展示 / 背压由应用选择（Graph Runtime 只产生与交付）；与 Interrupt 正交（可共存、互不依赖）；同步 invoke vs 流式对照（同一张图两种观察方式）；不提前讲 astream API / 生产交付（Part 05）/ token 级流（LLM 内部）/ Subgraph 嵌套流（ch17 仅引用）；零 LangChain API
   - **证据诚实**：仓库无 Stream 实现证据——基于同步 invoke 代码事实（agent.py）与 references 核验记录（Streaming 刻意未使用）；未验证清单 6 项如实标注，不推断实现行为
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 16 章行+Part 3 行）、ROADMAP（v0.4.0 Chapter 16 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #43 Review 七项修正（2026-08-06）**：token streaming 两层边界（生成来自模型调用；LangGraph 经 messages 流模式在图执行层交付增量并附节点与调用元数据）/ 四类流事件（State projection / Model output / Application event / Runtime event，统一交付协议非仅 State 增量流）/ 流事件生产职责（Graph Runtime 汇聚 Node-Tool-Model call-Checkpointer-task runtime 数据并按 Stream Mode 封装交付，不展开 get_stream_writer）/ Stream-Observability 不互斥（Streaming = 实时交付、可承载可观测事件与成为数据入口；Observability = 留存关联分析；Stream ≠ 完整日志系统）/ 最终 State 两类关系（State-related modes 成功终止时演进投影；non-state 不要求写入最终 State；任意流事件 ≠ State Update、不一定能重建、暂停失败取消提前终止不能假设完整最终 State；未验证一致性）/ 背压分层（Application consumer → Graph streaming runtime → Transport-server → Production policy-Part 05，"共同形成的交付契约"）/ Stream-Interrupt 组合边界（正交保留；payload / interrupted 状态可经流式协议暴露但不合并语义）——已应用并推送更新 PR #43
+  - 待 Architecture Review 复审
 - 官方资料索引（`references/official/`）
 
 ## 下一步
