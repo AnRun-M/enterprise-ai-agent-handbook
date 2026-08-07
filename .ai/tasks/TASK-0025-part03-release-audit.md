@@ -50,15 +50,15 @@ Chapter 都已经完成——剩下做的不是 Scope（范围收敛），而是
 
 ## 验收标准
 
-- [ ] ① Runtime 概念一致性检查完成（十个核心概念逐章核对，无漂移 / 冲突）
-- [ ] ② 章节引用一致性检查完成（跨章引用抽查 + 全部前置阅读 / 本章边界核对）
-- [ ] ③ Mermaid 一致性检查完成（关键实体画法统一）
-- [ ] ④ current.md：Part 03 completed、下一步 Part 04
-- [ ] ⑤ ROADMAP：Part 03 completed、StateGraph draft
-- [ ] ⑥ content-map：Part 03 completed、Part 04 未修改
-- [ ] ⑦ v0.4.0 completed 宣布（ROADMAP v0.4.0 = Part 03）
-- [ ] ⑧ Part 03 Release Audit Report 输出（含未解决问题与下一阶段）
-- [ ] `mkdocs build --strict`、`git diff --check`、`pytest`、`ruff check .` 通过（正文未写死测试数量）
+- [x] ① Runtime 概念一致性检查完成（12 个核心概念逐章核对：Execution State / Graph State / Node / Edge / Reducer / Scheduler / Command / Send / Checkpoint / Interrupt / Stream / Subgraph，无漂移 / 冲突）
+- [x] ② 章节引用一致性检查完成（跨章引用编号无越界、方向符合 DAG；ch10→ch11、ch14→ch12、ch17→ch13 核对一致）
+- [x] ③ Mermaid 一致性检查完成（关键实体画法统一；计数漂移口径已统一——正文围栏数为事实源，实际 42 张，历史记录不修改）
+- [x] ④ current.md：Part 03 completed、下一步 = Part 04 Scope Planning
+- [x] ⑤ ROADMAP：Part 03 completed（v0.4.0 清单无未完成项）、StateGraph 移入 Next-stage planning / Part 04 scope input（不计入 v0.4.0 完成条件）
+- [x] ⑥ content-map：Part 3 行 → 正式范围 = LangGraph Core Runtime Execution Model、Part 04 未修改
+- [x] ⑦ v0.4.0 completed 宣布（ROADMAP v0.4.0 = Part 03，正式交付范围由 Chapter 08-17 完整承载）
+- [x] ⑧ Part 03 Release Audit Report 输出（含未解决问题与下一阶段 Part 04 Scope Planning）
+- [x] `mkdocs build --strict`、`git diff --check`、`pytest`、`ruff check .` 通过（正文未写死测试数量）
 
 ## 完成记录
 
@@ -70,5 +70,12 @@ Chapter 都已经完成——剩下做的不是 Scope（范围收敛），而是
   5. **ROADMAP** ✅：v0.4.0 里程碑注记完成（= Part 03）；StateGraph → draft（下一阶段入口）；其余 10 个原语项按章节勾选
   6. **content-map** ✅：Part 3 行 → 最终完成（2026-08-07，Release Audit 通过）；Part 4 行未修改
   7. **Version** ✅：ROADMAP v0.4.0 = LangGraph Core = Part 03 → 宣布 v0.4.0 completed（里程碑注记）
-  8. **Part 03 Release Audit Report** ✅：输出于本 PR 描述（Runtime 概念数量 / Chapters / Mermaid / Cross References / 未解决问题 / 下一阶段）
-- 2026-08-07：Release Audit 完成，Part 03 正式结束，下一阶段 Part 04。
+  8. **Part 03 Release Audit Report** ✅：输出于本 PR 描述（Runtime 概念数量 = 12 个核心概念 / Chapters / Mermaid（实际 42 张，正文围栏数为事实源）/ Cross References / 未解决问题 / 下一阶段 = Part 04 Scope Planning）
+- 2026-08-07：Release Audit 完成，Part 03 正式结束，下一阶段 Part 04 Scope Planning。
+- 2026-08-07：**Release Audit Review 修正**（commit：docs: resolve part03 stategraph and next-stage scope）：
+  1. **v0.4.0 / StateGraph 范围矛盾解决**：Part 03 / v0.4.0 正式交付范围 = LangGraph Core Runtime Execution Model（Chapter 08-17 完整承载）；StateGraph 从 v0.4.0 完成清单移入 **Next-stage planning / Part 04 scope input**，明确不计入 v0.4.0 完成条件——最终满足：v0.4.0 清单无未完成项 / Part 03 completed / StateGraph API 尚未系统展开 / 四者语义不冲突
+  2. **Part 03 正式范围冻结**：content-map Part 3 行标题 = "LangGraph Core Runtime Execution Model：Why Graph / Graph State / Execution Nodes / Edge & Conditional Edge / Reducer / Command & Send / Checkpoint / Interrupt / Stream / Subgraph"；StateGraph 定位 = 图构建入口（Part 03 仅最小引用，系统 API 进入 Part 04 Scope Planning）
+  3. **Part 04 Scope Planning 设为下一步**：删除"Part 04（StateGraph API 与框架实现层 / Text-to-SQL 重构）"模糊表述；统一为"Part 04 Scope Planning——对齐 StateGraph API 桥接与 ROADMAP v0.5.0 Text-to-SQL 重构的关系，决定：① 独立桥接章节 ② Part 04 前置章节 ③ Text-to-SQL 重构中的实现切面；规划完成前不启动 Part 04 正文"
+  4. **Chapter 17 Ending 进入 maintenance backlog**：Ending 中"下一部分将进入 StateGraph API 与框架实现层"属于待维护表述——Release Audit 禁止修改正文，本 PR 不回改 Chapter 17；Part 04 Scope Planning 确定路线后，通过**独立 maintenance task** 修正 Ending；不把该句子当成已确认的 ROADMAP 事实
+  5. **概念统计口径统一**：12 个核心概念（Execution State / Graph State / Node / Edge / Reducer / Scheduler / Command / Send / Checkpoint / Interrupt / Stream / Subgraph）——数字与列表一致
+  6. **Mermaid 记录漂移口径统一**：历史 TASK / PR 描述存在 Mermaid 计数漂移；正文实际 Mermaid 围栏数是事实源（实际 42 张）；Release Audit 不修改已合并 PR 描述和 Chapter 正文；后续任务不预先承诺固定数量，交付时以实际统计为准

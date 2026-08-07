@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：**Part 03（LangGraph Core）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**（= Part 03，ROADMAP 里程碑注记）；下一步 Part 04（StateGraph API 与框架实现层 / Text-to-SQL 重构——衔接对账见未决项）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**（= Part 03，正式交付范围 = LangGraph Core Runtime Execution Model，由 Chapter 08-17 完整承载；v0.4.0 清单无未完成项）；下一步 **Part 04 Scope Planning**（对齐 StateGraph API 桥接与 ROADMAP v0.5.0 Text-to-SQL 重构的关系，决定桥接章节 / 前置章节 / 实现切面；规划完成前不启动 Part 04 正文）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -212,13 +212,14 @@
   - **PR #45 Review（REQUEST CHANGES）八项修正（2026-08-07）**：Subgraph = Graph Composition 不是大 Node（固定表述："不是 Node 的增强版，而是 Graph 的组合"；Graph 被 Graph 组合）/ Parent Graph 描述调用关系不拥有 Child 生命周期（生命周期属 Runtime）/ State Exchange 是执行契约（mapping 只是表达方式，真正重要的是 Execution Boundary，非 DTO Mapping）/ Subgraph 不产生新的 Runtime（同一 Runtime 图组合，不讨论 RemoteGraph-A2A-Multi Runtime）/ Send 与 Subgraph 不同层次（Send → Work Items → 同一 Subgraph；可组合但互不替代）/ Demo 未使用 = 没有组合需求非能力缺失 / Evidence 保持（只介绍边界不介绍实现）/ Part 03 Ending 收官句（从 Graph State 到 Subgraph 建立 Graph Runtime 执行模型，下一部分进入 StateGraph API 与框架实现层）——已应用并推送更新 PR #45
   - **PR #45 已通过 Architecture Review 复审 APPROVED 并 squash merge 到 main（2026-08-07，commit d7befd3，CI build/test 双绿）→ Chapter 17 最终完成（Part 03 全部十章完成）**；本 Memory PR（docs/post-pr45-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 - **Part 03 Release Audit（2026-08-07，TASK-0025，本任务）**：
-  - 八项检查完成：① Runtime 概念一致性（Checkpoint / Node / Reducer / Interrupt / Subgraph / Scheduler 定义跨章一致，Scheduler 均引用 ch06 6.7 不重定义）✅ ② 章节引用一致性（跨章引用编号无越界、方向符合 DAG；ch10→ch11、ch14→ch12、ch17→ch13 核对一致）✅ ③ Mermaid 画法一致性（关键实体标签统一）✅——发现**记录级 Mermaid 数量漂移**（ch08 记录 4 张实际 2 张；ch13/15/17 记录 5 张实际 3 张；ch14/16 记录 5 张实际 4 张；属 PR/TASK 记录计数误差，正文无缺陷，不作正文修改）④ current.md：Part 03 completed ✅ ⑤ ROADMAP：Part 03 completed + StateGraph draft ✅ ⑥ content-map：Part 03 completed，Part 04 未修改 ✅ ⑦ v0.4.0 = Part 03 → 宣布 v0.4.0 completed ✅ ⑧ Release Audit Report 输出 ✅
-  - **Part 03 正式结束；下一阶段 Part 04**（StateGraph API 与框架实现层 / Text-to-SQL 重构——衔接对账见未决项）
+  - 八项检查完成：① Runtime 概念一致性（12 个核心概念：Execution State / Graph State / Node / Edge / Reducer / Scheduler / Command / Send / Checkpoint / Interrupt / Stream / Subgraph——Checkpoint / Node / Reducer / Interrupt / Subgraph / Scheduler 定义跨章一致，Scheduler 均引用 ch06 6.7 不重定义）✅ ② 章节引用一致性（跨章引用编号无越界、方向符合 DAG；ch10→ch11、ch14→ch12、ch17→ch13 核对一致）✅ ③ Mermaid 画法一致性（关键实体标签统一）✅——**Mermaid 计数漂移口径**：历史 TASK / PR 描述存在 Mermaid 计数漂移；**正文实际 Mermaid 围栏数是事实源**（实际 42 张）；Release Audit 不修改已合并 PR 描述和 Chapter 正文；后续任务不预先承诺固定数量，交付时以实际统计为准 ④ current.md：Part 03 completed ✅ ⑤ ROADMAP：Part 03 completed（v0.4.0 清单无未完成项；StateGraph 移入 Next-stage planning / Part 04 scope input，不计入 v0.4.0 完成条件）✅ ⑥ content-map：Part 3 行 → 正式范围 = LangGraph Core Runtime Execution Model，Part 04 未修改 ✅ ⑦ v0.4.0 = Part 03 → 宣布 v0.4.0 completed ✅ ⑧ Release Audit Report 输出 ✅
+  - **Release Audit Review 修正（2026-08-07）**：① v0.4.0 / StateGraph checkbox 矛盾解决（StateGraph 从 v0.4.0 完成清单移入 Next-stage planning / Part 04 scope input）② Part 03 正式范围冻结（LangGraph Core Runtime Execution Model，Chapter 08-17 承载；StateGraph 定位 = 图构建入口，Part 03 仅最小引用）③ 下一步 = **Part 04 Scope Planning**（非直接启动 Part 04）④ **Chapter 17 Ending 进入 maintenance backlog**：Ending 中"下一部分将进入 StateGraph API 与框架实现层"属于**待维护表述**——Release Audit 禁止修改正文，本 PR 不回改 Chapter 17；在 Part 04 Scope Planning 确定路线后，通过**独立 maintenance task** 修正 Ending；**不把该句子当成已确认的 ROADMAP 事实**
+  - **Part 03 正式结束；下一阶段 Part 04 Scope Planning**（规划完成前不启动 Part 04 正文）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. **Part 04（StateGraph API 与框架实现层 / Text-to-SQL 重构）**：Part 03 完成（Release Audit 通过），下一步启动 Part 04——起始形态需对账：Part 03 Ending 句"下一部分将进入 StateGraph API 与框架实现层" vs ROADMAP Part 04 规划"Text-to-SQL 重构（v0.5.0）"；StateGraph 项已标注 draft 作为入口；待用户确认 Part 04 规划后启动。**未决项**：① StateGraph API 桥接与 Part 04 规划的衔接 ② Mermaid 数量记录漂移（ch08/13/14/15/16/17 的 PR/TASK 记录计数与实际围栏数不一致——后续任务描述不再写死数量）③ v1.0.0 章节数目标对账（TASK-0014 未决项延续）④ 官方 URL 发布前复核（TASK-0014 未决项延续）⑤ RetryPolicy 机制归属（TASK-0014 未决项延续）
+1. **Part 04 Scope Planning**：Part 03 完成（Release Audit 通过），下一步为 **Part 04 Scope Planning**——目标：对齐 StateGraph API 桥接与 ROADMAP v0.5.0 Text-to-SQL 重构的关系，决定采用：① 独立桥接章节；② Part 04 前置章节；③ Text-to-SQL 重构中的实现切面。**规划完成前不启动 Part 04 正文。** **未决项**：① Chapter 17 Ending 待维护表述（"下一部分将进入 StateGraph API 与框架实现层"——待 Part 04 Scope Planning 定路线后经独立 maintenance task 修正，非已确认 ROADMAP 事实）② Mermaid 计数漂移（历史 TASK / PR 记录与实际围栏数不一致；正文围栏数是事实源，后续任务不预先承诺固定数量）③ v1.0.0 章节数目标对账（TASK-0014 未决项延续）④ 官方 URL 发布前复核（TASK-0014 未决项延续）⑤ RetryPolicy 机制归属（TASK-0014 未决项延续）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证

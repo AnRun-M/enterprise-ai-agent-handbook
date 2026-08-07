@@ -56,7 +56,6 @@
 - [x] Chapter 15：Interrupt——暂停与人工介入（最终完成，2026-08-06，PR #41）
 - [x] Chapter 16：Stream——流式输出（最终完成，2026-08-07，PR #43）
 - [x] Chapter 17：Subgraph——图组合与复用（最终完成，2026-08-07，PR #45；Part 03 收官章）
-- [ ] StateGraph（draft / 待启动——下一阶段入口，与 Part 03 Ending 的"StateGraph API 与框架实现层"衔接；具体归属在 Part 04 启动时对账）
 - [x] Node（Chapter 10）
 - [x] Edge（Chapter 11）
 - [x] Conditional Edge（Chapter 11）
@@ -68,7 +67,9 @@
 - [x] Stream（Chapter 16）
 - [x] Subgraph（Chapter 17）
 
-> v0.4.0 全部完成（2026-08-07）：Chapter 08-17 全部最终完成，Part 03 Release Audit 通过（TASK-0025）。StateGraph 项保留为 draft——作为下一阶段入口（Part 03 Ending："下一部分将进入 StateGraph API 与框架实现层"），与 Part 04 规划的衔接对账见未决项。
+> v0.4.0 全部完成（2026-08-07）：**Part 03 正式交付范围 = LangGraph Core Runtime Execution Model**（Why Graph / Graph State / Execution Nodes / Edge & Conditional Edge / Reducer / Command & Send / Checkpoint / Interrupt / Stream / Subgraph，由 Chapter 08-17 完整承载），Part 03 Release Audit 通过（TASK-0025）。**v0.4.0 清单无未完成项。**
+
+> **Next-stage planning / Part 04 scope input**：**StateGraph**——LangGraph 的图构建入口；Part 03 只在必要位置引用其最小角色（Chapter 08-11），不承担系统 API 教程，**不计入 v0.4.0 完成条件**。其系统化 API 与工程落地进入 **Part 04 Scope Planning**，由后续任务决定：① 独立桥接章节；② Part 04 前置章节；③ Text-to-SQL 重构中的实现切面。规划完成前不启动 Part 04 正文。
 
 ## v0.5.0：Text-to-SQL 重构
 
