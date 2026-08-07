@@ -207,9 +207,10 @@
   - **固定主线已逐字保持**：Subgraph 将一组 Node、State channels 与控制流封装为可组合的图级执行单元。父图负责调用与整体编排，子图维护自身内部执行结构；父子图如何交换 State，取决于共享 schema、输入输出映射与显式适配契约。Subgraph 不是普通 Node 的同义词，也不是微服务或独立 Agent 的必然边界
   - **Part 03 收官边界已守**：正文明确"Part 03 收官需在 Chapter 17 合并后单独执行 Scope Closure / 收官检查"；正文与 Memory PR **均不把 Part 03 标记为最终完成**
   - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；Subgraph ≠ 普通 Node（图级组合单元 vs 单步执行单元）；父子 State 交换 = 共享 schema / 输入输出映射 / 显式适配契约（非自动全量共享）；≠ 微服务（进程内结构组合 vs 部署边界）/ ≠ 独立 Agent（控制流组合单元 vs 拥有自己 Loop 的执行主体，A2A 属 Part 06）；与 Send map-reduce 仅引用（ch13）；拆 / 不拆判据（复用 / 可读性 / 可测试性，单层图足够时就是对的）；不提前讲 Subgraph API / A2A / MCP / 生产级流程引擎（Part 04-06）；零 LangChain API
-  - **证据诚实**：仓库无 Subgraph 实现证据——基于 references 核验记录（刻意未使用）与 README 第 19 节扩展方向声明；未验证清单 7 项如实标注，不推断实现行为
+  - **证据诚实**：仓库无 Subgraph 实现证据——基于 references 核验记录（刻意未使用）与 README 第 19 节扩展方向声明；未验证清单 7 项如实标注，不推断实现行为（不因官方 examples 写成"已验证"）
   - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 17 章行+Part 3 行，Part 03 保持进行中）、ROADMAP（v0.4.0 Chapter 17 draft / 待架构审查，标注 Part 03 收官章）
-  - 待 Architecture Review
+  - **PR #45 Review（REQUEST CHANGES）八项修正（2026-08-07）**：Subgraph = Graph Composition 不是大 Node（固定表述："不是 Node 的增强版，而是 Graph 的组合"；Graph 被 Graph 组合）/ Parent Graph 描述调用关系不拥有 Child 生命周期（生命周期属 Runtime）/ State Exchange 是执行契约（mapping 只是表达方式，真正重要的是 Execution Boundary，非 DTO Mapping）/ Subgraph 不产生新的 Runtime（同一 Runtime 图组合，不讨论 RemoteGraph-A2A-Multi Runtime）/ Send 与 Subgraph 不同层次（Send → Work Items → 同一 Subgraph；可组合但互不替代）/ Demo 未使用 = 没有组合需求非能力缺失 / Evidence 保持（只介绍边界不介绍实现）/ Part 03 Ending 收官句（从 Graph State 到 Subgraph 建立 Graph Runtime 执行模型，下一部分进入 StateGraph API 与框架实现层）——已应用并推送更新 PR #45
+  - 待 Architecture Review 复审（复审通过后 APPROVE 并进入 Chapter 17 收尾流程，再单独执行 Part 03 Scope Closure）
 - 官方资料索引（`references/official/`）
 
 ## 下一步
