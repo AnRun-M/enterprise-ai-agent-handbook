@@ -61,6 +61,7 @@ nav:
       - 第 13 章: 03-langgraph-core/ch13-command-send.md
       - 第 14 章: 03-langgraph-core/ch14-checkpoint.md
       - 第 15 章: 03-langgraph-core/ch15-interrupt.md
+      - 第 16 章: 03-langgraph-core/ch16-stream.md
   - Text-to-SQL:
       - 概览: 04-text2sql/index.md
       - 规范流程: 04-text2sql/canonical-pipeline.md

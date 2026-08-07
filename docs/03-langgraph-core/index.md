@@ -12,7 +12,7 @@
 - [第 13 章：Command 与 Send——动态控制流](ch13-command-send.md)（Command：更新与导航绑定；Send：按数据动态 fan-out；二者是不同原语；与 Scheduler 的对应；静态图足够时不需要动态原语）
 - [第 14 章：Checkpoint——持久化与恢复](ch14-checkpoint.md)（执行时刻的状态与执行上下文快照；Checkpointer 保存 / 读取，恢复策略由 Runtime 与应用契约决定；恢复 / 重放 / 续跑；≠ Memory、≠ 简单字典副本）
 - [第 15 章：Interrupt——暂停与人工介入](ch15-interrupt.md)（可恢复执行点暂停、控制权交还应用或人工；同一 thread 恢复并可携带人工输入；≠ END / ≠ 异常 / ≠ 完整 HITL；Checkpoint 承载 + Interrupt 协议）
-- 第 16 章：Stream（流式输出）
+- [第 16 章：Stream——流式输出](ch16-stream.md)（观察和交付协议：边跑边看；不决定路由 / 不修改业务状态 / ≠ 日志系统；最终 State 仍是权威结果；消费模式与背压由应用选择；与 Interrupt 正交）
 - 第 17 章：Subgraph（图组合与复用）
 
 ## 全局参考
