@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（PR #39）、Chapter 15（PR #41）、Chapter 16（Stream，PR #43）均最终完成，下一步 Chapter 17（Subgraph，TASK-0024，Part 03 收官章）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：Part 03（LangGraph Core）进行中——Chapter 08（PR #27）、Chapter 09（PR #29）、Chapter 10（PR #31）、Chapter 11（PR #33）、Chapter 12（PR #35）、Chapter 13（PR #37）、Chapter 14（PR #39）、Chapter 15（PR #41）、Chapter 16（PR #43）均最终完成；Chapter 17（Subgraph，Part 03 收官章）正文初稿完成待 Architecture Review（TASK-0024）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -202,11 +202,19 @@
   - **PR #43 Review 七项修正（2026-08-06）**：token streaming 两层边界（生成来自模型调用；LangGraph 经 messages 流模式在图执行层交付增量并附节点与调用元数据）/ 四类流事件（State projection / Model output / Application event / Runtime event，统一交付协议非仅 State 增量流）/ 流事件生产职责（Graph Runtime 汇聚 Node-Tool-Model call-Checkpointer-task runtime 数据并按 Stream Mode 封装交付，不展开 get_stream_writer）/ Stream-Observability 不互斥（Streaming = 实时交付、可承载可观测事件与成为数据入口；Observability = 留存关联分析；Stream ≠ 完整日志系统）/ 最终 State 两类关系（State-related modes 成功终止时演进投影；non-state 不要求写入最终 State；任意流事件 ≠ State Update、不一定能重建、暂停失败取消提前终止不能假设完整最终 State；未验证一致性）/ 背压分层（Application consumer → Graph streaming runtime → Transport-server → Production policy-Part 05，"共同形成的交付契约"）/ Stream-Interrupt 组合边界（正交保留；payload / interrupted 状态可经流式协议暴露但不合并语义）——已应用并推送更新 PR #43
   - **PR #43 合并前一致性清理（2026-08-07）**：本章边界 token 旧结论统一（"token / message chunk 由模型调用产生；LangGraph 可以通过 messages 流模式在图执行层交付这些增量，并附带节点与调用元数据"）；验收标准固定主线同步（Graph Runtime 汇聚并按 Stream Mode 封装交付 / 背压分层契约）；PR #43 描述顶部直接更新（固定主线 / Q3 / Q6 / Q7 / Q10 / 关键边界 / Mermaid / Review Focus，删除 5 项旧口径）
   - **PR #43 已通过 Architecture Review 复审并 squash merge 到 main（2026-08-07，commit 94ff6e1，CI build/test 双绿）→ Chapter 16 最终完成**；本 Memory PR（docs/post-pr43-merge-memory）收敛状态（ROADMAP / content-map / current.md）
+- **Chapter 17 正文初稿（2026-08-07，TASK-0024，本任务；Part 03 收官章）**：
+  - `docs/03-langgraph-core/ch17-subgraph.md`：17.1-17.10，Q1-Q10，5 张 Mermaid 图
+  - **固定主线已逐字保持**：Subgraph 将一组 Node、State channels 与控制流封装为可组合的图级执行单元。父图负责调用与整体编排，子图维护自身内部执行结构；父子图如何交换 State，取决于共享 schema、输入输出映射与显式适配契约。Subgraph 不是普通 Node 的同义词，也不是微服务或独立 Agent 的必然边界
+  - **Part 03 收官边界已守**：正文明确"Part 03 收官需在 Chapter 17 合并后单独执行 Scope Closure / 收官检查"；正文与 Memory PR **均不把 Part 03 标记为最终完成**
+  - 写作约束已执行：Runtime 第一视角 / Framework 第二视角；Subgraph ≠ 普通 Node（图级组合单元 vs 单步执行单元）；父子 State 交换 = 共享 schema / 输入输出映射 / 显式适配契约（非自动全量共享）；≠ 微服务（进程内结构组合 vs 部署边界）/ ≠ 独立 Agent（控制流组合单元 vs 拥有自己 Loop 的执行主体，A2A 属 Part 06）；与 Send map-reduce 仅引用（ch13）；拆 / 不拆判据（复用 / 可读性 / 可测试性，单层图足够时就是对的）；不提前讲 Subgraph API / A2A / MCP / 生产级流程引擎（Part 04-06）；零 LangChain API
+  - **证据诚实**：仓库无 Subgraph 实现证据——基于 references 核验记录（刻意未使用）与 README 第 19 节扩展方向声明；未验证清单 7 项如实标注，不推断实现行为
+  - 四源更新：mkdocs.yml（导航）、index.md（章节列表）、content-map（第 17 章行+Part 3 行，Part 03 保持进行中）、ROADMAP（v0.4.0 Chapter 17 draft / 待架构审查，标注 Part 03 收官章）
+  - 待 Architecture Review
 - 官方资料索引（`references/official/`）
 
 ## 下一步
 
-1. Part 03（LangGraph Core）：Chapter 16 最终完成（TASK-0023，PR #43）；下一步 **Chapter 17：Subgraph**（图组合与复用，TASK-0024，按 DAG 拓扑序，Memory PR 合并后启动——Part 03 收官章）。**Chapter 17 核心主线（已固定，写作不得偏离）**：Subgraph 将一组 Node、State channels 与控制流封装为可组合的图级执行单元。父图负责调用与整体编排，子图维护自身内部执行结构；父子图如何交换 State，取决于共享 schema、输入输出映射与显式适配契约。Subgraph 不是普通 Node 的同义词，也不是微服务或独立 Agent 的必然边界。
+1. Part 03（LangGraph Core）：Chapter 17 正文初稿完成（TASK-0024，Part 03 收官章），待 Architecture Review；下一步预告 **Part 03 Scope Closure / 收官检查**（Chapter 17 Review 通过并合并后单独执行——检查 ROADMAP v0.4.0 剩余项 / content-map Part 3 行 / Part 03 index / 未决项对账，不把 Part 03 提前标记最终完成）。**Chapter 17 核心主线（已固定，写作不得偏离）**：Subgraph 将一组 Node、State channels 与控制流封装为可组合的图级执行单元。父图负责调用与整体编排，子图维护自身内部执行结构；父子图如何交换 State，取决于共享 schema、输入输出映射与显式适配契约。Subgraph 不是普通 Node 的同义词，也不是微服务或独立 Agent 的必然边界。
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证

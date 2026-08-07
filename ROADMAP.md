@@ -55,6 +55,7 @@
 - [x] Chapter 14：Checkpoint——持久化与恢复（最终完成，2026-08-05，PR #39）
 - [x] Chapter 15：Interrupt——暂停与人工介入（最终完成，2026-08-06，PR #41）
 - [x] Chapter 16：Stream——流式输出（最终完成，2026-08-07，PR #43）
+- [ ] Chapter 17：Subgraph——图组合与复用（draft / 待架构审查，2026-08-07；Part 03 收官章）
 - [ ] StateGraph
 - [ ] Node
 - [ ] Edge
