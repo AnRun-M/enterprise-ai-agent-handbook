@@ -27,9 +27,9 @@ Chapter 都已经完成——剩下做的不是 Scope（范围收敛），而是
 
 ③ **Mermaid 一致性**：检查 Node / Runtime / Scheduler / Graph Runtime / Checkpoint / Interrupt 在所有 Mermaid 中是否同一画法
 
-④ **current.md 更新**：Part 03 → completed；下一步 → Part 04
+④ **current.md 更新**：Part 03 → completed；下一步 → **Part 04 Scope Planning**（规划完成前不启动 Part 04 正文）
 
-⑤ **ROADMAP 更新**：Part 03 → completed；StateGraph → draft
+⑤ **ROADMAP 更新**：v0.4.0 清单无未完成项；StateGraph 移入 **Next-stage planning / Part 04 scope input**（不计入 v0.4.0 完成条件）
 
 ⑥ **content-map 更新**：Part 03 → completed；**不修改 Part 04**
 
