@@ -221,7 +221,7 @@ Q9 的回答——**如实标注**（与第 14 / 15 章同款教学边界）：
 
 **本章验收标准：**
 
-- [ ] 能复述固定主线：Stream 让调用方在图仍在执行时持续接收运行进展与增量输出；观察和交付协议，不决定路由、不修改业务状态、不等于日志系统；Graph Runtime 产生流事件，应用选择消费模式 / 展示方式 / 背压策略；与 Interrupt 正交（边跑边看 vs 暂停后再继续）
+- [ ] 能复述固定主线：Stream 让调用方在图仍在执行时持续接收运行进展与增量输出；多类执行事件的统一观察和交付协议，不决定路由、不修改业务状态、不等于完整日志系统；Graph Runtime 汇聚执行过程中由 Node、Tool、模型调用及 Runtime 子系统产生的数据，并依据 Stream Mode 封装和交付流事件；应用选择消费模式和展示方式，背压由应用、Graph Runtime 与传输层共同形成交付契约；Stream 与 Interrupt 正交（边跑边看 vs 暂停后再继续）
 - [ ] 能区分同步 invoke（一次性交付）与 Stream（持续接收），说明"同一张图的两种观察方式"
 - [ ] 能说出四类流事件（State projection / Model output / Application event / Runtime event），并说明 token / message chunk 生成来自模型调用、经 messages 流模式由图执行层交付并附元数据
 - [ ] 能说明最终 State 与流事件的关系（State 类模式提供成功终止时的演进投影；non-state 事件不要求写入最终 State；暂停 / 失败 / 取消 / 提前终止不能假设完整最终 State；任意流事件 ≠ State Update、不一定能重建最终 State）
@@ -233,4 +233,4 @@ Q9 的回答——**如实标注**（与第 14 / 15 章同款教学边界）：
 - [ ] 能诚实标注证据范围（无实现证据；不推断实现行为）
 - [ ] 术语与 `TERMINOLOGY.md` 一致；只引用不重新定义路由 / State / Observability 语义
 
-**本章边界**：Node / 路由（执行与选路）——第 10 / 11 章；Reducer 与 history（State 内行为事件）——第 12 章；Checkpoint（持久化）——第 14 章；Interrupt（暂停，与 Stream 正交）——第 15 章；Subgraph（嵌套流式事件，仅引用）——第 17 章；生产流式交付（传输协议 / SSE / WebSocket / 部分输出策略 / 前端呈现）——Part 05；token 级流（LLM 内部）——不属于图执行层；LangChain——Future LangChain Scope Planning（`.ai/context/current.md` Future Task），不在本章展开。
+**本章边界**：Node / 路由（执行与选路）——第 10 / 11 章；Reducer 与 history（State 内行为事件）——第 12 章；Checkpoint（持久化）——第 14 章；Interrupt（暂停，与 Stream 正交）——第 15 章；Subgraph（嵌套流式事件，仅引用）——第 17 章；生产流式交付（传输协议 / SSE / WebSocket / 部分输出策略 / 前端呈现）——Part 05；token / message chunk 由模型调用产生；LangGraph 可以通过 messages 流模式在图执行层交付这些增量，并附带节点与调用元数据——本章不展开模型供应商 API 或具体参数；LangChain——Future LangChain Scope Planning（`.ai/context/current.md` Future Task），不在本章展开。
