@@ -56,17 +56,19 @@
 - [x] Chapter 15：Interrupt——暂停与人工介入（最终完成，2026-08-06，PR #41）
 - [x] Chapter 16：Stream——流式输出（最终完成，2026-08-07，PR #43）
 - [x] Chapter 17：Subgraph——图组合与复用（最终完成，2026-08-07，PR #45；Part 03 收官章）
-- [ ] StateGraph
-- [ ] Node
-- [ ] Edge
-- [ ] Conditional Edge
-- [ ] Reducer
-- [ ] Command
-- [ ] Send
-- [ ] Checkpoint
-- [ ] Interrupt
-- [ ] Stream
-- [ ] Subgraph
+- [ ] StateGraph（draft / 待启动——下一阶段入口，与 Part 03 Ending 的"StateGraph API 与框架实现层"衔接；具体归属在 Part 04 启动时对账）
+- [x] Node（Chapter 10）
+- [x] Edge（Chapter 11）
+- [x] Conditional Edge（Chapter 11）
+- [x] Reducer（Chapter 12）
+- [x] Command（Chapter 13）
+- [x] Send（Chapter 13）
+- [x] Checkpoint（Chapter 14）
+- [x] Interrupt（Chapter 15）
+- [x] Stream（Chapter 16）
+- [x] Subgraph（Chapter 17）
+
+> v0.4.0 全部完成（2026-08-07）：Chapter 08-17 全部最终完成，Part 03 Release Audit 通过（TASK-0025）。StateGraph 项保留为 draft——作为下一阶段入口（Part 03 Ending："下一部分将进入 StateGraph API 与框架实现层"），与 Part 04 规划的衔接对账见未决项。
 
 ## v0.5.0：Text-to-SQL 重构
 
