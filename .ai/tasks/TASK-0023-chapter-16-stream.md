@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-06 |
 | Updated | 2026-08-06 |
@@ -57,8 +57,10 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0023 Status = in_progress；ROADMAP Chapter 16 = draft / 待架构审查；content-map 第 16 章 = 实现完成 / 待架构审查；Part 03 保持进行中
 - [ ] PR 创建（分支 feature/chapter-16-stream，commit `docs: draft chapter 16 stream`）
-- [ ] PR #43 Architecture Review 七项修正全部应用（token streaming 两层边界 / 四类流事件 / 生产职责汇聚 / Stream-Observability 不互斥 / 最终 State 两类关系 / 背压分层 / Stream-Interrupt 组合边界）
-- [ ] 等待 Architecture Review
+- [x] PR #43 Architecture Review 七项修正全部应用（token streaming 两层边界 / 四类流事件 / 生产职责汇聚 / Stream-Observability 不互斥 / 最终 State 两类关系 / 背压分层 / Stream-Interrupt 组合边界）
+- [x] PR #43 合并前一致性清理全部应用（本章边界 token 旧结论统一 / 验收标准固定主线同步 / PR 顶部摘要直接更新）
+- [x] PR #43 复审通过并 squash merge 到 main（commit 94ff6e1，CI build/test 双绿，2026-08-07）→ Chapter 16 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -71,3 +73,5 @@
   5. **最终 State 两类关系**（16.3 / Mermaid / Q3 / Q10 / 误区 #4）：State-related modes 提供成功终止时演进投影；Non-state modes 不必写入最终 State；任意流事件 ≠ State Update、不一定能重建最终 State；暂停失败取消提前终止不能假设完整最终 State
   6. **背压分层**（固定主线 / 16.4 / 消费模式表 / Mermaid / Q7 / 误区 #10）：Application consumer → Graph streaming runtime → Transport / server → Production policy（Part 05）；"背压是应用、Graph Runtime 与传输层共同形成的交付契约"
   7. **Stream / Interrupt 组合边界**（16.4）：保留正交；Interrupt payload / interrupted 状态可通过流式协议暴露，但不合并语义（不展开 ch15 API）
+- 2026-08-07：**PR #43 合并前一致性清理**（commit：docs: align stream summary and token delivery terminology）：本章边界"token 级流（LLM 内部）——不属于图执行层"统一为"token / message chunk 由模型调用产生；LangGraph 可以通过 messages 流模式在图执行层交付这些增量，并附带节点与调用元数据——本章不展开模型供应商 API 或具体参数"；验收标准固定主线同步（Graph Runtime 汇聚并按 Stream Mode 封装交付 / 背压分层契约）；PR #43 描述顶部直接更新（固定主线 / Q3 / Q6 / Q7 / Q10 / 关键边界 / Mermaid / Review Focus，删除 5 项旧口径）。
+- 2026-08-07：PR #43 经 Architecture Review 复审通过，squash merge 到 main（commit 94ff6e1，CI build/test 双绿）→ **TASK-0023 标记 completed；Chapter 16 最终完成**；本 Memory PR（docs/post-pr43-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
