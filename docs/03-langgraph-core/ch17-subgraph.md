@@ -207,4 +207,4 @@ Q9 的回答——**如实标注**（与前九章同款教学边界）：
 
 **Part 03 Ending（收官句）**：
 
-> **Part 03 从 Graph State、Execution Node、Edge、Reducer、Command、Checkpoint、Interrupt、Stream 一直到 Subgraph，逐步建立了 Graph Runtime 的执行模型；下一部分将进入 StateGraph API 与框架实现层，而不是重新定义这些运行时概念。**
+> **Part 03 从 Graph State、Execution Node、Edge、Reducer、Command、Checkpoint、Interrupt、Stream 一直到 Subgraph，逐步建立了 Graph Runtime 的执行模型；下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念。**
