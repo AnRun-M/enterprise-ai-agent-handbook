@@ -82,7 +82,7 @@ graph.add_edge("max_iterations", END)
 ```
 
 - **静态边声明确定性连接**（`finalize → END`）、**条件边声明运行时选路**（挂载 routing callable，第 11 章 11.3）
-- **连接的是"名字"不是"对象"**：边引用节点名（`"generate_sql"`）与哨兵（`START` / `END`，第 9 章 9.6）——**图结构在声明层完整可见**（第 8 章 8.3：连接可声明）
+- **连接的是"名字"不是"对象"**：边引用节点名（`"generate_sql"`）与哨兵（`START` / `END`，第 9 章 9.6）——**静态 graph topology 与 routing declarations 在声明层可审查**（第 8 章 8.3：连接可声明）；**实际执行路径仍可能由 Conditional Edge、Command、Send 等 Runtime 控制结果决定**（18.4 的 Q4 段：接线完成 ≠ 运行路径唯一）
 - **只引用不重讲**：Edge / Conditional Edge 的语义、路由函数的纯函数定位、终止守卫在第 11 章已建立，本章只讲"如何接线"
 
 **Q4 的回答（动态路径边界必须收窄）**：连接控制流 = 用边把已注册的组件连成执行路径——**静态 graph topology 与 routing declarations 在这里基本完成**；**实际运行路径仍可能由 Conditional Edge / Command / Send 等 Runtime 控制结果决定**（第 11 章 11.3 多目标语义 / 第 13 章 13.3-13.4，只引用不重讲机制）——"接线完成"不等于"运行路径唯一确定"。
@@ -108,9 +108,9 @@ return graph.compile()
 | **compile()** | 对图定义执行**结构校验**；将声明 **materialize 为 executable compiled graph**；**挂载调用方提供的 runtime capabilities / configuration**（如 checkpointer / cache / interrupt configuration）——本章只讲语义边界，不展开参数 |
 | **Compiled Graph** | 提供 invoke / stream 等**执行入口**；Runtime 按图定义与 state update rules 执行 |
 
-**推荐表述**：**compile() 不创造 Scheduler、Reducer 或业务 Failure Boundary**；它把已声明图结构转换为可执行 compiled graph，并**挂载已配置的 Runtime 能力**——机制本身在第 10-12 章已定义（调度 / 合并 / 错误边界），compile 不新造它们，只把声明与已配置能力固化为可执行形态。
+**推荐表述**：**compile() 不创造这些 Runtime 机制。Scheduling 语义引用第 6 章，Node failure boundary 引用第 10 章，routing 引用第 11 章，Reducer / channel merge 引用第 12 章；compile 只将图定义与已配置 Runtime 能力 materialize 为可执行 compiled graph。**
 
-**Q5 的回答**：**compile() 的语义边界 = "声明 → 可执行"的转换**——图定义（StateGraph 声明）经过 compile 变成**可执行的 compiled graph**（提供 invoke / stream 入口，18.6）；**compile() 不创造 Scheduler、Reducer 或业务 Failure Boundary**（推荐表述）。
+**Q5 的回答**：**compile() 的语义边界 = "声明 → 可执行"的转换**——图定义（StateGraph 声明）经过 compile 变成**可执行的 compiled graph**（提供 invoke / stream 入口，18.6）；**compile() 不创造 Scheduler、Reducer 或业务 Failure Boundary**——Scheduling 语义引用第 6 章、Node failure boundary 引用第 10 章、routing 引用第 11 章、Reducer / channel merge 引用第 12 章。
 
 ```mermaid
 flowchart LR
@@ -163,7 +163,7 @@ Q7 / Q8 的回答——本章四步与 Part 03 语义的一一对照：
 | 定义图（18.2） | `StateGraph(GraphState)` 入口（图级 State 契约；Node 读取范围由输入契约决定） | Graph State 与 schema 契约（第 9 章） |
 | 注册组件（18.3） | 应用依赖组装 → `add_node` 注册（StateGraph 不是 DI Container） | Node 执行单元 / Node Factory 依赖注入（第 10 章） |
 | 连接控制流（18.4） | `add_edge` / `add_conditional_edges`（静态 topology 基本完成；运行路径可由 Runtime 控制结果决定） | Edge / Conditional Edge / Command-Send 路由（第 11 / 13 章） |
-| compile（18.5） | 结构校验 + materialize 为 executable compiled graph + 挂载已配置 Runtime 能力 | 调度 / 合并 / 错误边界机制（第 10-12 章；compile 不新造） |
+| compile（18.5） | 结构校验 + materialize 为 executable compiled graph + 挂载已配置 Runtime 能力 | Scheduling（第 6 章）/ Node failure boundary（第 10 章）/ routing（第 11 章）/ Reducer-channel merge（第 12 章）；compile 不新造 |
 | invoke / stream（18.6） | 聚合式 / 流式执行接口（都运行同一 compiled graph） | State 驱动 / 路由调度 / 流式交付（第 12 / 11 / 16 章） |
 | 后续按需挂载 | Checkpointer / interrupt / 子图 | Checkpoint / Interrupt / Subgraph（第 14 / 15 / 17 章） |
 
@@ -217,7 +217,7 @@ Q7 / Q8 的回答——本章四步与 Part 03 语义的一一对照：
 | Q2 | 构图入口是什么？ | `StateGraph(GraphState)`——声明图级 State schema 与 channel 更新规则（第 9 章最小角色）；**不等于所有 Node 读取全部字段**（更窄输入 / input-output schema / internal-private channels 属第 9 章通用能力边界） |
 | Q3 | 组件如何注册？ | 应用先经 Node Factory 完成依赖组装 → `add_node(name, callable)` 注册并赋予图内标识（StateGraph 不是 DI Container）；Node-Routing 边界两层（Demo：Update + Conditional Edge；通用：Command 携带 routing intent；跳转解释都在 Graph Runtime） |
 | Q4 | 控制流如何连接？ | `add_edge` / `add_conditional_edges`——静态 topology 与 routing declarations 基本完成；实际运行路径仍可由 Conditional Edge / Command / Send 的 Runtime 控制结果决定（第 11 / 13 章） |
-| Q5 | compile() 的语义边界是什么？ | 结构校验 + materialize 为 executable compiled graph + 挂载已配置 Runtime 能力；**不创造 Scheduler / Reducer / 业务 Failure Boundary**；不是新语义、不是业务规则 |
+| Q5 | compile() 的语义边界是什么？ | 结构校验 + materialize 为 executable compiled graph + 挂载已配置 Runtime 能力；**不创造 Scheduler / Reducer / 业务 Failure Boundary**——Scheduling 引用第 6 章、Node failure boundary 引用第 10 章、routing 引用第 11 章、Reducer-channel merge 引用第 12 章；不是新语义、不是业务规则 |
 | Q6 | invoke / stream 承担什么职责？ | 都运行同一 compiled graph：invoke = aggregated execution interface（聚合返回，正常终止可得最终 State；Interrupt / failure / cancellation 不假设成功终态）；stream = streaming execution interface（持续交付所选 Stream Mode 事件，第 16 章）——核心区别是结果交付协议，不是"一个执行一个旁观" |
 | Q7 | 这些 API 重新定义 Part 03 语义吗？ | 不——只组装与执行（固定主线）；每步回指第 9-17 章对应语义 |
 | Q8 | 与 Part 03 如何对照？ | 六步对照表（定义图 / 注册 / 连接 / compile / invoke-stream / 后续挂载 ↔ 第 9-17 章语义） |
