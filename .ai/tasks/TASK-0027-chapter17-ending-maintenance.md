@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | proposed |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-08 |
 | Updated | 2026-08-08 |
@@ -35,11 +35,12 @@ Part 03 Release Audit（TASK-0025）已记录：Chapter 17 Ending 中"下一部�
 
 ## 验收标准
 
-- [ ] Chapter 17 Ending 表述与 Part 04 冻结决策一致
-- [ ] 独立 PR 创建（不与 Part 04 正文混）
-- [ ] 验证通过
-- [ ] `.ai/context/current.md` 已更新（记录 maintenance 完成）
+- [x] Chapter 17 Ending 表述与 Part 04 冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"）
+- [x] 独立 PR 创建（不与 Part 04 正文混）
+- [x] 验证通过（mkdocs build --strict / git diff --check / pytest / ruff check .）
+- [x] `.ai/context/current.md` 已更新（记录 maintenance 完成）
 
 ## 完成记录
 
 - 2026-08-08：任务登记（proposed，待独立 PR 执行）。
+- 2026-08-08：**执行完成**（commit：docs: fix chapter 17 ending to match part 04 scope）：Chapter 17 Ending 句已修正为与 Part 04 冻结决策一致；TASK-0027 标记 completed；独立 PR（docs/ch17-ending-maintenance）合并到 main。
