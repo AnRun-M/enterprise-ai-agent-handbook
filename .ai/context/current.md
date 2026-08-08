@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**（= Part 03，正式交付范围 = LangGraph Core Runtime Execution Model，由 Chapter 08-17 完整承载；v0.4.0 清单无未完成项）；下一步 **Part 04 Scope Planning**（对齐 StateGraph API 桥接与 ROADMAP v0.5.0 Text-to-SQL 重构的关系，决定桥接章节 / 前置章节 / 实现切面；规划完成前不启动 Part 04 正文）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
+阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**（= Part 03，正式交付范围 = LangGraph Core Runtime Execution Model，由 Chapter 08-17 完整承载；v0.4.0 清单无未完成项）；**Part 04 Scope Planning 完成**（TASK-0026，2026-08-08 用户冻结决策：Part 04 前置章 = 「StateGraph 构图与 Graph Runtime 执行模型」，选项 2 + 选项 3 执行方式）；下一步 **Part 04 前置章正文启动**（TASK-0028，规划状态落盘与 Chapter 17 Ending maintenance 登记完成后）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）；Part 03 章节规划已批准（TASK-0014，APPROVED WITH MINOR CHANGES，四项修正已应用）
 
 ## 已完成
 
@@ -219,7 +219,9 @@
 
 ## 下一步
 
-1. **Part 04 Scope Planning**：Part 03 完成（Release Audit 通过），下一步为 **Part 04 Scope Planning**——目标：对齐 StateGraph API 桥接与 ROADMAP v0.5.0 Text-to-SQL 重构的关系，决定采用：① 独立桥接章节；② Part 04 前置章节；③ Text-to-SQL 重构中的实现切面。**规划完成前不启动 Part 04 正文。** **未决项**：① Chapter 17 Ending 待维护表述（"下一部分将进入 StateGraph API 与框架实现层"——待 Part 04 Scope Planning 定路线后经独立 maintenance task 修正，非已确认 ROADMAP 事实）② Mermaid 计数漂移（历史 TASK / PR 记录与实际围栏数不一致；正文围栏数是事实源，后续任务不预先承诺固定数量）③ v1.0.0 章节数目标对账（TASK-0014 未决项延续）④ 官方 URL 发布前复核（TASK-0014 未决项延续）⑤ RetryPolicy 机制归属（TASK-0014 未决项延续）
+1. **Part 04 前置章正文启动（TASK-0028）**：Part 04 Scope Planning 完成（TASK-0026，2026-08-08 冻结决策）——Part 04 第一章「**StateGraph 构图与 Graph Runtime 执行模型**」（不叫"StateGraph API"；只集中讲四件事：构图入口 / 组件注册与连接 / compile() 语义边界 / 编译后 Runtime 执行入口；Node / Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream 只引用 Part 03 不重新解释；T01-T12 按需使用 API）。**正文固定主线（已冻结）**：StateGraph 负责声明图结构，compile() 将图定义转换为可执行的 Graph Runtime，invoke()/stream() 通过该 Runtime 驱动 State、Node 与控制流运行；这些 API 不重新定义 Part 03 的 Runtime 语义，只负责把既有语义组装并执行。前置启动前需完成：planning-state 收敛（本 PR）与 Chapter 17 Ending maintenance（TASK-0027，独立 PR）。
+2. **Chapter 17 Ending maintenance（TASK-0027，已登记，独立 PR 执行）**：把"下一部分将进入 StateGraph API 与框架实现层"修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"）。
+3. **未决项**：① Mermaid 计数漂移（历史 TASK / PR 记录与实际围栏数不一致；正文围栏数是事实源，后续任务不预先承诺固定数量）② v1.0.0 章节数目标对账（TASK-0014 未决项延续）③ 官方 URL 发布前复核（TASK-0014 未决项延续）④ RetryPolicy 机制归属（TASK-0014 未决项延续）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
 4. 选择许可证
