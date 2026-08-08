@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**下一步 T01-T12 Execution Planning**（先规划后正文，用户 2026-08-08 节奏建议）；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
+阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**T01-T12 Execution Planning 完成**（TASK-0029，PR #53，2026-08-08）；**下一步 T05 implementation task（SQL 静态校验，首个 implementation task）**；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
 
 ## 已完成
 
@@ -219,7 +219,7 @@
 
 ## 下一步
 
-1. **T01-T12 Execution Planning（TASK-0029）**：Chapter 18 最终完成（TASK-0028，PR #51）；**用户节奏建议（2026-08-08）：先规划后正文**——TASK-0029 规划文件已完成并经 **PR #53 Architecture Review 二轮复审 + 最终合并前一致性清理**（四层模型：Runtime Pipeline 允许有环且忠实 canonical 顺序（T02→T03 / T04→T05→T06 / T07 三出口 / T10 两出口）/ **Implementation Dependency DAG = 12 独立节点（Strong = 0）**——Weak 全部改名 **Implementation Advisory Relationships**（"Weak relationship does not create a merge prerequisite"）/ **Integration Dependency Matrix**（真实 e2e 串联；**Evidence Status 三态**：Contract-level verified / Integration deferred / Integration closed，deferred 必须转 closed 才达 release readiness）/ Documentation Mapping 状态化；Contract Ownership + Status 列（Existing / Existing-to-evolve / Proposed，只冻结 ownership 不冻结 schema）；**Recommended Implementation Waves**（Wave 1-5 工程推荐非 dependency legality；Wave 1 = T01/T03/T05）；**推荐首个 implementation task = T05**（ValidationResult 已 Existing + validator 8 用例 + 确定性低风险 + 建立修复循环 validation contract 基线），非 T01；Review Gate A = Architecture / Contract + **Gate E = Integration Closure / Milestone Gate**（"Task Merge Gate ≠ Milestone Integration Gate"））；**规划待 Architecture Review 最终复审**；规划定稿后再启动 T01-T12 正文（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式）。
+1. **T05 implementation task（SQL 静态校验，首个 implementation task）**：T01-T12 Execution Planning 完成（TASK-0029，PR #53，四层模型：Runtime Pipeline / Implementation DAG（Strong=0 → 12 独立节点）/ Integration Dependency Matrix（Evidence Status 三态 + Gate E Integration Closure）/ Doc Mapping Candidate；Advisory 不构成 merge prerequisite；Wave 1 = T01/T03/T05）。**T05 为首个 implementation task**（ValidationResult 已有基础 / validator 8 用例回归基线成熟 / 确定性低风险 / 建立后续修复循环的 validation contract 基线）；T05 按统一 Review Gate（A Architecture-Contract → B Implementation → C Tests-Evidence → D Documentation → Merge；Integration 证据 deferred → closed 于 Gate E 关闭）；T05 完成后按 Wave 推进其余 T01-T12（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式）。
 2. **Chapter 17 Ending maintenance（TASK-0027）已完成**：Chapter 17 Ending 句已修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"），独立 PR 合并完成（commit b93f9a5）。
 3. **Chapter 18 正文初稿（2026-08-08，TASK-0028，本任务；Part 04 前置章）**：
   - `docs/04-text2sql/ch18-stategraph-graph-runtime.md`：18.1-18.10，Q1-Q10，5 张 Mermaid 图
