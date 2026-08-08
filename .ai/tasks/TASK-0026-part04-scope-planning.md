@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-07 |
 | Updated | 2026-08-07 |
@@ -88,11 +88,19 @@ Text-to-SQL 重构：Text2SQLState / 意图识别 / 元数据检索 / 业务规�
 
 ## 验收标准
 
-- [ ] 回答唯一问题：StateGraph API 的承载方式（三个选项 + 推荐 + 理由）
-- [ ] 分析锚定仓库事实（basic_langgraph 最小 API / Part 03 边界承诺 / ROADMAP v0.5.0 / 约束原则）
-- [ ] 未写正文；未改 ROADMAP / content-map / current.md（决策确认前）
-- [ ] 等待用户范围决策
+- [x] 回答唯一问题：StateGraph API 的承载方式（三个选项 + 推荐 + 理由）
+- [x] 分析锚定仓库事实（basic_langgraph 最小 API / Part 03 边界承诺 / ROADMAP v0.5.0 / 约束原则）
+- [x] 未写正文；ROADMAP / content-map / current.md 在决策确认后才更新
+- [x] 用户决策（2026-08-08）：接受推荐（选项 2 为主 + 选项 3 执行方式），章节名冻结为「StateGraph 构图与 Graph Runtime 执行模型」，正文主线冻结
 
 ## 完成记录
 
 - 2026-08-07：任务创建；三选项分析完成；推荐选项 2（Part 04 前置章节 + 选项 3 执行方式）；等待用户决策。
+- 2026-08-08：**用户正式冻结决策**（本任务 completed）：
+  - **章节名**：「StateGraph 构图与 Graph Runtime 执行模型」（不叫"StateGraph API"——重点放在"构图 + Runtime execution"而非方法列表）
+  - **目的**：不是"教 StateGraph API"，而是回答 Part 03 已建立的 Graph State / Node / Edge / Reducer / Routing 等 Runtime 语义如何被组装成可执行 Graph，以及 compile → invoke/stream 在 Runtime 中承担什么职责
+  - **只集中讲四件事**：① 构图入口 ② 组件注册与连接 ③ compile() 的语义边界 ④ 编译后 Runtime 的执行入口
+  - **Node / Edge / Reducer / Command / Send / Checkpoint / Interrupt / Stream 只引用 Part 03，不重新解释**
+  - 其后的 Text-to-SQL T01-T12 重构按需使用 StateGraph API（选项 3 价值）
+  - **正文固定主线**：StateGraph 负责声明图结构，compile() 将图定义转换为可执行的 Graph Runtime，invoke()/stream() 通过该 Runtime 驱动 State、Node 与控制流运行；这些 API 不重新定义 Part 03 的 Runtime 语义，只负责把既有语义组装并执行
+  - **后续流程**：规划分支已合并（PR #48）→ 本 planning-state 收敛（ROADMAP v0.5.0 前置章条目 / content-map Part 4 范围 / current.md 指向正文启动）→ Chapter 17 Ending maintenance 单独登记（TASK-0027）→ Part 04 前置章正文启动（TASK-0028）
