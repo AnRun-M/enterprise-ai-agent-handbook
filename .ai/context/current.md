@@ -227,7 +227,8 @@
   - **链式结构已守（非方法列表）**：定义图 → 注册组件 → 连接控制流 → compile → invoke/stream → 与 Part 03 对照；只集中讲四件事（构图入口 / 组件注册与连接 / compile 语义边界 / 编译后 Runtime 执行入口）；Node/Edge/Reducer/Command/Send/Checkpoint/Interrupt/Stream 只引用 Part 03 不重新解释
   - **证据优势**：本章有真实代码直接证据（graph.py 构图/注册/连接/compile + agent.py invoke），并标注未验证清单（Runtime 内部调度 / stream 行为 / Checkpoint-interrupt 组合 / API 参数面）
   - 四源更新：mkdocs.yml（导航）、04-text2sql/index.md（前置章条目）、content-map（第 18 章行+Part 4 行）、ROADMAP（v0.5.0 Chapter 18 draft / 待架构审查）
-  - 待 Architecture Review
+  - **PR #51 Review 七项修正（2026-08-08）**：State schema 可见范围（图级契约 ≠ 所有 Node 读全部字段，ch09 边界不重展）/ add_node-DI 边界（add_node 注册 callable；依赖组装在注册前由应用完成；StateGraph 不是 DI Container）/ Node-Routing 两层（Demo Update+Conditional Edge vs 通用 Command routing intent；跳转解释在 Graph Runtime）/ compile 职责三层（校验 + materialize + 挂载已配置能力；不创造 Scheduler-Reducer-Failure Boundary）/ invoke-stream 执行语义（同一 compiled graph 的两个执行接口：aggregated vs streaming；Interrupt-failure-cancellation 不假设成功终态）/ 测试证据分层（代码事实 vs 观察维度等价测试——第 8 章收窄口径）/ 动态路径边界（静态 topology 完成 ≠ 运行路径唯一，Conditional Edge-Command-Send 决定）——已应用并推送更新 PR #51
+  - 待 Architecture Review 复审
 3. **未决项**：① Mermaid 计数漂移（历史 TASK / PR 记录与实际围栏数不一致；正文围栏数是事实源，后续任务不预先承诺固定数量）② v1.0.0 章节数目标对账（TASK-0014 未决项延续）③ 官方 URL 发布前复核（TASK-0014 未决项延续）④ RetryPolicy 机制归属（TASK-0014 未决项延续）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）

@@ -39,9 +39,13 @@
 - **核心主线与章节结构冻结**（见目标），不得偏离
 - **Runtime 第一视角、Framework 第二视角**：每步先引用 Part 03 语义（ch09-17），再讲组装/执行承载；禁止从 API 方法列表出发
 - **只引用不重新解释**：Node（ch10）/ Edge（ch11）/ Reducer（ch12）/ Command-Send（ch13）/ Checkpoint（ch14）/ Interrupt（ch15）/ Stream（ch16）/ Subgraph（ch17）——语义解释一律回指
-- **compile() 语义边界**：声明 → 可执行 Runtime 的转换；不是新语义、不是业务规则、不执行图
-- **invoke / stream**：编译后 Runtime 的执行入口（invoke = 最终结果；stream = 过程视图，引用 ch16）
-- **证据优势**：本章有真实代码直接证据（graph.py / agent.py）——构图 / 注册 / 连接 / compile / invoke 全部可引用；未验证清单如实标注（Runtime 内部调度 / stream 行为 / Checkpoint-interrupt 组合 / API 参数面）
+- **State schema 可见范围**：StateGraph(GraphState) 声明图级 State schema 与 channel 更新规则，**不等于所有 Node 读取全部字段**（更窄输入 / input-output schema / internal-private channels 属第 9 章通用能力边界，不重新展开）
+- **add_node / DI 边界**：add_node = 注册 callable 并赋予图内标识（LangGraph 通用语义）；依赖组装在注册前由应用经 Node Factory / closure 完成（当前 Demo 工程选择）；链路 = Application dependency wiring → Node callable → add_node → StateGraph；**StateGraph 不是 DI Container**
+- **Node-Routing 两层边界（跨章节一致）**：当前 Demo = Node 返回 Update + Conditional Edge 选路；LangGraph 通用能力 = Node 可经 Command 返回 Update + routing intent；无论哪种方式 Node 不自行执行跳转、Graph Runtime 解释并 Scheduling Execution（不得退回"所有 Node 永远只执行"）
+- **compile() 职责三层**：Graph Definition（schema / Nodes / Edges-branches）→ compile（结构校验 + materialize 为 executable compiled graph + 挂载已配置 Runtime 能力）→ Compiled Graph（invoke / stream 入口）；**compile 不创造 Scheduler / Reducer / 业务 Failure Boundary**
+- **invoke / stream**：都运行同一 compiled graph——invoke = aggregated execution interface（聚合返回，Interrupt / failure / cancellation 不假设成功终态）；stream = streaming execution interface（持续交付所选 Stream Mode 事件，引用 ch16）；**核心区别是结果交付协议，不是"一个执行一个旁观"**
+- **动态路径边界**：静态 topology 与 routing declarations 基本完成 ≠ 运行路径唯一确定（Conditional Edge / Command / Send 的 Runtime 控制结果决定实际路径，引用 ch11/13）
+- **证据分层**：代码事实（graph.py / agent.py 用法）与测试事实（`test_direct_equivalence_with_manual` 断言最终 State 关键字段 / 终止行为 / history 动作序列等观察维度等价——第 8 章已收窄口径，不宣称一般性行为等价）分开；未验证清单含 StateGraph 一般性语义 / compile 内部实现 / concurrency / side-effect ordering / stream / Checkpoint-Interrupt 组合 / delivery semantics / API 参数面
 - **不提前展开**：T01-T12 业务重构（后续章节）、StateGraph API 完整参数面（API 教程超出范围）、Pregel 内部实现（超出本书范围）
 - 测试数量以最新 CI 为准不写死
 - 不修改 TASK-0014 / TASK-0026、Chapter 08-17 正文、examples、tests、principles、ADR、references、architecture-map、Part 编号
@@ -55,8 +59,17 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0028 Status = in_progress；ROADMAP Chapter 18 = draft / 待架构审查；content-map 第 18 章 = 实现完成 / 待架构审查
 - [ ] PR 创建（分支 feature/chapter-18-stategraph-graph-runtime，commit `docs: draft chapter 18 stategraph graph runtime`）
+- [ ] PR #51 Architecture Review 七项修正全部应用（State schema 可见范围 / add_node-DI 边界 / Node-Routing 两层 / compile 职责三层 / invoke-stream 执行语义 / 测试证据分层 / 动态路径边界）
 - [ ] 等待 Architecture Review
 
 ## 完成记录
 
-- 2026-08-08：任务创建，正文初稿完成（待补）
+- 2026-08-08：任务创建，正文初稿完成；四源更新；PR #51 创建。
+- 2026-08-08：**PR #51 Architecture Review 七项修正**（commit：docs: refine stategraph compilation and execution boundaries）全部应用并推送更新 PR #51：
+  1. **State schema 可见范围**（18.2 / Q2 / 误区 / 验收标准）：StateGraph(GraphState) = 图级 State 契约，**不等于所有 Node 读取全部字段**；更窄输入 / input-output schema / internal-private channels 属第 9 章边界；"没有 schema 节点无从谈起"改为"schema 提供基础契约，Node / routing callable 读取范围由输入契约决定"
+  2. **add_node / DI 边界**（18.3 / Q3 / 18.7 / 误区 / 验收标准）：删除"注册 = 依赖组装"；两层——LangGraph 通用（add_node 注册 callable 并赋予图内标识）vs 当前 Demo 工程选择（应用先经 Node Factory 完成依赖组装再注册）；链路 = Application dependency wiring → Node callable → add_node → StateGraph；**StateGraph 不是 DI Container**
+  3. **Node-Routing 两层边界**（18.3 / 18.7 / Q3 / 误区 / 验收标准）：恢复第 10 / 13 章最终边界——Demo（Update + Conditional Edge）与通用能力（Command 携带 routing intent）两层；无论哪种方式 Node 不自行执行跳转、Graph Runtime 解释并 Scheduling Execution
+  4. **compile 职责三层**（18.5 / Mermaid / 18.7 / Q5 / 误区 #3/#9 / 验收标准）：Graph Definition → compile（结构校验 + materialize + 挂载已配置 Runtime 能力）→ Compiled Graph；推荐表述"compile 不创造 Scheduler、Reducer 或业务 Failure Boundary"
+  5. **invoke / stream 执行语义**（18.6 / Mermaid / 18.7 / Q6 / 误区 #6 / 验收标准）：删除"执行 vs 旁观"二分；invoke = aggregated execution interface（Interrupt / failure / cancellation 不假设成功终态）；stream = streaming execution interface（持续交付 Stream Mode 事件，引用 ch16）；核心区别 = 结果交付协议
+  6. **测试证据分层**（18.8 / Q9 / Q10 / 验收标准）：代码事实（graph.py / agent.py 用法）与测试事实（观察维度等价——第 8 章已收窄口径）分开；不宣称测试证明一般性行为等价；未验证清单扩充（一般性语义 / compile 内部 / concurrency / side-effect ordering / stream / Checkpoint-Interrupt / delivery semantics / API 参数面）
+  7. **动态路径边界**（18.4 / Q4）："图结构完整成型"改为"静态 topology 与 routing declarations 基本完成；实际运行路径仍可由 Conditional Edge / Command / Send 的 Runtime 控制结果决定"（引用 ch11/13）
