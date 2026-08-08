@@ -58,7 +58,17 @@ flowchart LR
 
 ### B. Implementation Dependency DAG（唯一开发拓扑源）
 
-回答："后续 Task 是否必须等待前置实现 merge，才能**独立编码 / 单测 / Review / Merge**？"只有在：所需 contract 尚未存在 **且** 无法先冻结 contract **且** 无法通过 fixture/mock 合理独立验证时，才允许 Strong。**必须无环**。后续 topology / batch / parallel / merge strategy 全部只据此推导。
+回答："后续 Task 是否必须等待前置实现 merge，才能**独立编码 / 单测 / Review / Merge**？"只有在：所需 contract 尚未存在 **且** 无法先冻结 contract **且** 无法通过 fixture/mock 合理独立验证时，才允许 Strong。**必须无环**。
+
+**最终收敛（合并前定稿）**：Strong = 0 → **Implementation Dependency DAG = T01-T12 共 12 个独立节点，无强制前置边**——任何 T 在 dependency 意义上都可独立开分支 / 实现 / 单测 / Review / Merge。
+
+**Weak 关系不再作为 DAG topology constraint**：全部 Weak 单独命名为 **Implementation Advisory Relationships（Advisory Graph）**，用途仅限：recommended merge order / contract coordination / shared-file conflict / integration readiness / risk reduction。
+
+**固定表述（必须遵守）：**
+
+> **Weak relationship does not create a merge prerequisite.**
+
+后续 merge strategy 只依据 Strong（=∅）；Waves 是工程推荐（见第六节），不是 dependency legality。
 
 ### C. Integration Dependency
 
@@ -88,9 +98,11 @@ flowchart LR
 
 **Strong 最终结果：Strong = 0。** 这是允许的——不人为保留 Strong。所有 T01-T12 均可基于 frozen contract + fixture 独立编码 / 单测 / Review / Merge。
 
-### Canonical Implementation Dependency Table（唯一事实源，全部 Weak / none）
+### Canonical Implementation Table（唯一事实源；Strong = 0，其余为 Advisory）
 
-| T | Strong | Weak（降低风险，可 fixture 独立实现） |
+**Strong 列全部为空（Strong = 0）**——12 个 T 均可通过 frozen contract + fixture 独立实现。下表 Weak 列 = **Implementation Advisory Relationships**（非 merge prerequisite；仅用于推荐 merge 顺序 / 契约协调 / 共享文件冲突 / integration readiness / 风险降低）：
+
+| T | Strong | Advisory（原 Weak；不构成 merge prerequisite） |
 |---|---|---|
 | T01 | — | — |
 | T02 | — | T01（NormalizationResult 语义协同） |
@@ -105,10 +117,37 @@ flowchart LR
 | T11 | — | T09、T10（结果 fixture） |
 | T12 | — | T10（QualityResult / 最终 State fixture） |
 
+### Implementation Advisory Graph（参考图，非开发约束）
+
+**Implementation Dependency DAG = 12 个独立节点，无强制前置边（Strong = 0）。** 下图仅表达 Advisory Relationships（虚线）——recommended merge order / contract coordination / shared-file conflict / integration readiness / risk reduction；**Weak relationship does not create a merge prerequisite**：
+
+```mermaid
+flowchart LR
+    T01 -.-> T02
+    T02 -.-> T03
+    T02 -.-> T04
+    T03 -.-> T04
+    T03 -.-> T06
+    T03 -.-> T08
+    T04 -.-> T05
+    T04 -.-> T06
+    T04 -.-> T08
+    T05 -.-> T07
+    T06 -.-> T07
+    T06 -.-> T08
+    T08 -.-> T09
+    T09 -.-> T10
+    T09 -.-> T11
+    T10 -.-> T11
+    T10 -.-> T12
+```
+
+**邻接表（Strong）**：**空**（Strong = 0）。Advisory 关系见 Canonical Table（不构成 merge prerequisite）。**无环性**：Advisory 边编号严格递增 → 参考图无环；即便有环也不构成开发约束。
+
 ### 一致性（五处由 Table 推导）
 
-1. Table vs Mermaid（全部虚线 Weak / 无 Strong 实线）✓
-2. Table vs adjacency ✓ 3. Table vs topology ✓ 4. Strong vs parallel（Strong=∅，平凡成立）✓ 5. Batch dependency validity ✓
+1. Table vs Mermaid（Advisory Graph：全部虚线 advisory / 无 Strong 实线）✓
+2. Table vs adjacency（Strong adjacency 为空）✓ 3. Table vs topology（Strong 拓扑无业务区分度——Waves 为工程推荐）✓ 4. Strong vs parallel（Strong=∅，平凡成立）✓ 5. Wave dependency validity（Wave 内无 Strong 依赖）✓
 
 ---
 
@@ -164,19 +203,23 @@ Execution Planning **不是**提前定义所有数据模型的 schema spec。
 
 ---
 
-## 六、执行批次（二轮复审：Strong=0 下的组织）
+## 六、Recommended Implementation Waves（工程推荐波次，非 dependency legality）
 
-**Parallel 定义保持**：无 Strong / 不依赖对方 branch / 可从 main 独立开分支 / 可独立 CI / shared write conflict 可控。**Weak / Integration dependency 不自动阻止并行 implementation**——批次按"推荐先后 merge + shared-file conflict + integration readiness"组织，并显式标记"推荐先后 merge"或"integration test later"。
+**Strong = 0 → 严格拓扑排序没有业务区分度**，任何 T01-T12 顺序在 dependency 意义上都合法。因此不再称"推荐拓扑序 / Batch"——统一为 **Recommended Implementation Waves**：
 
-| Batch | 任务 | 标记 | Shared-file conflict |
+Wave 1-5 是**工程推荐波次**，依据：contract maturity / test foundation / shared-file conflict / integration readiness / downstream leverage——**不是 dependency sequence**（Wave ≠ Strong dependency sequence）。
+
+**Parallel 定义保持**：无 Strong / 不依赖对方 branch / 可从 main 独立开分支 / 可独立 CI / shared write conflict 可控。**Advisory / Integration dependency 不自动阻止并行 implementation**——Wave 内可并行，并显式标记"推荐先后 merge"或"integration test later"。
+
+| Wave | 任务 | 标记 | Shared-file conflict |
 |---|---|---|---|
 | 1 | T01、T03、T05 | 首批并行；**推荐先后 merge**：T05（首推，见七） | 低（text2sql_state 包初始骨架） |
 | 2 | T02、T06 | T02 推荐后于 T01 merge（Integration T01）；T06 可并行 | 低（state.py 字段追加顺序可控） |
 | 3 | T04、T07 | T04 推荐后于 T02/T03 merge（Integration T02+T03）；T07 后于 T05/T06（Integration T05+T06） | 中（nodes.py 分文件或顺序合并） |
-| 4 | T08、T09 | T08 先于 T09（Integration T08）；均无 Strong | 低（routing.py / executor.py 独立文件） |
+| 4 | T08、T09 | T08 先于 T09（Integration T08） | 低（routing.py / executor.py 独立文件） |
 | 5 | T10、T11、T12 | T10 先于 T12（Integration T10）；T11 可并行 optional | 低（质量/沙箱/输出节点独立文件） |
 
-**Integration test later 规则**：每个 T 的 Integration 列测试在其 Integration Dependency 已 merged 后补跑（如 T07 的修复循环 e2e 在 T05+T06 merged 后进行）——不阻塞各 T 独立 Merge（Gate C 区分 contract-level tests（merged 前）与 integration tests（依赖 merged 后））。
+**Integration Closure 规则**：每个 T 的 Integration 列测试按其 **Integration Dependency merged** 后触发 Integration Closure（Gate E，见第十节）——不阻塞各 T 独立 Merge（Gate C 区分 contract-level tests（merged 前）与 integration tests（依赖 merged 后补跑））。
 
 ---
 
@@ -203,9 +246,19 @@ T01 / T03 可同期并行结论保留。
 
 ---
 
-## 九、Test Planning（三列制）
+## 九、Test Planning（三列制 + Evidence Status 三态）
 
 类型矩阵沿用（Unit / Integration / Regression / Golden / Failure / Routing / State transition / Tool contract / Checkpoint-Interrupt（仅 T07 挂载点接口）/ Idempotency-Performance（仅 T09 超时））。**Integration 列按第三节矩阵执行**：contract-level tests 在 T merged 前（fixture 支持）；真实 e2e 串联测试在 Integration Dependency merged 后补（"integration test later"）。
+
+**Integration 测试证据三种状态（新增）**：
+
+| 状态 | 含义 |
+|---|---|
+| **Contract-level verified** | 该 T 基于 frozen contract + fixture 的独立实现与单测已验证（merged 前可达成） |
+| **Integration deferred** | 真实 e2e 串联证据待 Integration Dependency merged 后补（"integration test later" 的正式状态） |
+| **Integration closed** | 真实串联测试已补跑并验证（Integration Closure Gate 关闭，见第十节） |
+
+**"integration test later" 不是永久状态**：每个有 Integration Dependency 的 T 必须最终从 **deferred → closed**，才能进入 v0.5.0 release readiness。
 
 **已有测试证据（引用）**：manual validator 8 用例（T05 基础）、manual agent loop 12 用例（T07 修复/终止基础）、basic_langgraph 26 用例（T08 路由纯函数 / off-by-one 基础）。
 **需新增**：text2sql_state 各 T 测试（计划）。
@@ -213,19 +266,31 @@ T01 / T03 可同期并行结论保留。
 
 ---
 
-## 十、Review Gate（统一）
+## 十、Review Gate（统一 + Integration Closure Gate）
 
-**Gate A：Architecture / Contract** —— Runtime frozen semantics；Owned / consumed contract（含 Status：Proposed 的 schema 在本 Gate 正式确定）；dependency validity（Implementation vs Integration 不混用）；backward compatibility；是否引入隐式状态；是否提前进入 Part 05
+**Task Merge Gate**（每个 T 独立走）：
+
+**Gate A：Architecture / Contract** —— Runtime frozen semantics；Owned / consumed contract（含 Status：Proposed 的 schema 在本 Gate 正式确定）；dependency validity（Implementation vs Integration 不混用；Weak 不构成 merge prerequisite）；backward compatibility；是否引入隐式状态；是否提前进入 Part 05
 ↓
 **Gate B：Implementation**（改动边界 / 代码组织 / API contract）
 ↓
-**Gate C：Tests / Evidence**（Unit / Integration（按 Integration Matrix 区分 merged 前 contract-level 与 merged 后 e2e）/ Regression / Failure / 三列制）
+**Gate C：Tests / Evidence**（Unit / Integration（Contract-level verified 与 Integration deferred 分列）/ Regression / Failure / Evidence Status 三态）
 ↓
 **Gate D：Documentation**（代码与文档一致 / 证据诚实 / ROADMAP-content-map-current 同步）
 ↓
-**Merge**
+**Merge**（Task Merge Gate 通过即可独立 Merge）
 
-Contract 是 Gate A 的强制检查项，非独立流程。所有 T01-T12 使用同一 Gate。
+**Gate E：Integration Closure / Milestone Gate（新增，独立于 Task Merge Gate）**
+
+- **触发条件**：Integration Dependency Matrix 中相关两端 / 多端 implementation 全部进入 main（如 T07 的 Integration Closure 在 T05 + T06 + T07 均 merged 后触发）
+- **职责**：补跑真实 integration tests；**关闭 deferred integration evidence（deferred → closed）**；验证真实 contract compatibility；验证 runtime path；更新 evidence status；**作为 v0.5.0 milestone readiness 必要条件**
+- **固定表述**：
+
+> **Task Merge Gate ≠ Milestone Integration Gate。**
+
+- 举例：T07 可先基于 ValidationResult / RiskDecision fixtures 完成 contract-level implementation 并独立 Merge；当 T05 + T06 + T07 均进入 main 后触发 Integration Closure，验证真实 validation → risk → repair / approval 串联路径；**未关闭 Integration Closure，不得把对应 capability 标记为 end-to-end verified**
+
+**不创建新 TASK**——本规则是统一 Gate 的一部分。
 
 ---
 
@@ -272,7 +337,7 @@ Contract 是 Gate A 的强制检查项，非独立流程。所有 T01-T12 使用
 - [x] ⑧ 新拓扑序与并行批次（5 批 + 推荐先后 merge / integration test later 标记）
 - [x] ⑨ T05 首推最终理由（保留 4 项，收窄 T07 表述）
 - [x] ⑩ Documentation Mapping 状态保持（Frozen / Candidate / Deferred，不冻结章节数）
-- [x] ⑪ Review Gate（Gate A = Architecture / Contract；Integration 分列）
+- [x] ⑪ Review Gate（Gate A = Architecture / Contract；**Gate E = Integration Closure / Milestone Gate**；Task Merge Gate ≠ Milestone Integration Gate）
 - [x] ⑫ 风险 10 项；Runtime 冻结边界；未开始 T01-T12；未改冻结文件
 - [ ] 等待 Architecture Review 最终复审
 
@@ -288,3 +353,9 @@ Contract 是 Gate A 的强制检查项，非独立流程。所有 T01-T12 使用
   6. **批次**：Strong=0 下 5 批按"推荐先后 merge + shared-file + integration readiness"组织；标记"推荐先后 merge"/"integration test later"；Weak/Integration 不阻止并行 implementation
   7. **T05 首推理由**：保留 4 项（已有契约/8 用例/确定性/低风险 + 建立成熟 Validation Contract 基线）；删除"解锁 Strong 链"表述
   8. **Doc Mapping 不变**（Frozen/Candidate/Deferred）；Gate A = Architecture / Contract
+- 2026-08-08：**最终合并前一致性清理**（commit：docs: finalize t01-t12 execution and integration gates）：
+  1. **Implementation Dependency DAG 严格收敛**：Strong=0 → DAG = 12 个独立节点无强制前置边；Weak 全部改名 **Implementation Advisory Relationships（Advisory Graph）**，用途仅限 recommended merge order / contract coordination / shared-file conflict / integration readiness / risk reduction；固定表述 "**Weak relationship does not create a merge prerequisite.**"
+  2. **拓扑序 → Recommended Implementation Waves**：Strong=0 下严格拓扑无业务区分度；Wave 1-5 为工程推荐波次（contract maturity / test foundation / shared-file conflict / integration readiness / downstream leverage），**Wave ≠ Strong dependency sequence**
+  3. **Gate E：Integration Closure / Milestone Gate 新增**：触发 = Integration Matrix 两端/多端全部进 main；职责 = 补跑真实 integration tests / 关闭 deferred evidence / 验证 contract compatibility / runtime path / 更新 evidence status / v0.5.0 milestone readiness 必要条件；固定表述 "**Task Merge Gate ≠ Milestone Integration Gate.**"；不创建新 TASK
+  4. **Evidence Status 三态**：Contract-level verified / Integration deferred / Integration closed——"integration test later" 非永久状态，每个有 Integration Dependency 的 T 必须 deferred → closed 才能进入 v0.5.0 release readiness
+  5. PR #53 描述顶部 Review Focus 同步（Strong=0 成立性 / Weak advisory 不误写为 merge prerequisite 等 10 项）
