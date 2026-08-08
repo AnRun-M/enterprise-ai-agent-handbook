@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-08 |
 | Updated | 2026-08-08 |
@@ -59,8 +59,10 @@
 - [ ] content-map / ROADMAP / index / mkdocs 四源更新
 - [ ] TASK-0028 Status = in_progress；ROADMAP Chapter 18 = draft / 待架构审查；content-map 第 18 章 = 实现完成 / 待架构审查
 - [ ] PR 创建（分支 feature/chapter-18-stategraph-graph-runtime，commit `docs: draft chapter 18 stategraph graph runtime`）
-- [ ] PR #51 Architecture Review 七项修正全部应用（State schema 可见范围 / add_node-DI 边界 / Node-Routing 两层 / compile 职责三层 / invoke-stream 执行语义 / 测试证据分层 / 动态路径边界）
-- [ ] 等待 Architecture Review
+- [x] PR #51 Architecture Review 七项修正全部应用（State schema 可见范围 / add_node-DI 边界 / Node-Routing 两层 / compile 职责三层 / invoke-stream 执行语义 / 测试证据分层 / 动态路径边界）
+- [x] PR #51 合并前一致性清理全部应用（18.4 topology 表述 / compile 跨章节职责归属 / PR 顶部摘要同步 + 最后一次 Description 一致性清理）
+- [x] PR #51 复审 APPROVED 并 squash merge 到 main（commit 83f5ae5，CI build/test 双绿，2026-08-08）→ Chapter 18 最终完成
+- [x] `.ai/context/current.md` 已更新
 
 ## 完成记录
 
@@ -73,3 +75,6 @@
   5. **invoke / stream 执行语义**（18.6 / Mermaid / 18.7 / Q6 / 误区 #6 / 验收标准）：删除"执行 vs 旁观"二分；invoke = aggregated execution interface（Interrupt / failure / cancellation 不假设成功终态）；stream = streaming execution interface（持续交付 Stream Mode 事件，引用 ch16）；核心区别 = 结果交付协议
   6. **测试证据分层**（18.8 / Q9 / Q10 / 验收标准）：代码事实（graph.py / agent.py 用法）与测试事实（观察维度等价——第 8 章已收窄口径）分开；不宣称测试证明一般性行为等价；未验证清单扩充（一般性语义 / compile 内部 / concurrency / side-effect ordering / stream / Checkpoint-Interrupt / delivery semantics / API 参数面）
   7. **动态路径边界**（18.4 / Q4）："图结构完整成型"改为"静态 topology 与 routing declarations 基本完成；实际运行路径仍可由 Conditional Edge / Command / Send 的 Runtime 控制结果决定"（引用 ch11/13）
+- 2026-08-08：**PR #51 合并前一致性清理**（commit：docs: align chapter18 runtime summary and references + 最后一次 Description 清理）：18.4 topology 表述统一（静态 topology 可审查、实际路径由 Runtime 控制结果决定）；compile 跨章节职责引用精确化（Scheduling→ch06 / Node failure boundary→ch10 / routing→ch11 / Reducer-channel merge→ch12）；PR #51 描述顶部摘要直接同步（Q2-Q10 / 关键边界 / 证据与测试范围 / Review Focus）。
+- 2026-08-08：PR #51 经 Architecture Review 复审 APPROVED，squash merge 到 main（commit 83f5ae5，CI build/test 双绿）→ **TASK-0028 标记 completed；Chapter 18 最终完成（Part 04 前置章）**；本 Memory PR（docs/post-pr51-merge-memory）收敛状态（ROADMAP / content-map / current.md）。
+- **Future maintenance**：None。
