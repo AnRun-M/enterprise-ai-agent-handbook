@@ -219,7 +219,7 @@
 
 ## 下一步
 
-1. **T01-T12 Execution Planning（TASK-0029）**：Chapter 18 最终完成（TASK-0028，PR #51）；**用户节奏建议（2026-08-08）：不要合并完 Chapter 18 就立刻从 T01 逐条写**——先做 Text-to-SQL T01-T12 Execution Planning：把 12 个任务按**依赖关系、章节承载、代码改动、测试证据**重新排列（从"框架概念教学"进入"真正的业务重构"，错误成本明显高于前面章节）；规划定稿后再启动 T01-T12 正文（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式）。
+1. **T01-T12 Execution Planning（TASK-0029）**：Chapter 18 最终完成（TASK-0028，PR #51）；**用户节奏建议（2026-08-08）：不要合并完 Chapter 18 就立刻从 T01 逐条写**——先做 Text-to-SQL T01-T12 Execution Planning（TASK-0029 规划文件已完成：Dependency DAG（7 并行批次 + 无环证明）/ 12 任务统一模板 / Code Impact Matrix（代码载体 = 新包 examples/text2sql_state，basic/manual 教学包保持 N）/ Test Planning（三列制）/ Documentation Mapping（建议 7 章 + 附录，避免 12 机械章）/ Review Gate A-D 统一 / Risk Register 10 项 / Architecture Conflict 规则）；**规划待 Architecture Review**；规划定稿后再启动 T01-T12 正文（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式）。
 2. **Chapter 17 Ending maintenance（TASK-0027）已完成**：Chapter 17 Ending 句已修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"），独立 PR 合并完成（commit b93f9a5）。
 3. **Chapter 18 正文初稿（2026-08-08，TASK-0028，本任务；Part 04 前置章）**：
   - `docs/04-text2sql/ch18-stategraph-graph-runtime.md`：18.1-18.10，Q1-Q10，5 张 Mermaid 图
