@@ -73,7 +73,7 @@
 
 ## v0.5.0：Text-to-SQL 重构
 
-- [ ] Chapter 18：StateGraph 构图与 Graph Runtime 执行模型（Part 04 前置章；draft / 待架构审查，2026-08-08）
+- [x] Chapter 18：StateGraph 构图与 Graph Runtime 执行模型（Part 04 前置章；最终完成，2026-08-08，PR #51）
 - [ ] Text2SQLState
 - [ ] 意图识别
 - [ ] 元数据检索

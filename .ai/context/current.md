@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章（Chapter 18：StateGraph 构图与 Graph Runtime 执行模型）正文初稿完成待 Architecture Review（TASK-0028），规划状态已落盘（TASK-0026 completed）、Chapter 17 Ending maintenance 已完成（TASK-0027）；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
+阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**下一步 T01-T12 Execution Planning**（先规划后正文，用户 2026-08-08 节奏建议）；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
 
 ## 已完成
 
@@ -219,7 +219,7 @@
 
 ## 下一步
 
-1. **Part 04 继续**：Chapter 18（前置章）正文初稿完成（TASK-0028），待 Architecture Review；下一步预告 **T01-T12 Text-to-SQL 重构正文**（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式；Chapter 18 Review 通过后启动）。
+1. **T01-T12 Execution Planning（TASK-0029）**：Chapter 18 最终完成（TASK-0028，PR #51）；**用户节奏建议（2026-08-08）：不要合并完 Chapter 18 就立刻从 T01 逐条写**——先做 Text-to-SQL T01-T12 Execution Planning：把 12 个任务按**依赖关系、章节承载、代码改动、测试证据**重新排列（从"框架概念教学"进入"真正的业务重构"，错误成本明显高于前面章节）；规划定稿后再启动 T01-T12 正文（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式）。
 2. **Chapter 17 Ending maintenance（TASK-0027）已完成**：Chapter 17 Ending 句已修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"），独立 PR 合并完成（commit b93f9a5）。
 3. **Chapter 18 正文初稿（2026-08-08，TASK-0028，本任务；Part 04 前置章）**：
   - `docs/04-text2sql/ch18-stategraph-graph-runtime.md`：18.1-18.10，Q1-Q10，5 张 Mermaid 图
@@ -228,7 +228,8 @@
   - **证据优势**：本章有真实代码直接证据（graph.py 构图/注册/连接/compile + agent.py invoke），并标注未验证清单（Runtime 内部调度 / stream 行为 / Checkpoint-interrupt 组合 / API 参数面）
   - 四源更新：mkdocs.yml（导航）、04-text2sql/index.md（前置章条目）、content-map（第 18 章行+Part 4 行）、ROADMAP（v0.5.0 Chapter 18 draft / 待架构审查）
   - **PR #51 Review 七项修正（2026-08-08）**：State schema 可见范围（图级契约 ≠ 所有 Node 读全部字段，ch09 边界不重展）/ add_node-DI 边界（add_node 注册 callable；依赖组装在注册前由应用完成；StateGraph 不是 DI Container）/ Node-Routing 两层（Demo Update+Conditional Edge vs 通用 Command routing intent；跳转解释在 Graph Runtime）/ compile 职责三层（校验 + materialize + 挂载已配置能力；不创造 Scheduler-Reducer-Failure Boundary）/ invoke-stream 执行语义（同一 compiled graph 的两个执行接口：aggregated vs streaming；Interrupt-failure-cancellation 不假设成功终态）/ 测试证据分层（代码事实 vs 观察维度等价测试——第 8 章收窄口径）/ 动态路径边界（静态 topology 完成 ≠ 运行路径唯一，Conditional Edge-Command-Send 决定）——已应用并推送更新 PR #51
-  - 待 Architecture Review 复审
+  - **PR #51 合并前一致性清理（2026-08-08）**：18.4 topology 表述统一（静态 topology 可审查、实际路径由 Runtime 控制结果决定）；compile 跨章节职责引用精确化（Scheduling→ch06 / Node failure boundary→ch10 / routing→ch11 / Reducer-channel merge→ch12）；PR #51 描述顶部摘要直接同步（Q2-Q10 / 关键边界 / 证据与测试范围 / Review Focus）+ 最后一次 Description 一致性清理（invoke/stream 无旧二分口径）
+  - **PR #51 已通过 Architecture Review 复审 APPROVED 并 squash merge 到 main（2026-08-08，commit 83f5ae5，CI build/test 双绿）→ Chapter 18 最终完成（Part 04 前置章）**；本 Memory PR（docs/post-pr51-merge-memory）收敛状态（ROADMAP / content-map / current.md）
 3. **未决项**：① Mermaid 计数漂移（历史 TASK / PR 记录与实际围栏数不一致；正文围栏数是事实源，后续任务不预先承诺固定数量）② v1.0.0 章节数目标对账（TASK-0014 未决项延续）③ 官方 URL 发布前复核（TASK-0014 未决项延续）④ RetryPolicy 机制归属（TASK-0014 未决项延续）
 2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
 3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
