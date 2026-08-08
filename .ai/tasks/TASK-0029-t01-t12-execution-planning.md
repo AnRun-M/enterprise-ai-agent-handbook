@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-08 |
 | Updated | 2026-08-08（二轮复审：Implementation / Integration 分离） |
@@ -339,11 +339,13 @@ T01 / T03 可同期并行结论保留。
 - [x] ⑩ Documentation Mapping 状态保持（Frozen / Candidate / Deferred，不冻结章节数）
 - [x] ⑪ Review Gate（Gate A = Architecture / Contract；**Gate E = Integration Closure / Milestone Gate**；Task Merge Gate ≠ Milestone Integration Gate）
 - [x] ⑫ 风险 10 项；Runtime 冻结边界；未开始 T01-T12；未改冻结文件
-- [ ] 等待 Architecture Review 最终复审
+- [x] 等待 Architecture Review 最终复审（二轮复审 + 两次合并前一致性清理后 APPROVED）
 
 ## 完成记录
 
 - 2026-08-08：任务创建；一层复审（三层依赖模型 + Contract Ownership + 首推 T05）。
+- 2026-08-08：**PR #53 经 Architecture Review 复审 APPROVED 并 squash merge 到 main（commit ff7e21c，CI build/test 双绿）→ TASK-0029 标记 completed（Part 04 Execution Planning 定稿）**；本 Memory PR（docs/post-pr53-merge-memory）收敛状态（current.md）。
+- **Future maintenance**：None。
 - 2026-08-08：**PR #53 Architecture Review 二轮复审**（commit：docs: separate implementation and integration dependencies）：
   1. **Implementation vs Integration 分离**：新固定表述"Implementation dependency ≠ integration dependency。fixture 能支持正确的 contract-level implementation，但不能替代真实 integration evidence"；Implementation DAG 管开发拓扑（编码/单测/Review/Merge），Integration Matrix 管 e2e 串联测试 / 里程碑就绪 / end-to-end gate
   2. **Strong 审计最终结果 = 0**：原三条 Strong（T01→T02、T02→T04、T05→T07）逐条复审——contract 均可先冻结（NormalizationResult/IntentResult Proposed 可冻结；ValidationResult 已 Existing）、fixture 均可独立测、真实串联属 Integration——全部降级 Weak implementation；不人为保留 Strong
