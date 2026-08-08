@@ -94,14 +94,21 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
 
 ## 验收标准
 
-- [x] ① Gate A：Architecture / Contract 冻结（职责边界 / 输入输出 contract / 兼容策略 / 测试证据基线）——本阶段交付
-- [ ] ② Implementation：text2sql_state 校验器深度化（Gate A 确认后）
-- [ ] ③ Tests：Unit / Regression / Failure / 兼容性（三列制 + Evidence Status）
-- [ ] ④ Documentation：Ch22 T05 部分（Gate D）
+- [x] ① Gate A：Architecture / Contract 冻结（职责边界 / 输入输出 contract / 兼容策略 / 测试证据基线）——PR #55 已合并
+- [x] ② Implementation：text2sql_state 校验器深度化（规则表驱动 + RULE_ORDER 显式确定性优先级；复用 manual ValidationResult / AgentConfig，不复制不新造）
+- [x] ③ Tests：rule matrix / manual 回归对照 / precedence 锁单测 / 三字段兼容断言（全量 110 passed：57 原有 + 53 新增）
+- [ ] ④ Documentation：Ch22 T05 部分（Gate D——先钉 contract 行为再写文档，用户指定顺序）
 - [ ] ⑤ Merge（Task Merge Gate）
 - [ ] ⑥ Gate E Integration Closure（T06/T07 进 main 后，deferred → closed）
-- [ ] `mkdocs build --strict`、`git diff --check`、`pytest`、`ruff check .` 通过
+- [x] `mkdocs build --strict`、`git diff --check`、`pytest`、`ruff check .` 通过
 
 ## 完成记录
 
 - 2026-08-08：任务创建；**Gate A：Architecture / Contract 冻结完成**（ValidationResult 职责边界 / 三字段 contract / 兼容策略 / 测试证据基线）；等待用户 Gate A 确认后进入 Implementation。
+- 2026-08-08：**Gate A APPROVED**（用户确认：ValidationResult 继续 Existing-to-evolve / 三字段兼容 / 权限风险不塞入 / 执行结果不塞入 / manual baseline 不动 / 新实现进 text2sql_state）。**两条硬约束纳入**：① rule = control / repair decision、error = diagnostics（T07 不得按 error 文本分支）② 多规则同时失败须确定性 first-failure priority（单测锁住，防 T07 决策漂移）。
+- 2026-08-08：**Gate B Implementation 完成**（commit：feat: implement t05 sql validator with deterministic rules）：
+  - `examples/text2sql_state/validation.py`：规则表驱动 `RuleBasedSQLValidator` + `RULE_ORDER`（empty / multi_statement / forbidden_keyword / select_only / missing_limit / limit_exceeds——与 manual 名空间完全一致）+ 单 rule 输出（first-failure priority）
+  - 复用 manual `ValidationResult` / `AgentConfig`（不复制、不新造第二套结果模型）；教学基线 manual 零改动
+  - **Gate C Tests 完成**：`tests/text2sql_state/` 四件套——rule matrix（13 失败 + 4 接受 + RULE_ORDER 稳定性）/ manual 回归对照（17 输入逐项 (ok, rule, error) 一致）/ precedence 锁单测（10 组合失败 × 3 重复 + observed 顺序与 RULE_ORDER 一致）/ 三字段兼容断言（返回类型 / 成功失败字段契约 / error ≠ rule 语义分离）
+  - 全量 `pytest` 110 passed（57 原有 + 53 新增）；`ruff check .` / `mkdocs build --strict` / `git diff --check` 全过
+  - Ch22 文档按用户指定顺序**留待 Gate D**（先钉 contract 行为，再写文档）
