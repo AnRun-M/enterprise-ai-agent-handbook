@@ -65,6 +65,7 @@ nav:
       - 第 17 章: 03-langgraph-core/ch17-subgraph.md
   - Text-to-SQL:
       - 概览: 04-text2sql/index.md
+      - 第 18 章: 04-text2sql/ch18-stategraph-graph-runtime.md
       - 规范流程: 04-text2sql/canonical-pipeline.md
   - Production:
       - 概览: 05-production/index.md
