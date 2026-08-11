@@ -171,9 +171,9 @@
 
 **固定表述（所有 Pattern 必须遵守）：**
 
-> **Pattern 不是 Framework Feature。LangGraph、OpenAI Agents SDK、Google ADK、CrewAI、AutoGen、Claude 都只是 Pattern 的一种实现——Pattern 属于 Runtime，不属于任何框架。**
+> **Pattern 是框架无关的架构与执行模式；框架提供这些 Pattern 的一种或多种实现方式。LangGraph、OpenAI Agents SDK、Google ADK、CrewAI、AutoGen、Claude 都只是 Pattern 的一种（或多种）实现——Pattern 不属于任何框架。**
 
-（Runtime-first / Framework-second 由此推广到全框架：任何 Pattern 的讲解先给 Runtime 语义，再说明各框架如何承载。）
+（Runtime-first / Framework-second 由此推广到全框架：任何 Pattern 的讲解先给 Runtime 语义，再说明各框架如何承载。注意：部分 Pattern（如 Supervisor / Tool Calling / Reflection）更接近 application / runtime architecture pattern，而非严格意义的 Runtime primitive——固定句不将"Pattern 全部属于 Runtime"绝对化。）
 
 ---
 
