@@ -106,12 +106,12 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 - T01 **不应通过业务异常表达正常输入校验失败**——空输入是"应用输入无效"的预期结果，不是异常路径
 - **优先复用已有 State lifecycle / failure contract**：`status` + `failure_reason`（ch02 / manual AgentState 既有语义）
 - **不新造** `normalization_error` / `NormalizationFailureResult`——除非仓库事实证明现有契约无法承载；如无法承载，**标 Architecture Conflict，不自行扩 schema**
-- 推荐语义（Gate B/C Review 修正 2026-08-11，最终复审统一）：
-  - **T01 Node 对 `normalized_question` / `status` / `failure_reason` 形成完整 outcome update**（两者都不覆盖 `user_question`）：
-    - success：`normalized_question` populated + `status` = RUNNING + `failure_reason` cleared——**success 清理 stale failure state**（旧 FAILED / failure_reason 在 merge 下不显式清空会残留）
-    - failure：`normalized_question` = None + `status` = FAILED + `failure_reason` populated——**failure 显式 invalidates stale derived value**（防 merge 残留）
-  - 理由：merge 语义（默认覆盖）下"不返回字段" = "保留已有字段值"；T01 Node 对自己拥有的 outcome / derived fields 必须使上一 outcome 的 stale 值失效
-  - 无语义解析（不进入 T02）由 outcome 表达
+- 推荐语义（Gate B/C Review 修正 2026-08-11，Task Merge Gate Review 最终统一为 field ownership 两层）：
+  - **Field ownership**：`normalized_question` = **T01-owned derived field**（T01 始终拥有其派生值生命周期）；`status` / `failure_reason` = **shared lifecycle fields**（整个 Agent task 共享；T01 仅在 invalid-input failure 时写入）。原则：**"Field write capability ≠ field ownership."**；**"按字段所有权清理 stale state，而不是为了结果对称而对共享字段做对称覆盖"**
+  - success（valid input）：`normalized_question` = value；**不更新 status / failure_reason**（合法 normalization 不得把任意 FAILED lifecycle 恢复为 RUNNING——permission / metadata / execution failure 非 T01 可重置）
+  - failure（empty / whitespace-only）：`normalized_question` = None（T01-owned 必须 invalidates stale 值）+ `status` = FAILED + `failure_reason` = reason（invalid input 是预期 application failure，暴露给 shared lifecycle contract；不代表 T01 拥有 status/failure_reason 的后续恢复语义）
+  - lifecycle recovery（FAILED → RUNNING）属 new request initial state / retry / resume boundary / application lifecycle reset，不在 T01
+  - 无语义解析（不进入 T02）由 failure outcome 表达
 
 ## 九、Evidence（四列制）
 
@@ -136,7 +136,7 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 - Gate B Implementation（`examples/text2sql_state` 输入规范化实现）：**completed**（本分支，两轮 Review 修正后最终复审 APPROVED）
 - Gate C Tests / Evidence：**completed**（pytest / ruff / mkdocs --strict 通过）
 - Gate D Documentation（第 19 章 T01 可证实部分）：**completed**（`docs/04-text2sql/ch19-input-normalization-intent.md`，draft 状态；T02 部分 pending）
-- **等待 Task Merge Gate 最终 Review** → Task Merge → Gate E（等 T02 进 main，deferred → closed）
+- **Task Merge Gate Review：发现 shared lifecycle ownership 修正**——Gate A/B/C 已通过结论需按 field ownership 两层重新表述（normalized_question = T01-owned；status / failure_reason = shared lifecycle；success 不覆盖 shared lifecycle）；**实现与文档正在修正，等待最终复审** → Task Merge → Gate E（等 T02 进 main，deferred → closed）
 
 ## 验收标准（Gate A 阶段）
 
@@ -168,14 +168,14 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 - 2026-08-11：**Gate B/C Review 修正已应用（feature/t01-input-normalization，等待最终复审）**：
   - **stale normalized_question 修复**：failure update 显式包含 `normalized_question: None`（Graph State merge 语义下"不返回字段"= "保留已有字段值"；不显式 invalidate 会让旧派生值在 merge 后残留，违反"empty input 不进入后续 semantic parsing"）。固定表述：**"failure 显式 invalidates derived normalized_question，防止旧派生值在 State merge 后残留"**（不再写"failure 时 normalized_question 不写入"）
   - **merge-semantics regression test**：`test_failure_invalidates_stale_normalized_question_after_merge`——初始 State 含 stale 值 + 空输入 → 断言 update 写 None 且模拟 `{**state, **update}` merge 后仍为 None
-  - **partial update 边界区分 success/failure**：success 只写 `normalized_question`；failure 允许写 `normalized_question` + `status` + `failure_reason` 三个字段（`test_failure_partial_update_touches_only_contract_fields`）——**最终复审修正：本表述已废弃**（见下一条记录，success 亦返回三字段完整 outcome update）
+  - **partial update 边界区分 success/failure**：success 只写 `normalized_question`；failure 允许写 `normalized_question` + `status` + `failure_reason` 三个字段（`test_failure_partial_update_touches_only_contract_fields`）——**最终复审修正：本表述一度废弃**（success 曾改为三字段）**；Task Merge Gate Review 按 field ownership 恢复 success 只写 `normalized_question`**（见最终记录）
   - **evidence test 名称收窄**：`test_no_runtime_exception_on_any_input` → `test_node_handles_representative_string_inputs_without_exception`（有限 samples 不宣称"所有输入均无异常"；contract 与 test evidence 分开）
   - **whitespace policy 工程边界**：当前教学 contract 面向一般自然语言问题（连续 whitespace → 单空格）；不做 word rewriting / punctuation deletion / semantic extraction / SQL rewrite；不承诺 exact code blocks / whitespace-sensitive structured text / preformatted literals 的 whitespace-preserving 语义；不引入 quoted-string parser（`test_no_whitespace_preserving_promise_for_structured_text` 固定边界行为）
   - Gate B/C 状态保持：**等待 Review**；Status 仍 in_progress（Gate D / Merge / Gate E 未完成）。
 - 2026-08-11：**Gate B/C 最终复审修正已应用（等待最终复审）**：
-  - **success 路径 stale failure state 修复**：success update 显式包含三字段 `{"normalized_question": <normalized>, "status": RUNNING, "failure_reason": None}`——与 failure invalidates stale normalized_question 属同一 State outcome consistency 问题：merge 语义下旧 FAILED / failure_reason 在 success 后残留会让执行流仍处于失败状态。固定语义：valid input → normalized_question populated / status=RUNNING / failure_reason cleared；invalid input → normalized_question=None / status=FAILED / failure_reason populated
-  - **success merge regression**：`test_success_clears_stale_normalization_failure_after_merge`——初始 State 含上一轮 failure outcome（FAILED + failure_reason）+ valid input → 模拟 `{**state, **update}` merge 后断言 normalized_question 写入 / RUNNING / failure_reason=None
-  - **outcome update contract 统一**：不再区分"success 只写一个字段 / failure 写三个字段"——success 与 failure 都返回 `normalized_question` + `status` + `failure_reason` 三字段（值表达不同 outcome），两者都不覆盖 `user_question`（`test_success_contract_fields_and_original_preserved` / `test_failure_partial_update_touches_only_contract_fields`）。固定表述：**"T01 Node 对 normalized_question / status / failure_reason 形成完整 outcome update：success 清理 stale failure，failure 清理 stale normalized value"**
+  - ~~**success 路径 stale failure state 修复**：success update 显式包含三字段 `{"normalized_question": <normalized>, "status": RUNNING, "failure_reason": None}`~~——**Task Merge Gate Review 推翻：此修正错误地把 shared lifecycle fields 当作 T01 私有 outcome 字段**（见最终记录，success 恢复只写 `normalized_question`）
+  - ~~**success merge regression**：`test_success_clears_stale_normalization_failure_after_merge`~~——**已删除**（错误假定"合法 normalization 可以自动恢复任意 FAILED lifecycle"）
+  - ~~**outcome update contract 统一**：success 与 failure 三字段对称 outcome tuple~~——**已废弃**（"Field write capability ≠ field ownership."；success 不覆盖 shared lifecycle）
   - **pure function 边界保持**：`normalize_question` 仍只返回 `str | None`；AgentStatus / failure_reason / Graph Runtime 完全不属于 pure function，lifecycle mapping 只属于 Node adapter
   - **current.md 下一步编号顺延清理**（1-10 无重复）
   - 其它复审结论保持：failure 显式 None / merge regression / representative-input evidence 命名 / whitespace policy boundary / 无 semantic extraction / 无 Context-Memory assembly / Integration deferred / T03 未实现
@@ -185,10 +185,22 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
   - 创建 `docs/04-text2sql/ch19-input-normalization-intent.md`（状态：**draft**，T01 部分；T02 pending 明确标注）——按 TASK-0029 Candidate Mapping（Ch19 = T01 + T02）只完成 T01 可证实部分
   - 结构 19.1-19.10：从原始请求到规范化输入 / Original vs Derived / Lexical Normalization Contract / Pure Function-Node Adapter / Outcome State Update / Stale State-Merge Semantics / Failure-Idempotency / Evidence 与测试边界 / T02 接口 / 当前边界
   - 固定主线逐字保持；四列制证据；已验证 12 项 / 未验证 6 项；正文不写死 pytest 数量
-  - 关键工程语义落正文：完整 outcome update（success 清 stale failure / failure 清 stale normalized）+ merge 语义原则 + Whitespace Policy 冻结边界 + "T01 ends where semantic interpretation begins."
-  - 3 张 Mermaid（pipeline / outcome→merge / stale 双向清理）
+  - 关键工程语义落正文：完整 outcome update（success 清 stale failure / failure 清 stale normalized）+ merge 语义原则 + Whitespace Policy 冻结边界 + "T01 ends where semantic interpretation begins."——**Task Merge Gate Review 修正：正文已改为 field ownership 两层（success 不覆盖 shared lifecycle；failure 清理 T01-owned stale normalized）**
+  - 3 张 Mermaid（pipeline / outcome→merge / stale 清理）——**修正后：outcome 图 success 分支只写 normalized_question；stale 图仅 failure 方向**
   - `docs/04-text2sql/index.md` 新增"输入与意图"分区；`mkdocs.yml` 新增第 19 章导航
   - content-map 未修改（仓库无 ch19-ch25 逐章行惯例，Part 4 聚合行保持"进行中"）
   - **未提前宣布 Chapter 19 completed**（T02 pending）；未修改 ROADMAP
   - Evidence：**Contract-level verified**；Integration：**deferred**
   - 等待 Task Merge Gate 最终 Review；Status 仍 in_progress。
+- 2026-08-11：**Task Merge Gate Review 修正（feature/t01-input-normalization，field ownership 架构修正，等待最终复审）**：
+  - **纠正 T01 field ownership**：`normalized_question` = **T01-owned derived field**（T01 始终拥有其派生值生命周期）；`status` / `failure_reason` = **shared lifecycle fields**（整个 Agent task 共享，非 T01 私有）。固定原则：**"Field write capability ≠ field ownership."**；**"Invalidate stale state according to field ownership, not superficial symmetry."（按字段所有权清理 stale state，而不是为了结果对称而对共享字段做对称覆盖）**——T01 曾在 failure 时写它们，不代表 T01 拥有全部 lifecycle authority
+  - **success update 修正**：恢复为 `{"normalized_question": normalized}`——不得无条件写 RUNNING / failure_reason=None（State 当前 FAILED 可能是 permission / metadata / execution failure，T01 无权限把整个 task 恢复 RUNNING；不得通过字符串合法性重置全局 lifecycle）
+  - **failure update 保持**：`{"normalized_question": None, "status": FAILED, "failure_reason": reason}`——两层理由：① normalized_question 是 T01-owned，必须 invalidates stale 值 ② invalid input 是预期 application failure，暴露给 shared lifecycle contract（不代表拥有后续恢复语义）
+  - **删除错误 regression**：`test_success_clears_stale_normalization_failure_after_merge`（错误假定合法 normalization 可自动恢复任意 FAILED lifecycle）
+  - **新增 lifecycle non-overwrite regression**：`test_success_does_not_override_existing_lifecycle_state`——State 含 FAILED + "some unrelated failure" + 合法输入 → update 只有 normalized_question；merge 后 status 仍 FAILED / failure_reason 保留（T01 不越权）
+  - **恢复 success partial-update contract test**：`test_success_partial_update_does_not_touch_other_fields`（set(update) == {normalized_question}；user_question / status / failure_reason 不覆盖）
+  - **保留** `test_failure_invalidates_stale_normalized_question_after_merge`（normalized_question 是 T01-owned derived field，该测试仍有效）
+  - **retry / new request boundary**：FAILED → RUNNING 不由 normalize_input_node 自动完成——属 new request initial state / retry / resume boundary / application lifecycle reset 显式建立新 RUNNING 上下文；具体 retry/resume 实现不在 T01 展开
+  - **Chapter 19 修正**：19.5 outcome update 改 field ownership 两层表述（固定表述："T01 始终拥有 normalized_question 的派生值生命周期；status / failure_reason 是共享 lifecycle contract，T01 仅在 invalid-input failure 时写入，不在 success 时自动重置其它阶段可能产生的 lifecycle 状态"）；19.6 删除"success 必须清理 stale FAILED / failure_reason"，通用原则升级为按所有权清理；19.6 增加 retry/new-request boundary；19.8 Evidence merge simulation 收窄（Python dict overwrite 模拟当前无 reducer channel 的预期覆盖结果，**不是 actual LangGraph integration evidence**——T01 尚未接入 compiled graph 与 T02，实际 Graph Runtime integration 仍 deferred）
+  - **同步**：TASK-0032 八 / 十一 / 完成记录、current.md、PR #60 Description 统一为 ownership 表述；删除"success 清理 stale failure / success 写 RUNNING / 三字段对称 outcome tuple / T01 owns status/failure_reason / 双向 stale-safe"旧事实
+  - Gate 状态：**Gate A/B/C 已通过结论需按 field ownership 重新表述，实现与文档正在修正，等待最终复审**；TASK-0032 仍 in_progress。

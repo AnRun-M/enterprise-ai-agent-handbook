@@ -21,45 +21,40 @@ def make_state(question: str, status: AgentStatus = AgentStatus.RUNNING) -> Text
 def test_normalized_question_written_and_original_preserved() -> None:
     state = make_state("  查询昨天的 GMV  ")
     update = normalize_input_node(state)
-    assert update == {
-        "normalized_question": "查询昨天的 GMV",
-        "status": AgentStatus.RUNNING,
-        "failure_reason": None,
-    }
+    assert update == {"normalized_question": "查询昨天的 GMV"}
     # original 不被覆盖（Normalization 不静默破坏原始事实）
     assert state["user_question"] == "  查询昨天的 GMV  "
 
 
-def test_success_contract_fields_and_original_preserved() -> None:
-    # outcome update contract：success / failure 都返回三个字段
-    # （normalized_question / status / failure_reason），值表达不同 outcome；
-    # 不再把"success 只更新一个字段"作为 T01 contract。
+def test_success_partial_update_does_not_touch_other_fields() -> None:
+    # field ownership：normalized_question 是 T01-owned derived field，
+    # success 只写它；status / failure_reason 是 shared lifecycle fields，
+    # T01 不在 success 时覆盖（也不覆盖 user_question）。
     state = make_state("查询昨天的 GMV")
     update = normalize_input_node(state)
-    assert set(update) == {"normalized_question", "status", "failure_reason"}
+    assert set(update) == {"normalized_question"}
     assert state["user_question"] == "查询昨天的 GMV"  # user_question 不覆盖
 
 
-def test_success_clears_stale_normalization_failure_after_merge() -> None:
-    # 初始 State 已含上一轮 failure outcome（FAILED + failure_reason），
-    # 随后 valid input → success。merge 语义（默认覆盖）："不返回字段" =
-    # "保留已有字段值"——success update 必须显式清空 stale failure state，
-    # 否则旧 FAILED 会让执行流仍处于失败状态。
+def test_success_does_not_override_existing_lifecycle_state() -> None:
+    # T01 不越权清除 shared lifecycle state：State 已处于 FAILED
+    # （与 T01 无关的 failure，如 permission / metadata / execution），
+    # 合法 normalization 不得把 task 恢复为 RUNNING——"FAILED → RUNNING"
+    # 属于 new request / retry / application lifecycle reset 的职责，
+    # 不由字符串合法性触发。
     state = {
         "user_question": "查询昨天 GMV",
         "normalized_question": None,
         "status": AgentStatus.FAILED,
-        "failure_reason": _INVALID_INPUT_REASON,
+        "failure_reason": "some unrelated failure",
     }
     update = normalize_input_node(state)
-    assert update["normalized_question"] == "查询昨天 GMV"
-    assert update["status"] is AgentStatus.RUNNING
-    assert update["failure_reason"] is None
-    # 模拟 Graph State 默认 merge——证明 stale failure 被真正清除
+    assert set(update) == {"normalized_question"}
+    # 模拟默认 merge——证明 T01 不重置 shared lifecycle fields
     merged = {**state, **update}
     assert merged["normalized_question"] == "查询昨天 GMV"
-    assert merged["status"] is AgentStatus.RUNNING
-    assert merged["failure_reason"] is None
+    assert merged["status"] is AgentStatus.FAILED
+    assert merged["failure_reason"] == "some unrelated failure"
 
 
 # ---------------------------------------------------------------- failure
@@ -75,9 +70,10 @@ def test_empty_input_uses_existing_lifecycle_failure_contract() -> None:
 
 
 def test_failure_partial_update_touches_only_contract_fields() -> None:
-    # outcome update contract：success / failure 都返回三个字段
-    # （normalized_question / status / failure_reason），值表达不同 outcome；
-    # 两者都不覆盖 user_question。
+    # field ownership：failure 返回三个字段——normalized_question（T01-owned，
+    # invalidates stale 值）+ status / failure_reason（shared lifecycle，
+    # 仅本次 invalid-input failure 暴露给 lifecycle contract）；
+    # 不覆盖 user_question。
     state = make_state("")
     update = normalize_input_node(state)
     assert set(update) == {"normalized_question", "status", "failure_reason"}
@@ -131,11 +127,7 @@ def test_no_cross_invoke_mutable_pollution() -> None:
 
 
 def test_repeated_calls_are_stable() -> None:
-    expected = {
-        "normalized_question": "查询 昨天的 GMV",
-        "status": AgentStatus.RUNNING,
-        "failure_reason": None,
-    }
+    expected = {"normalized_question": "查询 昨天的 GMV"}
     state = make_state("  查询  昨天的  GMV  ")
     assert normalize_input_node(state) == expected
     assert normalize_input_node(state) == expected

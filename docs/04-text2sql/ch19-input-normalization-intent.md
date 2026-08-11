@@ -106,54 +106,86 @@ def normalize_question(question: str) -> str | None:
 
 ## 19.5 Outcome State Update
 
-T01 Node 对 **`normalized_question` / `status` / `failure_reason`** 形成**完整 outcome update**（两者都不覆盖 `user_question`）：
+**Field ownership 两层**（Task Merge Gate Review 修正——不再把 status / failure_reason 视为 T01 私有 outcome 字段）：
+
+| 字段 | 所有权 |
+|---|---|
+| `normalized_question` | **T01-owned derived field**——T01 始终拥有其派生值生命周期 |
+| `status` / `failure_reason` | **shared lifecycle fields**——整个 Agent task 共享；T01 仅在 invalid-input failure 时写入 |
+
+**固定原则：**
+
+> **"Field write capability ≠ field ownership."（能写字段 ≠ 拥有字段。）**
+
+T01 曾在 failure 时写入 status / failure_reason，**不代表 T01 拥有它们的全部 lifecycle authority**——permission failure、metadata failure、execution failure 都可能把 task 置于 FAILED，那不是 T01 可以重置的状态。
+
+success（valid input）只更新 T01 自己的派生字段：
+
+```
+{"normalized_question": <normalized>}
+```
+
+failure（empty / whitespace-only）把失败暴露给 shared lifecycle contract：
+
+```
+{"normalized_question": None,
+ "status": AgentStatus.FAILED,
+ "failure_reason": <reason>}
+```
 
 | outcome | `normalized_question` | `status` | `failure_reason` |
 |---|---|---|---|
-| **success**（valid input） | 规范化后的值 | `AgentStatus.RUNNING` | `None` |
+| **success**（valid input） | 规范化后的值 | 不更新 | 不更新 |
 | **failure**（empty / whitespace-only） | `None` | `AgentStatus.FAILED` | 失败原因 |
 
 ```mermaid
 flowchart LR
     S["Graph State"] --> N["T01 Node"]
-    N -->|"success outcome"| U1["normalized_question = value<br/>status = RUNNING<br/>failure_reason = None"]
+    N -->|"success outcome"| U1["normalized_question = value"]
     N -->|"failure outcome"| U2["normalized_question = None<br/>status = FAILED<br/>failure_reason = reason"]
     U1 --> M["Runtime merge（默认覆盖）"]
     U2 --> M
 ```
 
-Node 返回的是 **partial State Update**（ch09 / ch12：Node 返回部分更新，Runtime 按 channel 合并）——T01 的三个 outcome 字段是它自己拥有的字段，因此必须成组返回，而不是"哪个有变化才返回哪个"。
+**failure 写 status / failure_reason 的理由分两层**：
+
+1. `normalized_question = None`——它是 T01-owned derived field，必须 invalidates stale 值（19.6）
+2. `status` / `failure_reason`——invalid input 是预期 application failure，T01 需要把该失败**暴露给 shared lifecycle contract**；但这不意味着 T01 拥有 status / failure_reason 的后续恢复语义（19.6）
+
+**固定表述：**
+
+> **T01 始终拥有 normalized_question 的派生值生命周期；status / failure_reason 是共享 lifecycle contract，T01 仅在 invalid-input failure 时写入，不在 success 时自动重置其它阶段可能产生的 lifecycle 状态。**
+
+Node 返回的是 **partial State Update**（ch09 / ch12：Node 返回部分更新，Runtime 按 channel 合并）——success 只返回自己拥有的字段，不因"表面上的 outcome 对称"而覆盖共享字段。
 
 ## 19.6 Stale State 与 Merge Semantics
 
-**为什么必须完整更新 outcome**：Graph State 默认 overwrite merge（ch12）下——
+**merge 机制**：Graph State 默认 overwrite merge（ch12）下——
 
 > **字段不出现在 update ≠ 字段被清空；而是旧值保留。**
 
-因此：
-
-- **failure 必须清理 stale `normalized_question`**——若 State 已含旧派生值（如重放 / 复用执行上下文残留），failure update 不显式写 `None`，旧值会在 merge 后残留，并继续被下游当作可解析输入消费
-- **success 必须清理 stale `FAILED` / `failure_reason`**——若 State 已含上一轮 failure outcome，success update 不显式清空，执行流在 merge 后仍处于失败状态
+因此 **failure 必须清理 stale `normalized_question`**：若 State 已含旧派生值（如重放 / 复用执行上下文残留），failure update 不显式写 `None`，旧值会在 merge 后残留，并继续被下游当作可解析输入消费——`normalized_question` 是 T01-owned derived field，T01 必须清理它自己的 stale 值（`test_failure_invalidates_stale_normalized_question_after_merge`）。
 
 ```mermaid
 flowchart LR
-    subgraph failure 方向
-    A1["State：normalized_question = 旧派生值"] --> B1["failure update：<br/>normalized_question = None"]
-    B1 --> C1["merged：normalized_question = None ✓"]
-    end
-    subgraph success 方向
-    A2["State：status = FAILED / failure_reason = 旧错误"] --> B2["success update：<br/>status = RUNNING / failure_reason = None"]
-    B2 --> C2["merged：status = RUNNING ✓"]
-    end
+    A["State：normalized_question = 旧派生值"] --> B["failure update：<br/>normalized_question = None"]
+    B --> C["merged：normalized_question = None ✓"]
 ```
 
-**固定工程原则（中文表述）：**
+**但 stale 清理必须按字段所有权进行，不做对称覆盖**：
 
-> **"Node 若拥有一组派生 outcome 字段，每个 outcome 都应明确上一 outcome 的哪些旧值需要失效。"**
+> **"Invalidate stale state according to field ownership, not superficial symmetry."**
+> 中文：**按字段所有权清理 stale state，而不是为了结果对称而对共享字段做对称覆盖。**
 
-对应的英文表述：*"When a Node owns a derived outcome, each outcome should explicitly invalidate stale values owned by the previous outcome."*
+**success 不清理 stale `FAILED` / `failure_reason`**：如果 State 当前 FAILED（permission failure / metadata failure / execution failure 都可能产生），T01 normalization success **没有权限把整个 task 恢复 RUNNING**——不得通过字符串合法性重置全局 lifecycle。**"FAILED → RUNNING" 不由 normalize_input_node 自动完成**，应由：
 
-**不要泛化**：这不是"LangGraph 强制所有 Node 永远返回完整 State"——Node 返回的仍是 partial State Update；只是 T01 **自己拥有的 outcome 字段**需要形成完整 outcome tuple。仓库测试用 `{**state, **update}` 模拟默认 merge，证明两个方向的 stale 值都被真正清除（`test_failure_invalidates_stale_normalized_question_after_merge` / `test_success_clears_stale_normalization_failure_after_merge`）。
+- new request initial state
+- retry / resume boundary
+- application lifecycle reset
+
+显式建立新的 RUNNING 执行上下文（具体 retry / resume 实现不在 T01 展开，留 Part 05 生产语义；测试 `test_success_does_not_override_existing_lifecycle_state` 证明 T01 不越权）。
+
+**不要泛化**：这不是"LangGraph 强制所有 Node 永远返回完整 State"——Node 返回的仍是 partial State Update；只是 T01 对自己拥有的 derived field（`normalized_question`）必须清理 stale 值，共享 lifecycle 字段不因 T01 曾写过而变成 T01 私有字段。
 
 ## 19.7 Failure / Idempotency
 
@@ -178,16 +210,18 @@ T01 输入失败是**应用 contract 结果**，不是 framework exception（ch1
 
 | 类别 | 内容 |
 |---|---|
-| **代码事实** | `examples/text2sql_state/state.py`（Text2SQLState：`user_question` / `normalized_question` / `status` / `failure_reason`，复用 manual `AgentStatus`）/ `normalization.py`（`normalize_question`：`\s+` 折叠 + strip；None = 显式 invalid）/ `normalize_node.py`（`normalize_input_node`：读 user_question → 调纯函数 → 三字段 outcome update）——教学基线 manual / basic 零修改 |
+| **代码事实** | `examples/text2sql_state/state.py`（Text2SQLState：`user_question` / `normalized_question` / `status` / `failure_reason`，复用 manual `AgentStatus`）/ `normalization.py`（`normalize_question`：`\s+` 折叠 + strip；None = 显式 invalid）/ `normalize_node.py`（`normalize_input_node`：读 user_question → 调纯函数 → 按 field ownership 返回部分更新：success 只写 normalized_question；failure 写 normalized_question=None + status=FAILED + failure_reason）——教学基线 manual / basic 零修改 |
 | **测试事实** | `tests/text2sql_state/test_normalization.py` + `test_normalize_node.py` 专项测试覆盖：whitespace normalization（首尾空白 / 重复空格 / tabs-newlines）、empty-input failure、original preservation、normalized 字段写入、idempotency、deterministic 重复执行、代表性字符串输入不抛异常、over-normalization 边界（Unicode 中文 / 标点保留 / SQL-like 文本不改写 / 语义词不改写 / structured-text 无 whitespace-preserving 承诺）、success stale failure 清理、failure stale normalized 清理、merge 语义模拟（`{**state, **update}`）、无输入 State 原地修改 / 无跨调用污染 |
-| **设计约束** | 完整 outcome update（19.5 / 19.6）；pure function / Node adapter 分层（19.4）；idempotency 为 application contract（19.7）；original 不覆盖（19.2） |
+| **设计约束** | field ownership 两层（normalized_question = T01-owned；status / failure_reason = shared lifecycle；19.5）；按所有权清理 stale state（19.6）；pure function / Node adapter 分层（19.4）；idempotency 为 application contract（19.7）；original 不覆盖（19.2） |
 | **尚未验证** | 见下 |
 
-**已验证**（当前测试证据范围）：whitespace normalization / empty input failure / original preservation / normalized 字段写入 / idempotency / deterministic repeated execution / representative inputs 无异常 / over-normalization 边界 / success stale failure 清理 / failure stale normalized 清理 / merge semantics simulation / 无输入 State 原地修改与无跨调用污染。
+**已验证**（当前测试证据范围）：whitespace normalization / empty input failure / original preservation / normalized 字段写入 / idempotency / deterministic repeated execution / representative inputs 无异常 / over-normalization 边界 / failure stale normalized 清理（merge 模拟）/ success 不覆盖既有 shared lifecycle state（merge 模拟）/ 无输入 State 原地修改与无跨调用污染。
 
 **尚未验证**：T01→T02 真实串联（Integration deferred，见 19.9）/ production Unicode normalization policy / code-block-preserving normalization / semantic rewrite / model-based rewriting / multilingual normalization completeness。
 
 **证据表述约束**：正文不写死全量 pytest 数量——可以表述为"仓库已有专项测试覆盖……"，**不宣称"所有输入均被证明无异常"**（`test_node_handles_representative_string_inputs_without_exception` 只覆盖有限代表性 samples，contract 与 test evidence 分开）。
+
+**Merge simulation 边界（明确，Task Merge Gate Review 修正）**：专项测试使用 **Python dict overwrite（`{**state, **update}`）模拟当前无 reducer channel 的预期覆盖结果**，验证 T01 State Update contract——**这不是 actual LangGraph integration evidence**。T01 尚未接入 compiled graph 与 T02，因此实际 Graph Runtime integration 仍为 **deferred**（19.9）。
 
 ## 19.9 T02 Intent / Semantic Extraction 接口
 
@@ -232,10 +266,12 @@ T02（future）：normalized_question → semantic / intent facts（metric / dim
 - [x] 10 节全部覆盖（为什么需要 / Original vs Derived / Lexical Contract / Pure Function-Node Adapter / Outcome Update / Stale State-Merge / Failure-Idempotency / Evidence / T02 接口 / 当前边界）
 - [x] Original vs Derived State（不覆盖 user_question；"Derived state should not destroy source facts" 标注为应用原则非框架要求）
 - [x] Whitespace Policy 冻结边界（一般自然语言 contract；不承诺 structured-text whitespace-preserving；无 parser）
-- [x] Outcome Contract（三字段完整 outcome update；success 清 stale failure / failure 清 stale normalized；merge 语义）
+- [x] Field ownership 两层（normalized_question = T01-owned；status / failure_reason = shared lifecycle；"Field write capability ≠ field ownership."）
+- [x] Outcome Update（success 只更新 T01 自己的派生字段，不覆盖 shared lifecycle；failure 写 lifecycle failure——两层理由）
+- [x] Stale State（按字段所有权清理：failure invalidates stale normalized_question；success 不重置其它阶段的 FAILED；lifecycle recovery 属 request / retry boundary）
 - [x] Failure Boundary（expected application failure ≠ Runtime exception；复用 status + failure_reason；不新增类型）
 - [x] Idempotency（application engineering property，非 LangGraph requirement）
-- [x] Evidence 边界（已验证 12 项 / 未验证 6 项；不写死 pytest 数量；不宣称全量证明）
+- [x] Evidence 边界（已验证 / 未验证；不写死 pytest 数量；不宣称全量证明；merge simulation = dict overwrite 模拟，非 Graph integration evidence）
 - [x] T02 接口位置预留（19.9），未实现 T02 未定义最终 schema，未声称 integration 已验证
 - [x] Evidence Status：Contract-level verified；Integration deferred
 - [ ] T02 部分：待 T02 implementation 后补充（不在本章伪装完成）
