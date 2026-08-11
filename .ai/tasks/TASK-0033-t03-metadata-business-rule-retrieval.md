@@ -50,42 +50,83 @@ Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**本轮只�
 - **未来 consumed input**（来自 T02 的指标 / 维度 / entity / time range / filters / intent facts）——**当前 T02 尚未实现**
 - **只能冻结 Consumer Contract**：T03 消费"检索条件"（Proposed consumed contract / fixture contract）——**不得提前定义 T02 完整字段结构**；不假装 T02 schema 已存在
 
-## 四、Retrieval Result 方案评估
+## 四、Retrieval Result：Reference 与 Materialized Context 双层（Review 修正）
 
-是否独立 `SemanticContext` / `SchemaContext` + `BusinessRuleContext` 分开 / 统一 `RetrievalContext`？
+统一 `RetrievalContext` 容易混淆"可持久化引用"与"T04 真正消费的事实内容"——**拆成两层语义**：
 
-| 方案 | 形态 | authority | freshness | provenance | consumer needs | serialization | testing | partial availability |
-|---|---|---|---|---|---|---|---|---|
-| A. 独立 SemanticContext | 单一上下文类型 | 中 | 中 | 需内嵌 | T04 生成需要 | 中 | 中 | 需标记 |
-| B. SchemaContext + BusinessRuleContext | 两类分开 | 高（来源分型） | 高 | 各带来源 | 生成与校验各自消费 | 中 | 高 | 分型表达 |
-| C. 统一 RetrievalContext | 单类型 + 条目列表 | 高 | 高 | 条目级 | 单入口消费 | 高 | 高 | 条目级标记 |
+### A. Retrieval Reference / Provenance（适合持久化 / 进入 State）
 
-**推荐方案：C（统一 `RetrievalContext`，Proposed）**——不做大 DTO，只冻结最少信息：
+- source reference / identifier
+- kind
+- freshness / version evidence
+- optional digest / optional rule id
 
-- **结构化条目列表**（每项：引用（ID / URI / digest）+ 类型标记（metadata / business_rule）+ 来源标识）
-- **不复制完整业务事实进 State**（architecture-map 引用策略：ID / URI / version / digest / summary）
-- 条目级 partial availability 表达（见六）
+**用途**：Trace / Replay / Provenance / Reconstruction。
 
-**Architecture Decisions Required（Gate A Review 项）**：① 统一 RetrievalContext vs 分型（推荐统一）② 是否独立类型 vs 直接 State 字段（检索结果为 T04 Context 组装来源——倾向独立契约类型 + 引用入 State，类比 T05 的 ValidationResult 独立契约）③ provenance 字段最小集（见五）。
+### B. Materialized Retrieval Payload（当前请求实际取得的事实内容）
 
-## 五、Source of Truth 与 Provenance（冻结）
+- schema facts
+- metadata
+- business-rule content
+
+**用途**：Context Builder → Model Context → T04 generation。**不要求完整 payload 长期复制进 State**（architecture-map 引用策略）。
+
+**固定核心表述：**
+
+> **External Source of Truth 的事实不无条件复制进 State；T03 同时建立可追踪的 retrieval references / provenance，并向当前调用提供 materialized retrieval payload；Model Context 在调用边界按需组装。**
+
+**`RetrievalContext` 定位（Review 修正）**：保留名称作为 **Proposed umbrella contract**——**不等于"所有 retrieved content 全部长期存入 Graph State"**。最终实现可采用：
+
+```
+RetrievalResult
+├── outcome
+├── references
+└── materialized payload / request-scoped view
+```
+
+**具体 Python schema 留 T03 Implementation Gate A finalization**——TASK-0029 只要求 ownership，**不让 planning 变成 schema spec**。
+
+## 五、Source of Truth 与 Provenance（冻结，Review 修正最小语义）
 
 - **Source of Truth**：**Retriever 不创造业务事实**——只从 schema metadata / metric definitions / business rules / catalog / 外部权威源取得事实；**LLM 不得成为事实源**（ADR-005 规则分层：业务规则不靠模型记忆）
-- **Provenance boundary（建立，不全字段强制）**：评估结果 contract 是否携带——source identifier / version-timestamp / digest / rule identifier。**必须回答**：T04 如何知道 Context 从哪里来？——**至少携带 source identifier + version（引用语义）**；digest / rule identifier 为候选（T04 消费需求确认后定）；生产治理细节（完整审计）留 Part 05
+- **Provenance 最小语义（Review 修正）**：**必须能够识别——事实来自哪个 source，以及使用的是哪个可区分版本 / 快照 / 时点**。推荐抽象：
 
-## 六、Failure Contract（冻结）
+```
+source_ref
++
+freshness / version evidence
+```
 
-定义语义——**检索失败如何被 Runtime 看见**（不靠空串 / None 混用 / 隐式 fallback 掩盖）：
+后者可能表现为：**version / revision / timestamp / etag / digest / snapshot id**——**具体字段依 source capability 决定，不强迫所有 Source 都存在名为 version 的字段**。生产治理细节（完整审计）留 Part 05。
 
-| 语义 | 含义 |
+## 六、Retrieval Outcome（Review 分层）
+
+**检索失败如何被 Runtime 看见**（不靠空串 / None 混用 / 隐式 fallback 掩盖）——建立分层 Outcome：
+
+| Outcome | 含义 |
 |---|---|
-| metadata not found | 请求的表 / 字段元数据不存在 |
-| business rule not found | 请求的口径 / 规则不存在 |
-| partial context | 部分条目可用（条目级标记，见四-C） |
-| source unavailable | 外部事实源不可达 |
-| ambiguous mapping | 同一概念映射到多个事实（指标 / 维度歧义） |
+| **complete** | 所需事实完整 |
+| **partial** | 部分事实可用——**是否继续由消费方 / 应用策略决定** |
+| **not_found** | 权威源无匹配事实——**不等同 infrastructure exception** |
+| **ambiguous** | 存在多个合法映射——需上层澄清 / 处理 |
+| **unavailable** | 权威源当前不可访问——**operational failure** |
 
-**不实现 retry**（Part 05）；本轮只冻结失败如何结构化地进入 State / Context 组装。
+**T03 负责报告 Outcome，不越权决定所有后续业务路由**；**不实现 retry**（Part 05）。
+
+## 六·五、T03 → T04 内容桥接（Review 新增）
+
+**必须回答"T04 实际拿什么生成 SQL？"**——Gate A 最终表述：
+
+```
+retrieval criteria
+→ Retriever
+→ outcome + provenance/references + materialized facts
+→ Context Builder
+→ Model Context
+→ T04
+```
+
+**不给 T04 只有 URI / digest**（否则没有生成 SQL 所需事实）——T04 实际消费 **materialized payload（经 Context Builder 组装）**；references / provenance 用于 Trace / Replay / 可解释性。
 
 ## 七、Memory 边界（冻结）
 
@@ -98,7 +139,18 @@ Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**本轮只�
 - **设计建议**：RetrievalContext（Proposed）/ 引用策略 / provenance 最小集 / failure 语义（本文件）
 - **尚未验证**：retriever 行为；与 T02 真实串联（Integration deferred——T02 未实现）；与 T04 生成的真实消费
 
-## 九、Review Gate（统一）
+## 九、Architecture Decisions（Gate A 最终收敛）
+
+| # | Decision | 结果 |
+|---|---|---|
+| 1 | 单一大 RetrievalContext | **不冻结为大 DTO**（Proposed umbrella contract；Python schema 留 Implementation Gate A finalization） |
+| 2 | reference / provenance 与 materialized payload | **语义拆分**（双层：可持久化引用 vs 请求实际消费事实） |
+| 3 | outcome model | **complete / partial / not_found / ambiguous / unavailable** |
+| 4 | provenance | **source + freshness / version evidence**（version / revision / timestamp / etag / digest / snapshot id 依 source capability） |
+| 5 | State 持久化 | **只持久化必要引用 / 控制事实；完整事实不无条件复制进 State** |
+| 6 | T04 实际内容 | **通过 request-scoped materialization + Context Builder 获取**（不只给 URI / digest） |
+
+## 十、Review Gate（统一）
 
 Gate A（本文件）→ 等待 Architecture Review → Gate B Implementation（text2sql_state retriever + 测试）→ Gate C → Gate D（Ch20 候选 T03 部分）→ Task Merge Gate → Gate E（等 T02/T04 进 main，deferred → closed）。
 
@@ -106,14 +158,18 @@ Gate A（本文件）→ 等待 Architecture Review → Gate B Implementation（
 
 - [x] 职责边界冻结（Metadata / Business Rule / Semantic Context / External Source of Truth / Model Context / Memory 区分；T03 只负责可信上下文检索）
 - [x] T02 / T03 边界（Proposed consumed contract；不假装 T02 schema 已存在）
-- [x] Retrieval Result 三方案评估 + 推荐（统一 RetrievalContext，条目级引用）
+- [x] Reference / Materialized Payload 双层（Review 修正）
+- [x] RetrievalContext 定位（Proposed umbrella contract，不冻结大 DTO）
 - [x] Source of Truth（Retriever 不创造事实；LLM 不得成为事实源）
-- [x] Provenance boundary（至少 source identifier + version；digest / rule id 候选）
-- [x] Failure Contract（5 语义；失败如何被 Runtime 看见，不靠空串 / None / 隐式 fallback）
+- [x] Provenance 最小语义（source + freshness / version evidence，依 source capability）
+- [x] Retrieval Outcome 分层（complete / partial / not_found / ambiguous / unavailable）
+- [x] T03 → T04 内容桥接（materialized facts 经 Context Builder 进 Model Context，不只给 URI/digest）
 - [x] Memory 边界（T03 ≠ Memory；authoritative 来自 External Source of Truth）
 - [x] Evidence 四列制；未实现 Retriever
-- [ ] 等待 Architecture Review（含 3 项 Architecture Decisions Required）
+- [x] Architecture Decisions 6 项收敛
+- [ ] 等待 Architecture Review 复审
 
 ## 完成记录
 
 - 2026-08-11：任务创建（in_progress）；Gate A 完成；等待 Architecture Review（planning/wave1-t01-t03-contracts 分支，与 T01 同分支规划）。
+- 2026-08-11：**PR #59 Architecture Review 修正**（commit：docs: refine wave1 input and retrieval contracts）：Retrieval 拆 **Reference / Provenance 与 Materialized Payload 双层**（引用可持久化进 State，事实内容请求级物化）；RetrievalContext 收窄为 **Proposed umbrella contract**（不冻结大 DTO，schema 留 Implementation Gate A finalization）；**Retrieval Outcome 分层**（complete / partial / not_found / ambiguous / unavailable；partial 是否继续由消费方决定；unavailable 为 operational failure）；**Provenance 最小语义修正**（source + freshness / version evidence——version / revision / timestamp / etag / digest / snapshot id 依 source capability，不强迫所有 Source 有 version 字段）；**T03 → T04 内容桥接**（materialized facts 经 Context Builder 进 Model Context，不只给 URI/digest）；Architecture Decisions 6 项收敛。
