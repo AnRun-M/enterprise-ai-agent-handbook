@@ -29,7 +29,7 @@
 
 ---
 
-## 一、Pattern 清单（12 项，统一模板）
+## 一、Pattern 清单（14 项，统一模板）
 
 模板字段：Pattern Name / Problem Solved / Runtime Concept Reused（引用已有 Chapter）/ Boundary / Not Covered / Potential Demo / Review Focus。
 
@@ -129,6 +129,22 @@
 - **Potential Demo**：校验-修复回路抽成子图复用（basic_langgraph README 第 19 节扩展方向）
 - **Review Focus**：是否把 Subgraph 写成独立 Agent（ch17 17.6 边界）；是否混淆组合与协作
 
+### 13. Evaluator-Optimizer Pattern
+- **Problem Solved**：模型输出如何自动评估、自动改进、形成评价闭环（Generate → Evaluate → Improve → Repeat）
+- **Runtime Concept Reused**：Node（ch10，生成与评估执行单元）；State（ch02，候选与评估结果载体）；Conditional Edge（ch11，评估通过/不通过路由）；Loop 回路（ch01 / ch11）；Checkpoint（ch14，评价循环的可恢复持久化——仅挂载点）
+- **Boundary**：属于 **Runtime Pattern**——评估是模型决策（开放式），迭代终止由确定性守卫保证；**不是 LLM-as-a-Judge API**；**不讲 OpenAI Judge / Claude Judge / 任何具体模型**
+- **Not Covered**：评估指标定义（Part 05 Evaluation）；供应商 Judge 服务
+- **Potential Demo**：Generate → Evaluate → Improve → Repeat（质量门教学闭环，对齐 canonical T10 语义）
+- **Review Focus**：是否写成"模型评测 API"（应 Runtime 评价闭环）；是否让模型拥有终止权（应确定性终止）
+
+### 14. Tool Calling Pattern
+- **Problem Solved**：Agent 如何选择 Tool、调用 Tool、消费 Tool Result、继续推理（Reason → Select Tool → Invoke Tool → Receive Result → Continue Reasoning）
+- **Runtime Concept Reused**：Node（ch10，工具调用执行单元）；State（ch02，Tool Result 控制信息入 State）；Tool（ch05 Tool Registry 语义）；Conditional Edge（ch11，按结果继续 / 重试 / 终止路由）；Command（ch13，携带更新与路由意图——仅引用）
+- **Boundary**：讨论 **Tool Selection Runtime Pattern**——工具选择是模型决策、工具调用经注册能力（ch05）；**不讨论 OpenAI Function Calling / Claude Tool Use / Google Function Calling / MCP**（供应商与协议层，MCP 属 Part 06）
+- **Not Covered**：工具安全与权限（策略层 / Part 05）；MCP 协议接入（Part 06）
+- **Potential Demo**：Text-to-SQL 中 decide → 调用 Validator / Executor → 消费结果继续推理的教学循环
+- **Review Focus**：是否写成供应商 API 教程（应 Runtime 语义）；工具调用职责是否落对层（模型选 / Registry 管 / Runtime 调）
+
 ---
 
 ## 二、Patterns 分类
@@ -140,8 +156,24 @@
 | **Human Interaction Patterns**（人机交互） | Human-in-the-loop |
 | **Recovery Patterns**（恢复形态） | Retry |
 | **Planning Patterns**（规划形态） | Planner-Executor |
+| **Evaluation Patterns**（评价形态） | Evaluator-Optimizer |
+| **Tool Interaction Patterns**（工具交互形态） | Tool Calling |
 
 > 分类是登记性的候选组织方式，不是章节规划——具体章节承载在 v0.6.0+ Scope Planning 阶段决定（可跨类合并 / 调整）。
+
+---
+
+## 二·五、Pattern Taxonomy（唯一组织方式）
+
+**未来任何新增 Pattern，必须先归入七大分类之一**：Execution / Coordination / Planning / Recovery / Human Interaction / Evaluation / Tool Interaction。**不得新增孤立 Pattern**（不在 Taxonomy 中的 Pattern 不得进入 Backlog）。
+
+**Pattern Taxonomy 是未来所有 Agent Pattern 的唯一组织方式**——新增候选必须先回答"归入哪类"；分类调整需显式说明（如跨类合并 / 拆分），不得静默新增类别。
+
+**固定表述（所有 Pattern 必须遵守）：**
+
+> **Pattern 不是 Framework Feature。LangGraph、OpenAI Agents SDK、Google ADK、CrewAI、AutoGen、Claude 都只是 Pattern 的一种实现——Pattern 属于 Runtime，不属于任何框架。**
+
+（Runtime-first / Framework-second 由此推广到全框架：任何 Pattern 的讲解先给 Runtime 语义，再说明各框架如何承载。）
 
 ---
 
@@ -165,10 +197,11 @@
 
 ## 验收标准
 
-- [x] 12 个 Pattern 统一模板（7 字段）完整登记
-- [x] 分类一节（Execution / Coordination / Human Interaction / Recovery / Planning）
+- [x] 14 个 Pattern 统一模板（7 字段）完整登记
+- [x] 分类一节（**七大分类**：Execution / Coordination / Planning / Recovery / Human Interaction / Evaluation / Tool Interaction）
+- [x] **Pattern Taxonomy 节**（唯一组织方式；未来新增 Pattern 必须先归入；不得新增孤立 Pattern；"Pattern 不是 Framework Feature——LangGraph / OpenAI Agents SDK / Google ADK / CrewAI / AutoGen / Claude 都只是 Pattern 的一种实现"）
 - [x] Roadmap 建议（v0.5.0 完成后才进入 Agent Workflow Patterns，不提前启动）
-- [x] Runtime-first / Framework-second（无"这是 LangGraph X"表述）
+- [x] Runtime-first / Framework-second（无"这是 LangGraph X"表述；Pattern 13/14 明确不讨论供应商 Judge / Function Calling API）
 - [x] 只引用 ch08-18，不重新定义任何冻结语义
 - [x] Status = proposed（非 in_progress）；不创建 PR 描述；不启动正文
 - [ ] 等待后续确认（是否纳入未来版本规划）
@@ -176,3 +209,4 @@
 ## 完成记录
 
 - 2026-08-11：任务创建（proposed 登记）；12 Patterns 模板 + 分类 + Roadmap 建议完成；仅修改本文件与 current.md。
+- 2026-08-11：**Pattern Universe 扩展**：新增 Pattern 13（Evaluator-Optimizer——评价闭环，Boundary 明确非 LLM-as-a-Judge API / 不讲供应商 Judge）与 Pattern 14（Tool Calling——Tool Selection Runtime Pattern，不讨论 OpenAI Function Calling / Claude Tool Use / Google Function Calling / MCP）；新增 **Evaluation Patterns** 与 **Tool Interaction Patterns** 两个分类（共七大分类）；新增 **Pattern Taxonomy 节**（未来所有 Agent Pattern 的唯一组织方式，新增必须归入七类，不得孤立；固定表述"Pattern 不是 Framework Feature——各框架都只是 Pattern 的一种实现"）。

@@ -241,8 +241,9 @@
    - 原则：LangGraph 可独立使用；LangChain 是更高层 Framework；Part 03 不出现 LangChain API（LangGraph Node 可包装 Runnable，仅作一句边界）
    - 约束：future planning；当前**不修改** ROADMAP Part 编号、content-map、mkdocs.yml；**不新增** TASK 正式文件、不新增章节；Part 03 完成后再单独执行 Scope Planning
 6. **Future Backlog：Agent Workflow Patterns Scope Planning**（TASK-0031，proposed 登记，v0.6.0+，不立即执行）：
-   - 候选 Topics（12，统一 7 字段模板）：ReAct / Router / Sequential Workflow / StateGraph Workflow / Planner-Executor / Reflection / Retry / Human-in-the-loop / Map-Reduce / Supervisor / Multi-Agent / Hierarchical Agent
-   - 分类：Execution / Coordination / Human Interaction / Recovery / Planning Patterns
+   - 候选 Topics（**14**，统一 7 字段模板）：ReAct / Router / Sequential Workflow / StateGraph Workflow / Planner-Executor / Reflection / Retry / Human-in-the-loop / Map-Reduce / Supervisor / Multi-Agent / Hierarchical Agent / **Evaluator-Optimizer** / **Tool Calling**
+   - 分类（**七大**）：Execution / Coordination / Planning / Recovery / Human Interaction / **Evaluation** / **Tool Interaction** Patterns
+   - **Pattern Taxonomy（唯一组织方式）**：未来新增 Pattern 必须先归入七类之一，不得新增孤立 Pattern；固定表述"**Pattern 不是 Framework Feature——LangGraph / OpenAI Agents SDK / Google ADK / CrewAI / AutoGen / Claude 都只是 Pattern 的一种实现**"（Evaluator-Optimizer 不讨论供应商 Judge；Tool Calling 不讨论 Function Calling / Tool Use / MCP）
    - **Runtime-first，Framework-second**：每个 Pattern 是"一种 Runtime Workflow Pattern，LangGraph 可以表达，但 Pattern 不属于 LangGraph"；只引用 ch08-18，不重新定义冻结语义
    - Roadmap：**当前 v0.5.0 专注 Text-to-SQL Runtime Refactor；完成后才进入 Agent Workflow Patterns（v0.6.0+）**——不提前启动
    - 约束：不影响当前 T01-T12；不修改 ROADMAP / content-map / mkdocs / Runtime Handbook / Part 03-04；不启动任何 Pattern 教学
