@@ -1,8 +1,8 @@
 # Current Session
 
-日期：2026-08-05
+日期：2026-08-11
 
-阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**T01-T12 Execution Planning 完成**（TASK-0029，PR #53）；**T05 implementation task 完成**（TASK-0030，PR #56，首个 implementation task）；**下一步按 Recommended Implementation Waves 优先进入 T01 / T03**（**当前：T01 Gate A（TASK-0032）+ T03 Gate A（TASK-0033）同分支规划中，planning/wave1-t01-t03-contracts——Gate A 已按 Architecture Review 修正：T01 定 normalized_question / 职责收窄 / Failure 复用 lifecycle contract；T03 定 Reference-Materialized 双层 / Outcome 五态 / Provenance source+freshness；等待复审后进入 Implementation**）；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
+阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**T01-T12 Execution Planning 完成**（TASK-0029，PR #53）；**T05 implementation task 完成**（TASK-0030，PR #56，首个 implementation task）；**Wave 1 进行中**（**T01（TASK-0032）：Gate A 通过（PR #59 合并）→ Gate B/C implementation 完成**（feature/t01-input-normalization，normalized_question / 纯函数+Node adapter / failure 复用 lifecycle contract，等待 Gate B/C Review）；**T03（TASK-0033）：Gate A complete，Implementation not started**）；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
 
 ## 已完成
 
@@ -219,7 +219,8 @@
 
 ## 下一步
 
-1. **T05 implementation task（SQL 静态校验，首个 implementation task，TASK-0030）**：**completed**（PR #56 合并 `b2572e6`）——Gate A（PR #55）→ Gate B/C → Gate D（Ch22 T05 部分）→ Task Merge Gate 全流程通过；`examples/text2sql_state/validation.py`（`_RULE_CHECKS` 无序 registry + RULE_ORDER 唯一顺序事实源 + `_statements` total contract + 超长 LIMIT 归入 limit_exceeds）；`docs/04-text2sql/ch22-sql-validation-repair-loop.md`（T05 可证实部分，T07 接口位置预留）。**状态快照**：Evidence = Contract-level verified；Integration = **deferred**（Gate E 等 T06/T07 进 main 后关闭）；Chapter 22 = 不标最终完成（T07 未实现）；Part 04 = 进行中；v0.5.0 = 未完成。**下一步按 TASK-0029 Recommended Implementation Waves 优先进入 T01 / T03（非立刻跳 T06/T07）**。
+1. **T01 input normalization（TASK-0032，feature/t01-input-normalization，Gate B/C 待 Review）**：Gate A 通过（PR #59 合并 `eb9d324`）；Gate B 实现（`examples/text2sql_state/state.py` Text2SQLState 最小契约 + `normalization.py` `normalize_question` 纯函数 + `normalize_node.py` `normalize_input_node` Node adapter）；Gate C 测试通过（pytest / ruff / mkdocs --strict 全绿）。**状态快照**：Evidence = Contract-level verified；Integration = **deferred**（T02 尚未进 main，不宣称 T01→T02 integration verified）；等待 Gate B/C Architecture + Implementation Review。**T03（TASK-0033）：Gate A complete，Implementation not started（本轮未实现 T03）。**
+2. **T05 implementation task（SQL 静态校验，首个 implementation task，TASK-0030）**：**completed**（PR #56 合并 `b2572e6`）——Gate A（PR #55）→ Gate B/C → Gate D（Ch22 T05 部分）→ Task Merge Gate 全流程通过；`examples/text2sql_state/validation.py`（`_RULE_CHECKS` 无序 registry + RULE_ORDER 唯一顺序事实源 + `_statements` total contract + 超长 LIMIT 归入 limit_exceeds）；`docs/04-text2sql/ch22-sql-validation-repair-loop.md`（T05 可证实部分，T07 接口位置预留）。**状态快照**：Evidence = Contract-level verified；Integration = **deferred**（Gate E 等 T06/T07 进 main 后关闭）；Chapter 22 = 不标最终完成（T07 未实现）；Part 04 = 进行中；v0.5.0 = 未完成。**下一步按 TASK-0029 Recommended Implementation Waves 优先进入 T01 / T03（非立刻跳 T06/T07）**。
 2. **Chapter 17 Ending maintenance（TASK-0027）已完成**：Chapter 17 Ending 句已修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"），独立 PR 合并完成（commit b93f9a5）。
 3. **Chapter 18 正文初稿（2026-08-08，TASK-0028，本任务；Part 04 前置章）**：
   - `docs/04-text2sql/ch18-stategraph-graph-runtime.md`：18.1-18.10，Q1-Q10，5 张 Mermaid 图

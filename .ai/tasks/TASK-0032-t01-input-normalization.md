@@ -14,7 +14,7 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**本轮只完成 Gate A：Architecture / Contract 冻结——不写 implementation。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t01-input-normalization，本分支）；Gate D / Task Merge / Gate E 待后续。**
 
 ---
 
@@ -129,7 +129,10 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 
 ## 十一、Review Gate（统一）
 
-Gate A Architecture / Contract（本文件）→ **等待 Architecture Review** → 通过后 Gate B Implementation（`examples/text2sql_state` 输入规范化实现 + 测试）→ Gate C → Gate D（Ch19 候选 T01 部分）→ Task Merge Gate → Gate E（等 T02 进 main，deferred → closed）。
+- Gate A Architecture / Contract：**completed**（PR #59 Architecture Review 通过并合并）
+- Gate B Implementation（`examples/text2sql_state` 输入规范化实现）：**completed**（本分支）
+- Gate C Tests / Evidence：**completed**（pytest / ruff / mkdocs --strict 通过）
+- 等待 **Gate B/C Architecture + Implementation Review** → Gate D（Ch19 候选 T01 部分）→ Task Merge Gate → Gate E（等 T02 进 main，deferred → closed）
 
 ## 验收标准（Gate A 阶段）
 
@@ -143,9 +146,18 @@ Gate A Architecture / Contract（本文件）→ **等待 Architecture Review** 
 - [x] Failure Contract 冻结（empty-input = expected application failure，复用 status + failure_reason，不新造类型）
 - [x] Evidence 四列制；未写 implementation
 - [x] Architecture Decisions 5 项收敛
-- [ ] 等待 Architecture Review 复审
+- [x] 等待 Architecture Review 复审（**PR #59 通过并合并**）
 
 ## 完成记录
 
 - 2026-08-11：任务创建（in_progress）；Gate A 完成；等待 Architecture Review（planning/wave1-t01-t03-contracts 分支，与 T03 同分支规划）。
 - 2026-08-11：**PR #59 Architecture Review 修正**（commit：docs: refine wave1 input and retrieval contracts）：字段命名（**旧字段名 `normalized_query` 已修正为**）`normalized_question`（避免与 SQLCandidate / current_sql 混淆）；职责收窄（移除"补充会话上下文"——T01 = request/input canonicalization，会话上下文组装归 Context / Memory 层）；参数化归属（semantic parameter extraction 归 T02，T01 只做 lexical normalization）；Failure Contract 冻结（empty-input = expected application failure ≠ Runtime exception；复用 status + failure_reason，不新造 normalization_error / NormalizationFailureResult）；Idempotency 明确为 application contract 非 LangGraph requirement；Architecture Decisions 5 项收敛。
+- 2026-08-11：**PR #59 合并（commit eb9d324，docs: freeze wave1 t01 t03 contracts）→ Gate A 正式通过**；T03 同分支规划文件随分支删除。
+- 2026-08-11：**Gate B Implementation + Gate C Tests 完成（feature/t01-input-normalization）**：
+  - State：`examples/text2sql_state/state.py` 新增 `Text2SQLState`（最小契约：`user_question` / `normalized_question` / `status` / `failure_reason`；生命周期复用 manual AgentStatus；不修改 manual/basic 教学基线）
+  - 纯函数：`examples/text2sql_state/normalization.py` `normalize_question`（trim + whitespace canonicalization；空输入返回 None 显式失败标记；无任何语义改写）
+  - Node adapter：`examples/text2sql_state/normalize_node.py` `normalize_input_node`（读 State → 调纯函数 → 返回 partial State Update；failure 复用 status=FAILED + failure_reason，不抛业务异常）
+  - `__init__.py` 按 T05 惯例导出 T01 API
+  - 测试：`tests/text2sql_state/test_normalization.py` + `test_normalize_node.py`（13 项核心 + 4 项边界；含 idempotency / determinism / partial update / 无跨调用污染 / over-normalization 边界）
+  - Evidence：**Contract-level verified**；Integration = **deferred**（T02 尚未进 main，不宣称 T01→T02 integration verified）
+  - 等待 Gate B/C Architecture + Implementation Review。
