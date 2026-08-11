@@ -15,7 +15,7 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**本轮只完成 Gate A：Architecture / Contract 冻结——不实现 Retriever。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支）；Gate D / Task Merge / Gate E 待后续。**
 
 ---
 
@@ -152,7 +152,10 @@ retrieval criteria
 
 ## 十一、Review Gate（统一）
 
-Gate A（本文件）→ 等待 Architecture Review → Gate B Implementation（text2sql_state retriever + 测试）→ Gate C → Gate D（Ch20 候选 T03 部分）→ Task Merge Gate → Gate E（等 T02/T04 进 main，deferred → closed）。
+- Gate A Architecture / Contract：**completed**（PR #59 Architecture Review 通过并合并）
+- Gate B Implementation（text2sql_state retriever + 测试）：**completed**（本分支）
+- Gate C Tests / Evidence：**completed**（pytest / ruff / mkdocs --strict 通过）
+- 等待 **Gate B/C Architecture + Implementation Review** → Gate D（Ch20 候选 T03 部分）→ Task Merge Gate → Gate E（等 T02/T04 进 main，deferred → closed）。
 
 ## 验收标准（Gate A 阶段）
 
@@ -173,3 +176,14 @@ Gate A（本文件）→ 等待 Architecture Review → Gate B Implementation（
 
 - 2026-08-11：任务创建（in_progress）；Gate A 完成；等待 Architecture Review（planning/wave1-t01-t03-contracts 分支，与 T01 同分支规划）。
 - 2026-08-11：**PR #59 Architecture Review 修正**（commit：docs: refine wave1 input and retrieval contracts）：Retrieval 拆 **Reference / Provenance 与 Materialized Payload 双层**（引用可持久化进 State，事实内容请求级物化）；RetrievalContext 收窄为 **Proposed umbrella contract**（不冻结大 DTO；**Gate A 冻结语义 contract，Python 类型 / 字段名 / 内部表示在 Gate B 落地，不得改变已冻结语义边界；若需改变则返回 Architecture Review**）；**Retrieval Outcome 分层**（complete / partial / not_found / ambiguous / unavailable；partial 是否继续由消费方决定；unavailable 为 operational failure）；**Provenance 最小语义修正**（source + freshness / version evidence——version / revision / timestamp / etag / digest / snapshot id 依 source capability，不强迫所有 Source 有 version 字段）；**T03 → T04 内容桥接**（materialized facts 经 Context Builder 进 Model Context，不只给 URI/digest）；Architecture Decisions 6 项收敛。
+- 2026-08-11：**PR #59 合并（commit eb9d324）→ Gate A 正式通过**（与 T01 同 PR）。
+- 2026-08-11：**Gate B Implementation + Gate C Tests 完成（feature/t03-metadata-retrieval）**：
+  - contract 类型：`retrieval_types.py`——`RetrievalOutcome`（五态 Enum，强类型）/ `RetrievalReference`（frozen，source_ref + evidence）/ `MaterializedFacts`（frozen，schema_facts + business_rules；**教学规模实现选择**）/ `RetrievalResult`（frozen：outcome + references + materialized；无路由意图）/ `RetrievalCriteria`（**Proposed consumed contract / fixture**，非 T02 最终 schema）
+  - fake authoritative source：`metadata_source.py`——`InMemoryMetadataSource`（确定性 in-memory，不可变，可表达 exists / missing / ambiguous / unavailable；partial 由 Retriever 聚合）+ `build_fixture_source()`（catalog-v1：orders / gmv / 华东 / ambiguous_metric / broken_source）
+  - retriever：`retrieval.py`——`MetadataRetriever`（DI 注入 source；读取事实不创造事实；outcome 聚合唯一顺序：UNAVAILABLE > AMBIGUOUS > NOT_FOUND > PARTIAL > COMPLETE；空 criteria = COMPLETE 边界决定；references + materialized 分离）
+  - node adapter：`retrieval_node.py`——`retrieve_metadata_node(state, retriever, criteria)` 只写 `retrieval_result`；**不触碰 shared lifecycle（status / failure_reason）——Retrieval Outcome ≠ Agent lifecycle，不复制 T01 的 RUNNING→FAILED 规则**（本轮 Review Focus）
+  - State：`Text2SQLState` 增加 `retrieval_result: RetrievalResult | None`（教学规模小型 payload 进 State，明确标注非生产建议；不保存 source object / repository client / connection）
+  - `__init__.py` 按惯例导出 T03 API
+  - 测试：`tests/text2sql_state/test_retrieval.py`（五态 / provenance / multiple refs / materialized 与 refs 分离 / determinism / source 不被修改 / 无全局可变状态 / 无静默兜底 / 无 LLM 事实 / 无路由意图 / fixture 标识）+ `test_retrieval_node.py`（partial update / lifecycle 边界 / 不修改输入 State / 无跨调用污染）
+  - Evidence：**Contract-level verified**；Integration = **deferred**（T02 未实现 / T04 未集成 / 真实 External Source 未接入）
+  - 等待 Gate B/C Architecture + Implementation Review；Status 仍 in_progress。

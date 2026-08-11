@@ -1,0 +1,84 @@
+"""T03 检索 contract 类型（Gate B：只选择 Python representation，不改 Gate A 语义）。
+
+Gate A 冻结（TASK-0033）：
+- Retrieval Outcome 五态：complete / partial / not_found / ambiguous / unavailable
+- References / Provenance：source_ref + freshness/version evidence
+  （version / revision / timestamp / etag / digest / snapshot id 依 source
+  capability——不强迫所有 source 存在统一 version 字段）
+- Materialized Retrieval Payload：当前请求实际消费的 schema facts /
+  metadata / business-rule facts——供 Context Builder → Model Context → T04
+
+边界：
+- T03 只返回 outcome，不决定继续 T04 / 终止 / retry / ask human
+  （路由由后续 application control flow / policy 表达）
+- RetrievalCriteria 是 Proposed consumed contract（fixture），
+  模拟未来 T02 输出——不是 T02 最终 schema
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class RetrievalOutcome(Enum):
+    """检索结果分层（Gate A 冻结，仅语义不扩张）。"""
+
+    COMPLETE = "complete"  # 所需事实完整
+    PARTIAL = "partial"  # 部分事实可用——是否继续由消费方 / 应用策略决定
+    NOT_FOUND = "not_found"  # 权威源明确无匹配（不等同 infrastructure exception）
+    AMBIGUOUS = "ambiguous"  # 存在多个合法映射——需上层澄清 / 处理
+    UNAVAILABLE = "unavailable"  # 权威源当前不可访问（operational failure）
+
+
+@dataclass(frozen=True)
+class RetrievalReference:
+    """可持久化的 provenance / 追踪信息（适合进入 State）。
+
+    source_ref：事实来自哪个 source；
+    evidence：freshness / version evidence——具体表现依 source capability
+    （version / revision / timestamp / etag / digest / snapshot id）。
+    """
+
+    source_ref: str
+    evidence: str
+
+
+@dataclass(frozen=True)
+class MaterializedFacts:
+    """当前请求实际取得的事实内容（request-scoped materialization）。
+
+    **教学规模实现选择，不是生产建议**：真实生产中完整 payload 不
+    无条件复制进 State（architecture-map 引用策略：ID / URI / version /
+    digest / summary）；当前教学 Demo 为简化保存小型 payload，
+    便于 Context Builder 直接组装 Model Context。
+    """
+
+    schema_facts: tuple[str, ...] = field(default_factory=tuple)
+    business_rules: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class RetrievalResult:
+    """T03 检索输出：outcome + provenance/references + materialized facts。
+
+    不含：source object / repository client / runtime handle / 连接
+    （不可序列化对象不得进入 result / State）。
+    不含：路由意图（不决定继续 / 终止 / retry / ask human）。
+    """
+
+    outcome: RetrievalOutcome
+    references: tuple[RetrievalReference, ...] = field(default_factory=tuple)
+    materialized: MaterializedFacts = field(default_factory=MaterializedFacts)
+
+
+@dataclass(frozen=True)
+class RetrievalCriteria:
+    """**Proposed consumed contract（fixture）**——模拟未来 T02 输出。
+
+    明确：这是 fixture 结构，**不是 T02 最终 schema**（T02 尚未实现）；
+    概念上对应 T02 解析出的 metric / dimensions / entities / time range
+    / filters 等检索条件。Integration 状态：deferred。
+    """
+
+    keys: tuple[str, ...] = field(default_factory=tuple)
