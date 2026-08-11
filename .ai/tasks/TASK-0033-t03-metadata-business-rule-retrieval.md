@@ -84,7 +84,7 @@ RetrievalResult
 └── materialized payload / request-scoped view
 ```
 
-**具体 Python schema 留 T03 Implementation Gate A finalization**——TASK-0029 只要求 ownership，**不让 planning 变成 schema spec**。
+**Gate A / Gate B 边界（Review 修正）**：Gate A 已冻结**语义 contract**——outcome + references/provenance + materialized payload 三层职责。**具体 Python 类型、字段名与内部表示在 Gate B Implementation 中落地，但不得改变 Gate A 已冻结的语义边界；若实现需要改变这些边界，必须返回 Architecture Review，不得在 Gate B 自行重定义 contract。** TASK-0029 只要求 ownership，**不让 planning 变成 schema spec**。
 
 ## 五、Source of Truth 与 Provenance（冻结，Review 修正最小语义）
 
@@ -113,7 +113,7 @@ freshness / version evidence
 
 **T03 负责报告 Outcome，不越权决定所有后续业务路由**；**不实现 retry**（Part 05）。
 
-## 六·五、T03 → T04 内容桥接（Review 新增）
+## 七、T03 → T04 内容桥接（Review 新增）
 
 **必须回答"T04 实际拿什么生成 SQL？"**——Gate A 最终表述：
 
@@ -128,29 +128,29 @@ retrieval criteria
 
 **不给 T04 只有 URI / digest**（否则没有生成 SQL 所需事实）——T04 实际消费 **materialized payload（经 Context Builder 组装）**；references / provenance 用于 Trace / Replay / 可解释性。
 
-## 七、Memory 边界（冻结）
+## 八、Memory 边界（冻结）
 
 - **T03 retrieval ≠ Memory**：Memory（ch07，跨执行）可以影响未来检索（如常用指标偏好），但 **authoritative metadata / business rule 仍来自 External Source of Truth**——**不得把旧对话缓存直接当业务事实**
 
-## 八、Evidence（四列制）
+## 九、Evidence（四列制）
 
 - **代码事实**：text2sql_state 无 T03 代码；仓库无 catalog / retriever
 - **测试事实**：无 T03 测试（尚不存在）
 - **设计建议**：RetrievalContext（Proposed）/ 引用策略 / provenance 最小集 / failure 语义（本文件）
 - **尚未验证**：retriever 行为；与 T02 真实串联（Integration deferred——T02 未实现）；与 T04 生成的真实消费
 
-## 九、Architecture Decisions（Gate A 最终收敛）
+## 十、Architecture Decisions（Gate A 最终收敛）
 
 | # | Decision | 结果 |
 |---|---|---|
-| 1 | 单一大 RetrievalContext | **不冻结为大 DTO**（Proposed umbrella contract；Python schema 留 Implementation Gate A finalization） |
+| 1 | 单一大 RetrievalContext | **不冻结为大 DTO**（Proposed umbrella contract；Python 类型与字段在 Gate B 落地，不得改变 Gate A 语义边界） |
 | 2 | reference / provenance 与 materialized payload | **语义拆分**（双层：可持久化引用 vs 请求实际消费事实） |
 | 3 | outcome model | **complete / partial / not_found / ambiguous / unavailable** |
 | 4 | provenance | **source + freshness / version evidence**（version / revision / timestamp / etag / digest / snapshot id 依 source capability） |
 | 5 | State 持久化 | **只持久化必要引用 / 控制事实；完整事实不无条件复制进 State** |
 | 6 | T04 实际内容 | **通过 request-scoped materialization + Context Builder 获取**（不只给 URI / digest） |
 
-## 十、Review Gate（统一）
+## 十一、Review Gate（统一）
 
 Gate A（本文件）→ 等待 Architecture Review → Gate B Implementation（text2sql_state retriever + 测试）→ Gate C → Gate D（Ch20 候选 T03 部分）→ Task Merge Gate → Gate E（等 T02/T04 进 main，deferred → closed）。
 

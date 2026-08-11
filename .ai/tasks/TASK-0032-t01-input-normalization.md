@@ -56,7 +56,7 @@ Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**本轮只�
 
 canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参数抽取不在 T01 范围）。
 
-## 三、Contract Status
+## 四、Contract Status
 
 `NormalizationResult` 仓库**不存在** → **Status = Proposed**。本轮只冻结：
 
@@ -66,7 +66,7 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 
 **不提前冻结复杂 schema**（字段结构在 Gate A Review 后由 Implementation 冻结）。
 
-## 四、Contract 方案评估（重点判断）
+## 五、Contract 方案评估（重点判断）
 
 **是否真的需要独立 `NormalizationResult` 类型？** 不因 TASK-0029 写了名字就创建 dataclass。三方案：
 
@@ -78,15 +78,15 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 
 **推荐方案：A + C（State 字段方案），不创建独立 NormalizationResult 类型。** 理由：consumer 仅 T02 一个（独立类型是 unnecessary abstraction）；State 可断言（testing-agent 原则）；字段语义即契约；新字段追加不破坏教学基线（backward compatibility 高）。归一化结果作为 State channel 字段（**`normalized_question`**，Proposed）。
 
-**字段命名（Review 修正）**：**优先采用 `normalized_question`，而非 `normalized_query`**——Text-to-SQL 中 query 后续容易表示 SQL query（`normalized_query` 会与 `SQLCandidate` / `current_sql` 混淆）。固定语义：
+**字段命名（Review 修正）**：**采用 `normalized_question`**——Text-to-SQL 中 query 一词后续容易表示 SQL query（规范化自然语言输入字段若以 query 命名，会与 `SQLCandidate` / `current_sql` 混淆）。固定语义：
 
 > **`user_question` = 用户原始自然语言输入；`normalized_question` = 不改变业务含义的规范化自然语言输入。**
 
 （除非仓库已有明确 naming convention 证明 query 统一表示自然语言输入——当前无此证据，故采用 `normalized_question`。）
 
-**Architecture Decisions（Gate A 最终收敛，见九）**：① 新增 `normalized_question` State 字段：**YES** ② 保留原始 `user_question`：**YES** ③ semantic parameter extraction：**NO，属于 T02** ④ session-context assembly：**NO，不属于 T01** ⑤ empty-input failure：**复用已有 lifecycle/failure contract**（见四）。
+**Architecture Decisions（Gate A 最终收敛，见十）**：① 新增 `normalized_question` State 字段：**YES** ② 保留原始 `user_question`：**YES** ③ semantic parameter extraction：**NO，属于 T02** ④ session-context assembly：**NO，不属于 T01** ⑤ empty-input failure：**复用已有 lifecycle/failure contract**（见四）。
 
-## 五、Original vs Normalized（冻结）
+## 六、Original vs Normalized（冻结）
 
 **原则：Normalization 不应静默破坏原始事实。**
 
@@ -94,12 +94,12 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 - 新增 `normalized_question`（Proposed）= 规范化结果
 - 理由：Trace 还原 / Debug 原始上下文 / Audit 用户真实输入（architecture-map：history 是 State 组成部分，audit 事实由外部系统负责——但原始输入保留在 State 是还原的前提）
 
-## 六、Idempotency（保持）
+## 七、Idempotency（保持）
 
 - **继续保持**：`normalize(normalize(x))` 观察等价于 `normalize(x)`（deterministic + idempotent）
 - **明确**：这是 **application contract / engineering property**（可测试性 / 可重放），**不是 LangGraph requirement**
 
-## 七、Failure Contract（Gate A 冻结）
+## 八、Failure Contract（Gate A 冻结）
 
 **empty / whitespace-only input = expected application input failure ≠ Runtime exception**：
 
@@ -110,14 +110,14 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
   - success：`normalized_question` populated
   - failure：existing lifecycle State Update + `failure_reason` + 无语义解析（不进入 T02）
 
-## 八、Evidence（四列制）
+## 九、Evidence（四列制）
 
 - **代码事实**：AgentState 无 normalized 字段；text2sql_state 无 T01 代码
 - **测试事实**：manual state 测试（`test_state_is_pure_dataclass_no_globals` 等——State 卫生基线）
 - **设计建议**：字段方案 / idempotent 约束 / original 保留（本文件）
 - **尚未验证**：normalize 实现行为；空输入失败路径；与 T02 真实串联（Integration deferred）
 
-## 九、Architecture Decisions（Gate A 最终收敛）
+## 十、Architecture Decisions（Gate A 最终收敛）
 
 | # | Decision | 结果 |
 |---|---|---|
@@ -127,7 +127,7 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 | 4 | session-context assembly | **NO，不属于 T01**（Context / Memory / request-scoped 组装是后续层） |
 | 5 | empty-input failure | **复用已有 lifecycle/failure contract**（status + failure_reason；不新造 normalization_error 类型） |
 
-## 十、Review Gate（统一）
+## 十一、Review Gate（统一）
 
 Gate A Architecture / Contract（本文件）→ **等待 Architecture Review** → 通过后 Gate B Implementation（`examples/text2sql_state` 输入规范化实现 + 测试）→ Gate C → Gate D（Ch19 候选 T01 部分）→ Task Merge Gate → Gate E（等 T02 进 main，deferred → closed）。
 
@@ -148,4 +148,4 @@ Gate A Architecture / Contract（本文件）→ **等待 Architecture Review** 
 ## 完成记录
 
 - 2026-08-11：任务创建（in_progress）；Gate A 完成；等待 Architecture Review（planning/wave1-t01-t03-contracts 分支，与 T03 同分支规划）。
-- 2026-08-11：**PR #59 Architecture Review 修正**（commit：docs: refine wave1 input and retrieval contracts）：字段命名 `normalized_query` → **`normalized_question`**（避免与 SQLCandidate / current_sql 混淆）；职责收窄（移除"补充会话上下文"——T01 = request/input canonicalization，会话上下文组装归 Context / Memory 层）；参数化归属（semantic parameter extraction 归 T02，T01 只做 lexical normalization）；Failure Contract 冻结（empty-input = expected application failure ≠ Runtime exception；复用 status + failure_reason，不新造 normalization_error / NormalizationFailureResult）；Idempotency 明确为 application contract 非 LangGraph requirement；Architecture Decisions 5 项收敛。
+- 2026-08-11：**PR #59 Architecture Review 修正**（commit：docs: refine wave1 input and retrieval contracts）：字段命名（**旧字段名 `normalized_query` 已修正为**）`normalized_question`（避免与 SQLCandidate / current_sql 混淆）；职责收窄（移除"补充会话上下文"——T01 = request/input canonicalization，会话上下文组装归 Context / Memory 层）；参数化归属（semantic parameter extraction 归 T02，T01 只做 lexical normalization）；Failure Contract 冻结（empty-input = expected application failure ≠ Runtime exception；复用 status + failure_reason，不新造 normalization_error / NormalizationFailureResult）；Idempotency 明确为 application contract 非 LangGraph requirement；Architecture Decisions 5 项收敛。
