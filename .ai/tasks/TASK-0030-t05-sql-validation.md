@@ -96,9 +96,9 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
 
 - [x] ① Gate A：Architecture / Contract 冻结（职责边界 / 输入输出 contract / 兼容策略 / 测试证据基线）——PR #55 已合并
 - [x] ② Implementation：text2sql_state 校验器深度化（规则表驱动 + RULE_ORDER 显式确定性优先级；复用 manual ValidationResult / AgentConfig，不复制不新造）
-- [x] ③ Tests：rule matrix / manual 回归对照 / precedence 锁单测 / 三字段兼容断言（全量 110 passed：57 原有 + 53 新增）
-- [ ] ④ Documentation：Ch22 T05 部分（Gate D——先钉 contract 行为再写文档，用户指定顺序）
-- [ ] ⑤ Merge（Task Merge Gate）
+- [x] ③ Tests：rule matrix / manual 回归对照 / precedence 锁单测 / 三字段兼容断言——**全量 pytest 通过；测试数量以最新 CI / 本地验证结果为准**（不在验收标准写死数量）
+- [x] ④ Documentation：Ch22 T05 部分（Gate D——`docs/04-text2sql/ch22-sql-validation-repair-loop.md`，8 节结构 + 固定主线 + 四列制证据 + T07 接口位置预留）
+- [ ] ⑤ Merge（Task Merge Gate——等待 Gate D 最终 Review）
 - [ ] ⑥ Gate E Integration Closure（T06/T07 进 main 后，deferred → closed）
 - [x] `mkdocs build --strict`、`git diff --check`、`pytest`、`ruff check .` 通过
 
@@ -109,8 +109,8 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
 - 2026-08-08：**Gate B Implementation 完成**（commit：feat: implement t05 sql validator with deterministic rules）：
   - `examples/text2sql_state/validation.py`：规则表驱动 `RuleBasedSQLValidator` + `RULE_ORDER`（empty / multi_statement / forbidden_keyword / select_only / missing_limit / limit_exceeds——与 manual 名空间完全一致）+ 单 rule 输出（first-failure priority）
   - 复用 manual `ValidationResult` / `AgentConfig`（不复制、不新造第二套结果模型）；教学基线 manual 零改动
-  - **Gate C Tests 完成**：`tests/text2sql_state/` 四件套——rule matrix（13 失败 + 4 接受 + registry 完整性）/ manual 回归对照（17 输入逐项 (ok, rule, error) 一致）/ precedence 锁单测（**9 组组合失败 × 3 重复** + observed 顺序与 RULE_ORDER 一致）/ 三字段兼容断言（返回类型 / 成功失败字段契约 / error ≠ rule 语义分离）
-  - 全量 `pytest` 110 passed（57 原有 + 53 新增）；`ruff check .` / `mkdocs build --strict` / `git diff --check` 全过
+  - **Gate C Tests 完成**（历史证据：该时间点全量 `pytest` 110 passed = 57 原有 + 53 新增）：`tests/text2sql_state/` 四件套——rule matrix（13 失败 + 4 接受 + registry 完整性）/ manual 回归对照（17 输入逐项 (ok, rule, error) 一致）/ precedence 锁单测（**9 组组合失败 × 3 重复** + observed 顺序与 RULE_ORDER 一致）/ 三字段兼容断言（返回类型 / 成功失败字段契约 / error ≠ rule 语义分离）
+  - `ruff check .` / `mkdocs build --strict` / `git diff --check` 全过（110 passed 为该时间点历史证据，非永久 contract）
   - **Ch22 文档按 TASK-0029 冻结流程在 Gate D 阶段完成**（先钉 contract 行为，再写文档）
 - 2026-08-11：**PR #56 Gate B/C Review 修正**（commit：fix: enforce validator rule precedence contract）：
   1. **RULE_ORDER 单一事实源**：`_RULE_TABLE`（第二份有序 tuple）移除 → `_RULE_CHECKS: dict[str, RuleCheck]`（注册表，不携带顺序）；`RULE_ORDER` = runtime first-failure precedence 的唯一事实源；validate 按 `for rule in RULE_ORDER: _RULE_CHECKS[rule](...)` 执行——不再维护两份有序结构靠测试同步
@@ -122,4 +122,9 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
   1. **separator-only SQL IndexError 修复（total contract）**：";" / ";;;" / " ; ; " 此前在 forbidden/select 规则访问 statements[0] 时抛 IndexError——新增共享 helper `_statements(sql)`（分号切分 + 去空白，返回 tuple）；`_rule_empty` 判定改为"有效 statement 数量 == 0"（而非仅 `sql.strip()`）；forbidden_keyword / select_only 增加防御（无有效语句返回 None，不依赖"前面规则碰巧拦截"）；**任何 SQL string → ValidationResult，无异常路径**
   2. **total-contract 测试**：`test_total_contract_separator_only_sql`（";" / ";;;" / " ; ; " 参数化）断言不抛异常 / ok=False / rule="empty" / error 非空诊断（rule = machine decision、error = human diagnostics 保留）
   3. **删除 `test_combined_failures_count`**：不把 9 锁定为 contract；保留 precedence 各 case expected rule / 3 次重复稳定性 / observed 与 RULE_ORDER 一致 / registry-完整性
-  4. **Evidence 数量以最终 pytest 为准**：113 passed（57 原有 + 56 新增；= 111 - 1 count 删除 + 3 separator-only + 1 registry-完整性等）——"测试内容决定数量，数量不决定测试内容"；正文不写死测试数量
+  4. **Evidence 数量以最终 pytest 为准**（历史证据：该时间点全量 `pytest` 113 passed，为 2026-08-11 本地运行结果）——"测试内容决定数量，数量不决定测试内容"；正文与验收标准不写死测试数量
+- 2026-08-11：**Gate D Documentation 完成**（commit：docs: document t05 sql validation contract）：
+  - 新建 `docs/04-text2sql/ch22-sql-validation-repair-loop.md`（Chapter 22 骨架，只完成 T05 可证实部分）：固定主线逐字保持；8 节（22.1 生成后为何校验 / 22.2 ValidationResult 契约（rule=control、error=diagnostics）/ 22.3 Rule Namespace（六条，教学实现非生产全集）/ 22.4 Deterministic First-Failure Priority（RULE_ORDER 唯一顺序源；明确"不是业务严重性排序"）/ 22.5 Total Contract（separator-only 归类 empty 不抛异常）/ 22.6 当前实现与测试证据（四列制：代码事实 / 测试事实 / 设计约束 / 尚未验证；manual compatibility 收窄表述）/ 22.7 与 Repair Loop 接口边界（rule 为 T07 输入 contract；本轮不实现 T07 / 不定义 RepairDecision / 不声称 integration 已验证）/ 22.8 当前能力边界（生产 SQL 安全未覆盖清单；权限风险属 T06））
+  - mkdocs.yml（第 22 章导航）+ 04-text2sql/index.md（"校验与修复"小节）
+  - Evidence Status：Contract-level verified；Integration deferred——正文不写死测试数量
+  - 等待 Task Merge Gate 最终 Review（PR #56 仍不 Merge）
