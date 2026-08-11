@@ -113,7 +113,19 @@ def _rule_missing_limit(sql: str, config: AgentConfig) -> ValidationResult | Non
 
 def _rule_limit_exceeds(sql: str, config: AgentConfig) -> ValidationResult | None:
     match = re.search(r"\blimit\s+(\d+)", sql, flags=re.IGNORECASE)
-    if match is not None and int(match.group(1)) > config.max_rows:
+    if match is None:
+        return None
+    try:
+        limit_value = int(match.group(1))
+    except ValueError:
+        # 超长十进制数字无法安全转换：无法作为可接受的 bounded LIMIT，
+        # 归入现有 limit_exceeds（不新增 rule namespace / 不新增字段）。
+        return ValidationResult(
+            ok=False,
+            error="LIMIT value exceeds supported numeric range",
+            rule="limit_exceeds",
+        )
+    if limit_value > config.max_rows:
         return ValidationResult(
             ok=False,
             error=f"LIMIT {match.group(1)} exceeds max_rows {config.max_rows}",

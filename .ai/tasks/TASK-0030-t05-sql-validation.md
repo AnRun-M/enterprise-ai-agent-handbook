@@ -128,3 +128,10 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
   - mkdocs.yml（第 22 章导航）+ 04-text2sql/index.md（"校验与修复"小节）
   - Evidence Status：Contract-level verified；Integration deferred——正文不写死测试数量
   - 等待 Task Merge Gate 最终 Review（PR #56 仍不 Merge）
+- 2026-08-11：**Task Merge Gate 最终修正**（commit：fix: harden sql validation total contract）：
+  1. **超长 LIMIT 数字 ValueError 修复**：`_rule_limit_exceeds` 的 `int(match.group(1))` 对超长十进制抛 ValueError——改为 try/except：无法安全转换的 LIMIT 归入现有 `limit_exceeds`（**不新增 rule namespace / 不新增字段**），error = "LIMIT value exceeds supported numeric range"（人类可读诊断）
+  2. **total-contract 测试补充**：`test_total_contract_known_boundary_inputs`（"" / 空白 / ";" / ";;;" / " ; ; " 参数化）+ `test_total_contract_huge_limit_numeric_literal`（`"9" × 5000`）——全部断言稳定返回 ValidationResult 不抛异常；**contract 只针对 sql: str 输入，不声称所有 Python 对象输入**
+  3. **Ch22 表述收窄**：22.1 "语法形态"→"确定性文本级特征（statement 分隔、首关键字、LIMIT 存在性与上限）"——避免暗示 syntax parsing
+  4. **Production Boundary 增加 lexical heuristic 限定**：当前实现是 textual / lexical validator 非 SQL parser；split(";") / first-keyword regex / LIMIT regex 为教学级 heuristic；字符串字面量 / SQL comments / 复杂 dialect syntax 可能误判——明确边界非本任务问题，不引入 AST parser
+  5. **Evidence contract vs test coverage**：Ch22 Total Contract 区分"设计契约（contract 范围内 sql: str 稳定返回）"与"测试证据（覆盖已知边界路径，不证明数学意义上全集）"
+  6. pytest 最终结果：**116 passed**（当前验证事实，非永久 contract）

@@ -50,13 +50,27 @@ def test_failure_fields_contract(sql: str, expected_rule: str) -> None:
     assert result.error != result.rule  # 二者语义分离：T07 不得按 error 文本分支
 
 
-@pytest.mark.parametrize("sql", [";", ";;;", " ; ; "])
-def test_total_contract_separator_only_sql(sql: str) -> None:
-    """total contract：仅分号 / 空白+分号的输入必须安全返回 empty，不得抛异常。
+@pytest.mark.parametrize("sql", ["", "   ", ";", ";;;", " ; ; "])
+def test_total_contract_known_boundary_inputs(sql: str) -> None:
+    """total contract：已知边界输入（空 / 空白 / separator-only）必须安全返回
+    ValidationResult（rule="empty"），不得抛异常。
 
-    任何 SQL string → ValidationResult（冻结契约），无 IndexError 路径。
+    contract 只针对 sql: str 输入——不声称"所有 Python 对象输入"。
     """
     result = make_validator().validate(sql)
     assert result.ok is False
     assert result.rule == "empty"  # rule = machine decision
     assert isinstance(result.error, str) and result.error  # error = human diagnostics
+
+
+def test_total_contract_huge_limit_numeric_literal() -> None:
+    """total contract：超长 LIMIT 十进制数字不得抛 ValueError。
+
+    无法安全转换的超长 LIMIT → rule = "limit_exceeds"（现有 namespace，不新增），
+    error 为人类可读诊断。
+    """
+    huge_limit = "9" * 5000
+    result = make_validator().validate(f"SELECT * FROM orders LIMIT {huge_limit}")
+    assert result.ok is False
+    assert result.rule == "limit_exceeds"
+    assert isinstance(result.error, str) and result.error

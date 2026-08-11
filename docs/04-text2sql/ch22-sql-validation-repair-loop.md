@@ -20,7 +20,7 @@
 
 canonical 流程中 T05 是生成之后、执行之前的**确定性门**：候选 SQL 必须经过静态校验，才能进入权限与风险检查（T06）与执行（T09）。**校验失败 → 修复或人工审批（T07）**——这正是本章 T07 部分的接口位置（22.7）。
 
-**为什么是"静态"**：T05 只检查 SQL 文本本身的确定性属性（语法形态 / 首关键字 / LIMIT 存在性与上限），**不执行 SQL、不查询数据库、不判断权限与业务风险**（那是 T06 的职责，22.8）。
+**为什么是"静态"**：T05 只检查 SQL 文本的**确定性文本级特征**（statement 分隔、首关键字、LIMIT 存在性与上限），**不执行 SQL、不查询数据库、不判断权限与业务风险**（那是 T06 的职责，22.8）。**注意表述边界**：这是文本级检查（split / regex），**不是 SQL syntax parsing**（22.8 的 lexical heuristic 限定）。
 
 ## 22.2 ValidationResult：控制信息与诊断信息分离
 
@@ -78,7 +78,7 @@ empty → multi_statement → forbidden_keyword → select_only → missing_limi
 
 ## 22.5 Total Contract 与边界输入
 
-**Total contract**：**任何 SQL string 输入必须稳定返回 ValidationResult，不得抛异常**。
+**Total contract（设计契约 vs 测试证据，区分）**：**设计契约**——对于 contract 范围内的 `sql: str` 输入，validator 应稳定返回 ValidationResult，不得抛异常；**测试证据**——当前测试覆盖空输入、separator-only、超长 LIMIT 等**已知边界路径**，不宣称"所有可能的 SQL 字符串均已验证"（测试有限覆盖不能证明数学意义上的全集）。
 
 边界输入的处理（`_statements` helper：分号切分 + 去空白，返回有效语句元组；`_rule_empty` 按"有效语句数量 == 0"判定）：
 
@@ -86,9 +86,10 @@ empty → multi_statement → forbidden_keyword → select_only → missing_limi
 |---|---|
 | `""` / `"   "` | `ok=False, rule="empty"` |
 | `";"` / `";;;"` / `" ; ; "` | `ok=False, rule="empty"`（separator-only 归类 empty，不抛 IndexError） |
+| 超长 LIMIT 十进制数字（如 `"9" × 5000`） | `ok=False, rule="limit_exceeds"`（无法安全转换的 LIMIT 归入现有 namespace，error 为人类可读诊断，不抛 ValueError） |
 | 正常 SQL | 按规则表评估 |
 
-测试：`test_total_contract_separator_only_sql`（";" / ";;;" / " ; ; " 参数化，断言不抛异常 / rule="empty" / error 非空诊断）。
+测试：`test_total_contract_known_boundary_inputs`（"" / 空白 / ";" / ";;;" / " ; ; " 参数化）+ `test_total_contract_huge_limit_numeric_literal`（超长 LIMIT）——全部断言不抛异常、rule 正确、error 非空。
 
 ## 22.6 当前实现与测试证据
 
@@ -130,6 +131,8 @@ empty → multi_statement → forbidden_keyword → select_only → missing_limi
 - SQL dialect validation
 - injection / security completeness
 - production audit
+
+**Lexical heuristic 限定（明确）**：当前实现是 **textual / lexical validator，不是 SQL parser**——`split(";")`、first-keyword regex、LIMIT regex 属于教学级 heuristic；**字符串字面量、SQL comments、复杂 dialect syntax 可能造成误判**。这是本任务的明确边界，不是本任务要求解决的问题；**不引入 AST parser**。
 
 **边界归属**：权限与风险（含审批触发）属于 **T06**（canonical T06），**不塞入 T05**；扫描 / 成本 / 审计等生产能力属于 Part 05 / v0.6.0 里程碑；真实引擎执行属于 T09（Fake 实现 + 架构引用）。
 
