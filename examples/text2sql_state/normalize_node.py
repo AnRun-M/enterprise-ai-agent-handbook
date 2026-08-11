@@ -4,10 +4,12 @@
 - pure normalization function（normalization.py）：lexical normalization，无 Runtime 逻辑
 - Node adapter（本文件）：读取 State → 调用 pure function → 返回 partial State Update
 
-Failure contract（Gate A 冻结）：
+Failure contract（Gate A 冻结 + Gate B/C Review 修正）：
 - empty / whitespace-only = expected application input failure ≠ Runtime exception
 - 复用 status + failure_reason（AgentStatus.FAILED），不新造 normalization_error 类型
 - 不抛业务异常
+- failure 显式 invalidates derived normalized_question（写入 None），
+  防止旧派生值在 Graph State merge（默认覆盖语义）后残留
 """
 
 from __future__ import annotations
@@ -25,16 +27,20 @@ def normalize_input_node(state: Text2SQLState) -> dict:
 
     success：
         {"normalized_question": <normalized>}
-        （user_question 保持不变；status 保持 RUNNING；不覆盖其它字段）
+        （仅写派生字段；user_question / status / failure_reason 不覆盖）
 
     failure（empty / whitespace-only）：
-        {"status": AgentStatus.FAILED,
+        {"normalized_question": None,
+         "status": AgentStatus.FAILED,
          "failure_reason": <reason>}
-        （user_question 保留；normalized_question 不写入——不进入后续语义解析）
+        （failure 显式 invalidates derived normalized_question，
+        防止旧派生值在 State merge 后残留——merge 语义下"不返回字段"
+        等于"保留已有字段值"；user_question 保留）
     """
     normalized = normalize_question(state["user_question"])
     if normalized is None:
         return {
+            "normalized_question": None,
             "status": AgentStatus.FAILED,
             "failure_reason": _INVALID_INPUT_REASON,
         }

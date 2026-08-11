@@ -106,9 +106,9 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 - T01 **不应通过业务异常表达正常输入校验失败**——空输入是"应用输入无效"的预期结果，不是异常路径
 - **优先复用已有 State lifecycle / failure contract**：`status` + `failure_reason`（ch02 / manual AgentState 既有语义）
 - **不新造** `normalization_error` / `NormalizationFailureResult`——除非仓库事实证明现有契约无法承载；如无法承载，**标 Architecture Conflict，不自行扩 schema**
-- 推荐语义：
+- 推荐语义（Gate B/C Review 修正 2026-08-11）：
   - success：`normalized_question` populated
-  - failure：existing lifecycle State Update + `failure_reason` + 无语义解析（不进入 T02）
+  - failure：existing lifecycle State Update（`status` + `failure_reason`）+ **`normalized_question` 显式写 `None`**——failure 显式 invalidates derived normalized_question，防止旧派生值在 Graph State merge（默认覆盖语义：不返回字段 = 保留已有值）后残留；+ 无语义解析（不进入 T02）
 
 ## 九、Evidence（四列制）
 
@@ -161,3 +161,10 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
   - 测试：`tests/text2sql_state/test_normalization.py` + `test_normalize_node.py`（13 项核心 + 4 项边界；含 idempotency / determinism / partial update / 无跨调用污染 / over-normalization 边界）
   - Evidence：**Contract-level verified**；Integration = **deferred**（T02 尚未进 main，不宣称 T01→T02 integration verified）
   - 等待 Gate B/C Architecture + Implementation Review。
+- 2026-08-11：**Gate B/C Review 修正已应用（feature/t01-input-normalization，等待最终复审）**：
+  - **stale normalized_question 修复**：failure update 显式包含 `normalized_question: None`（Graph State merge 语义下"不返回字段"= "保留已有字段值"；不显式 invalidate 会让旧派生值在 merge 后残留，违反"empty input 不进入后续 semantic parsing"）。固定表述：**"failure 显式 invalidates derived normalized_question，防止旧派生值在 State merge 后残留"**（不再写"failure 时 normalized_question 不写入"）
+  - **merge-semantics regression test**：`test_failure_invalidates_stale_normalized_question_after_merge`——初始 State 含 stale 值 + 空输入 → 断言 update 写 None 且模拟 `{**state, **update}` merge 后仍为 None
+  - **partial update 边界区分 success/failure**：success 只写 `normalized_question`；failure 允许写 `normalized_question` + `status` + `failure_reason` 三个字段（`test_failure_partial_update_touches_only_contract_fields`）
+  - **evidence test 名称收窄**：`test_no_runtime_exception_on_any_input` → `test_node_handles_representative_string_inputs_without_exception`（有限 samples 不宣称"所有输入均无异常"；contract 与 test evidence 分开）
+  - **whitespace policy 工程边界**：当前教学 contract 面向一般自然语言问题（连续 whitespace → 单空格）；不做 word rewriting / punctuation deletion / semantic extraction / SQL rewrite；不承诺 exact code blocks / whitespace-sensitive structured text / preformatted literals 的 whitespace-preserving 语义；不引入 quoted-string parser（`test_no_whitespace_preserving_promise_for_structured_text` 固定边界行为）
+  - Gate B/C 状态保持：**等待 Review**；Status 仍 in_progress（Gate D / Merge / Gate E 未完成）。

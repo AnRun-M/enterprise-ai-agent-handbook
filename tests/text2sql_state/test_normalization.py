@@ -86,3 +86,10 @@ def test_semantic_words_not_rewritten() -> None:
 
 def test_no_stopword_removal() -> None:
     assert normalize_question("请查询昨天的 GMV") == "请查询昨天的 GMV"
+
+
+def test_no_whitespace_preserving_promise_for_structured_text() -> None:
+    # 教学 contract 不承诺 exact code blocks / whitespace-sensitive 文本的
+    # whitespace-preserving 语义——连续 whitespace 一律折叠为单空格
+    # （非 SQL rewrite，关键字与内容不改写，仅空白折叠；无 quoted-string parser）
+    assert normalize_question("SELECT  a,\n    b\nFROM  t") == "SELECT a, b FROM t"

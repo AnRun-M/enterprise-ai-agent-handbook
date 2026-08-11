@@ -9,6 +9,12 @@ Gate A 冻结边界（TASK-0032）：
 
 原则："Normalize representation, not meaning."
 
+whitespace policy 工程边界（Gate B/C Review 修正）：
+- 当前教学 contract 面向一般自然语言问题，将连续 whitespace canonicalize 为单空格；
+- 不做：lexical word rewriting / punctuation deletion / semantic extraction / SQL rewrite
+- 不承诺：exact code blocks、whitespace-sensitive structured text、preformatted
+  literals 的 whitespace-preserving 语义（不引入 quoted-string parser）
+
 idempotency 为 application contract / engineering property：
 normalize(normalize(x)) 观察等价 normalize(x)。
 """
