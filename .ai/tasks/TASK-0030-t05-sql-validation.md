@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-08 |
 | Updated | 2026-08-08 |
@@ -98,8 +98,8 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
 - [x] ② Implementation：text2sql_state 校验器深度化（规则表驱动 + RULE_ORDER 显式确定性优先级；复用 manual ValidationResult / AgentConfig，不复制不新造）
 - [x] ③ Tests：rule matrix / manual 回归对照 / precedence 锁单测 / 三字段兼容断言——**全量 pytest 通过；测试数量以最新 CI / 本地验证结果为准**（不在验收标准写死数量）
 - [x] ④ Documentation：Ch22 T05 部分（Gate D——`docs/04-text2sql/ch22-sql-validation-repair-loop.md`，8 节结构 + 固定主线 + 四列制证据 + T07 接口位置预留）
-- [ ] ⑤ Merge（Task Merge Gate——等待 Gate D 最终 Review）
-- [ ] ⑥ Gate E Integration Closure（T06/T07 进 main 后，deferred → closed）
+- [x] ⑤ Merge（Task Merge Gate 通过；PR #56 squash merge 到 main，commit b2572e6，CI 双绿，2026-08-11）→ **T05 implementation + tests + documentation complete**
+- [ ] ⑥ Gate E Integration Closure（T06/T07 进 main 后，deferred → closed——Integration Status 保持 deferred）
 - [x] `mkdocs build --strict`、`git diff --check`、`pytest`、`ruff check .` 通过
 
 ## 完成记录
@@ -135,3 +135,6 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
   4. **Production Boundary 增加 lexical heuristic 限定**：当前实现是 textual / lexical validator 非 SQL parser；split(";") / first-keyword regex / LIMIT regex 为教学级 heuristic；字符串字面量 / SQL comments / 复杂 dialect syntax 可能误判——明确边界非本任务问题，不引入 AST parser
   5. **Evidence contract vs test coverage**：Ch22 Total Contract 区分"设计契约（contract 范围内 sql: str 稳定返回）"与"测试证据（覆盖已知边界路径，不证明数学意义上全集）"
   6. pytest 最终结果：**116 passed**（当前验证事实，非永久 contract）
+- 2026-08-11：**Task Merge Gate 最终确认，PR #56 squash merge 到 main（commit b2572e6，CI build/test 双绿）→ TASK-0030 标记 completed；T05 implementation + tests + documentation complete**；本 Memory PR（docs/post-pr56-merge-memory）收敛状态（current.md）。
+- **状态快照（固定）**：TASK-0030 = completed；T05 = implementation + tests + documentation complete；Evidence Status = **Contract-level verified**；Integration Status = **deferred**（Gate E 等 T06/T07 进入 main 后关闭）；Part 04 = 继续进行中；v0.5.0 = 继续未完成；Chapter 22 = **不标最终完成**（T07 部分尚未实现）。
+- **Future maintenance**：None。
