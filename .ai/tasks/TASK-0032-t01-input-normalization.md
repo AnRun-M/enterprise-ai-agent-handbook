@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | **completed** |
 | Owner | AnRun-M |
 | Created | 2026-08-11 |
 | Updated | 2026-08-11 |
@@ -14,7 +14,9 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t01-input-normalization，本分支）；Gate D Documentation 已完成（第 19 章 T01 部分，draft）；Task Merge Gate / Gate E 待后续。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**全流程完成：Gate A Architecture / Contract（PR #59 合并）→ Gate B Implementation → Gate C Tests → Gate D Documentation（第 19 章 T01 部分）→ Task Merge Gate 最终确认（PR #60 合并 `bfd1880`）。** Status = **completed**。
+
+**Gate E 说明**：Gate E（T01→T02 真实串联验证）属 **Milestone Integration Closure**（等 T02 进入 main 后经 Integration Closure Gate 关闭），**不是 T01 Task Merge 完成的阻塞条件**——T01 任务本身已按 Task Merge Gate 收尾。
 
 ---
 
@@ -133,11 +135,17 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 
 ## 十一、Review Gate（统一）
 
-- Gate A Architecture / Contract：**completed**（PR #59 Architecture Review 通过并合并）
-- Gate B Implementation（`examples/text2sql_state` 输入规范化实现）：**completed**（本分支，两轮 Review 修正后最终复审 APPROVED）
-- Gate C Tests / Evidence：**completed**（pytest / ruff / mkdocs --strict 通过）
-- Gate D Documentation（第 19 章 T01 可证实部分）：**completed**（`docs/04-text2sql/ch19-input-normalization-intent.md`，draft 状态；T02 部分 pending）
-- **Task Merge Gate Review（两轮）**：发现 shared lifecycle ownership 修正（field ownership 两层：normalized_question = T01-owned；status / failure_reason = shared lifecycle；success 不覆盖 shared lifecycle）→ 最终复审进一步收窄为 **field ownership + transition authority**（T01 仅拥有 RUNNING + invalid input → FAILED 迁移；已 FAILED 的 cause 不替换、终止状态不改写）；**实现与文档正在修正，等待最终确认** → Task Merge → Gate E（等 T02 进 main，deferred → closed）
+- Gate A Architecture / Contract：**completed** ✅（PR #59 Architecture Review 通过并合并）
+- Gate B Implementation（`examples/text2sql_state` 输入规范化实现）：**completed** ✅（两轮 Review 修正后最终复审 APPROVED）
+- Gate C Tests / Evidence：**completed** ✅（pytest / ruff / mkdocs --strict 通过）
+- Gate D Documentation（第 19 章 T01 可证实部分）：**completed** ✅（`docs/04-text2sql/ch19-input-normalization-intent.md`，draft 状态；T02 部分 pending——**Chapter 19 不标 completed**）
+- Task Merge Gate Review（两轮修正：field ownership 两层 → transition-scoped lifecycle authority）：**completed** ✅（PR #60 合并 `bfd1880`，本 Memory PR 收敛状态）
+- Gate E：**deferred（等待 T02）**——属 Milestone Integration Closure，非 T01 Task Merge 完成阻塞条件
+
+**T01 最终状态快照**：
+- **Status** = completed
+- **Evidence Status** = Contract-level verified
+- **Integration Status** = deferred（等待 T02；T01→T02 真实串联未验证，不宣称 e2e verified）
 
 ## 验收标准（Gate A 阶段）
 
@@ -217,3 +225,10 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
   - Evidence：dict overwrite 仍只是 State Update contract simulation，≠ actual Graph Runtime integration；Integration 仍 deferred
   - retry boundary 保持：FAILED → RUNNING 由 new request / retry / resume / application lifecycle reset 负责；已 FAILED 的原因不由 T01 自动替换
   - Gate 状态：**实现与文档正在修正，等待 Task Merge Gate 最终确认**；TASK-0032 仍 in_progress。
+- 2026-08-11：**PR #60 squash merge（commit `bfd1880`，feat: implement t01 input normalization）→ Task Merge Gate 最终确认 → TASK-0032 标记 completed**（本 Memory PR）：
+  - Gate A ✅ / Gate B ✅ / Gate C ✅ / Gate D ✅ / Task Merge Gate ✅（两轮 Review 修正：field ownership → transition-scoped lifecycle authority）
+  - Evidence Status = **Contract-level verified**；Integration Status = **deferred（等待 T02）**
+  - **Gate E 属 Milestone Integration Closure，不是 T01 Task Merge 完成的阻塞条件**（T02 进 main 后经 Integration Closure Gate 关闭）
+  - Chapter 19：**不标 completed**（T02 Intent / Semantic Extraction pending）；Part 04 保持 in progress；v0.5.0 保持 incomplete
+  - 教学基线 manual / basic 零修改；text2sql_state 新增：`state.py`（Text2SQLState）/ `normalization.py` / `normalize_node.py` + 两项测试文件 + `__init__.py` 导出
+  - **Status = completed**
