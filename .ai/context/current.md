@@ -240,6 +240,12 @@
    - 预计包含：Runnable / RunnableSequence / RunnableParallel / RunnableBranch / LCEL / PromptTemplate / ChatModel / Messages / Tool Calling / Middleware / create_agent / AgentExecutor（如保留）/ Structured Output / LangSmith（如果未来规划）
    - 原则：LangGraph 可独立使用；LangChain 是更高层 Framework；Part 03 不出现 LangChain API（LangGraph Node 可包装 Runnable，仅作一句边界）
    - 约束：future planning；当前**不修改** ROADMAP Part 编号、content-map、mkdocs.yml；**不新增** TASK 正式文件、不新增章节；Part 03 完成后再单独执行 Scope Planning
+6. **Future Backlog：Agent Workflow Patterns Scope Planning**（TASK-0031，proposed 登记，v0.6.0+，不立即执行）：
+   - 候选 Topics（12，统一 7 字段模板）：ReAct / Router / Sequential Workflow / StateGraph Workflow / Planner-Executor / Reflection / Retry / Human-in-the-loop / Map-Reduce / Supervisor / Multi-Agent / Hierarchical Agent
+   - 分类：Execution / Coordination / Human Interaction / Recovery / Planning Patterns
+   - **Runtime-first，Framework-second**：每个 Pattern 是"一种 Runtime Workflow Pattern，LangGraph 可以表达，但 Pattern 不属于 LangGraph"；只引用 ch08-18，不重新定义冻结语义
+   - Roadmap：**当前 v0.5.0 专注 Text-to-SQL Runtime Refactor；完成后才进入 Agent Workflow Patterns（v0.6.0+）**——不提前启动
+   - 约束：不影响当前 T01-T12；不修改 ROADMAP / content-map / mkdocs / Runtime Handbook / Part 03-04；不启动任何 Pattern 教学
 
 ## 当前阻塞
 
