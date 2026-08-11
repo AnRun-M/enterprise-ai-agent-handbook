@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**T01-T12 Execution Planning 完成**（TASK-0029，PR #53）；**T05 implementation task 完成**（TASK-0030，PR #56，首个 implementation task）；**下一步按 Recommended Implementation Waves 优先进入 T01 / T03**；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
+阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**T01-T12 Execution Planning 完成**（TASK-0029，PR #53）；**T05 implementation task 完成**（TASK-0030，PR #56，首个 implementation task）；**下一步按 Recommended Implementation Waves 优先进入 T01 / T03**（**当前：T01 Gate A（TASK-0032）+ T03 Gate A（TASK-0033）同分支规划中，planning/wave1-t01-t03-contracts——Gate A 已按 Architecture Review 修正：T01 定 normalized_question / 职责收窄 / Failure 复用 lifecycle contract；T03 定 Reference-Materialized 双层 / Outcome 五态 / Provenance source+freshness；等待复审后进入 Implementation**）；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
 
 ## 已完成
 
