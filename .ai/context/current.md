@@ -219,10 +219,10 @@
 
 ## 下一步
 
-1. **T01 input normalization（TASK-0032，feature/t01-input-normalization，Gate B/C 待 Review）**：Gate A 通过（PR #59 合并 `eb9d324`）；Gate B 实现（`examples/text2sql_state/state.py` Text2SQLState 最小契约 + `normalization.py` `normalize_question` 纯函数 + `normalize_node.py` `normalize_input_node` Node adapter）；Gate C 测试通过（pytest / ruff / mkdocs --strict 全绿）。**状态快照**：Evidence = Contract-level verified；Integration = **deferred**（T02 尚未进 main，不宣称 T01→T02 integration verified）；等待 Gate B/C Architecture + Implementation Review。**Gate B/C Review 修正已应用（等待最终复审）**：failure 显式写 `normalized_question: None`（invalidate stale derived value，防 merge 残留）+ merge-semantics regression test + partial-update 边界区分 success/failure + evidence test 名称收窄 + whitespace policy 工程边界。**T03（TASK-0033）：Gate A complete，Implementation not started（本轮未实现 T03）。**
+1. **T01 input normalization（TASK-0032，feature/t01-input-normalization，Gate B/C 待 Review）**：Gate A 通过（PR #59 合并 `eb9d324`）；Gate B 实现（`examples/text2sql_state/state.py` Text2SQLState 最小契约 + `normalization.py` `normalize_question` 纯函数 + `normalize_node.py` `normalize_input_node` Node adapter）；Gate C 测试通过（pytest / ruff / mkdocs --strict 全绿）。**状态快照**：Evidence = Contract-level verified；Integration = **deferred**（T02 尚未进 main，不宣称 T01→T02 integration verified）；等待 Gate B/C Architecture + Implementation Review。**Gate B/C Review 修正已应用（最终复审后等待最终复审）**：T01 Node 形成完整 outcome update（success 清理 stale failure / failure 清理 stale normalized value，两轮 merge regression 覆盖）+ outcome update contract 统一 + evidence test 名称收窄 + whitespace policy 工程边界。**T03（TASK-0033）：Gate A complete，Implementation not started（本轮未实现 T03）。**
 2. **T05 implementation task（SQL 静态校验，首个 implementation task，TASK-0030）**：**completed**（PR #56 合并 `b2572e6`）——Gate A（PR #55）→ Gate B/C → Gate D（Ch22 T05 部分）→ Task Merge Gate 全流程通过；`examples/text2sql_state/validation.py`（`_RULE_CHECKS` 无序 registry + RULE_ORDER 唯一顺序事实源 + `_statements` total contract + 超长 LIMIT 归入 limit_exceeds）；`docs/04-text2sql/ch22-sql-validation-repair-loop.md`（T05 可证实部分，T07 接口位置预留）。**状态快照**：Evidence = Contract-level verified；Integration = **deferred**（Gate E 等 T06/T07 进 main 后关闭）；Chapter 22 = 不标最终完成（T07 未实现）；Part 04 = 进行中；v0.5.0 = 未完成。**下一步按 TASK-0029 Recommended Implementation Waves 优先进入 T01 / T03（非立刻跳 T06/T07）**。
-2. **Chapter 17 Ending maintenance（TASK-0027）已完成**：Chapter 17 Ending 句已修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"），独立 PR 合并完成（commit b93f9a5）。
-3. **Chapter 18 正文初稿（2026-08-08，TASK-0028，本任务；Part 04 前置章）**：
+3. **Chapter 17 Ending maintenance（TASK-0027）已完成**：Chapter 17 Ending 句已修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"），独立 PR 合并完成（commit b93f9a5）。
+4. **Chapter 18 正文初稿（2026-08-08，TASK-0028，本任务；Part 04 前置章）**：
   - `docs/04-text2sql/ch18-stategraph-graph-runtime.md`：18.1-18.10，Q1-Q10，5 张 Mermaid 图
   - **固定主线已逐字保持**：StateGraph 负责声明图结构，compile() 将图定义转换为可执行的 Graph Runtime，invoke()/stream() 通过该 Runtime 驱动 State、Node 与控制流运行；这些 API 不重新定义 Part 03 的 Runtime 语义，只负责把既有语义组装并执行
   - **链式结构已守（非方法列表）**：定义图 → 注册组件 → 连接控制流 → compile → invoke/stream → 与 Part 03 对照；只集中讲四件事（构图入口 / 组件注册与连接 / compile 语义边界 / 编译后 Runtime 执行入口）；Node/Edge/Reducer/Command/Send/Checkpoint/Interrupt/Stream 只引用 Part 03 不重新解释
@@ -231,17 +231,17 @@
   - **PR #51 Review 七项修正（2026-08-08）**：State schema 可见范围（图级契约 ≠ 所有 Node 读全部字段，ch09 边界不重展）/ add_node-DI 边界（add_node 注册 callable；依赖组装在注册前由应用完成；StateGraph 不是 DI Container）/ Node-Routing 两层（Demo Update+Conditional Edge vs 通用 Command routing intent；跳转解释在 Graph Runtime）/ compile 职责三层（校验 + materialize + 挂载已配置能力；不创造 Scheduler-Reducer-Failure Boundary）/ invoke-stream 执行语义（同一 compiled graph 的两个执行接口：aggregated vs streaming；Interrupt-failure-cancellation 不假设成功终态）/ 测试证据分层（代码事实 vs 观察维度等价测试——第 8 章收窄口径）/ 动态路径边界（静态 topology 完成 ≠ 运行路径唯一，Conditional Edge-Command-Send 决定）——已应用并推送更新 PR #51
   - **PR #51 合并前一致性清理（2026-08-08）**：18.4 topology 表述统一（静态 topology 可审查、实际路径由 Runtime 控制结果决定）；compile 跨章节职责引用精确化（Scheduling→ch06 / Node failure boundary→ch10 / routing→ch11 / Reducer-channel merge→ch12）；PR #51 描述顶部摘要直接同步（Q2-Q10 / 关键边界 / 证据与测试范围 / Review Focus）+ 最后一次 Description 一致性清理（invoke/stream 无旧二分口径）
   - **PR #51 已通过 Architecture Review 复审 APPROVED 并 squash merge 到 main（2026-08-08，commit 83f5ae5，CI build/test 双绿）→ Chapter 18 最终完成（Part 04 前置章）**；本 Memory PR（docs/post-pr51-merge-memory）收敛状态（ROADMAP / content-map / current.md）
-3. **未决项**：① Mermaid 计数漂移（历史 TASK / PR 记录与实际围栏数不一致；正文围栏数是事实源，后续任务不预先承诺固定数量）② v1.0.0 章节数目标对账（TASK-0014 未决项延续）③ 官方 URL 发布前复核（TASK-0014 未决项延续）④ RetryPolicy 机制归属（TASK-0014 未决项延续）
-2. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
-3. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
-4. 选择许可证
-5. **Future Task：LangChain Scope Planning**（不立即执行，仅记录方向；本条目已按 2026-08-05 规划合并补全，不新增第二份）：
+5. **未决项**：① Mermaid 计数漂移（历史 TASK / PR 记录与实际围栏数不一致；正文围栏数是事实源，后续任务不预先承诺固定数量）② v1.0.0 章节数目标对账（TASK-0014 未决项延续）③ 官方 URL 发布前复核（TASK-0014 未决项延续）④ RetryPolicy 机制归属（TASK-0014 未决项延续）
+6. 补 tests/ 其余测试目标（State reducer、Tool adapter、Graph path、Checkpoint recovery）
+7. 核验 Anthropic《Building effective agents》与 OpenAI practical guide 的官方 URL（第 0 章 TODO）
+8. 选择许可证
+9. **Future Task：LangChain Scope Planning**（不立即执行，仅记录方向；本条目已按 2026-08-05 规划合并补全，不新增第二份）：
    - 目标：未来增加一个 **LangChain Framework 部分**（判断是否新增独立 Part，或仅新增 1-2 个桥接章节）；**不在 Part 03 内展开**
    - 目标路线：Agent Foundations → Runtime Semantics → LangGraph Core → **LangChain Framework** → Text-to-SQL Practice → Production Engineering
    - 预计包含：Runnable / RunnableSequence / RunnableParallel / RunnableBranch / LCEL / PromptTemplate / ChatModel / Messages / Tool Calling / Middleware / create_agent / AgentExecutor（如保留）/ Structured Output / LangSmith（如果未来规划）
    - 原则：LangGraph 可独立使用；LangChain 是更高层 Framework；Part 03 不出现 LangChain API（LangGraph Node 可包装 Runnable，仅作一句边界）
    - 约束：future planning；当前**不修改** ROADMAP Part 编号、content-map、mkdocs.yml；**不新增** TASK 正式文件、不新增章节；Part 03 完成后再单独执行 Scope Planning
-6. **Future Backlog：Agent Workflow Patterns Scope Planning**（TASK-0031，proposed 登记，v0.6.0+，不立即执行）：
+10. **Future Backlog：Agent Workflow Patterns Scope Planning**（TASK-0031，proposed 登记，v0.6.0+，不立即执行）：
    - 候选 Topics（**14**，统一 7 字段模板）：ReAct / Router / Sequential Workflow / StateGraph Workflow / Planner-Executor / Reflection / Retry / Human-in-the-loop / Map-Reduce / Supervisor / Multi-Agent / Hierarchical Agent / **Evaluator-Optimizer** / **Tool Calling**
    - 分类（**七大**）：Execution / Coordination / Planning / Recovery / Human Interaction / **Evaluation** / **Tool Interaction** Patterns
    - **Pattern Taxonomy（唯一组织方式）**：未来新增 Pattern 必须先归入七类之一，不得新增孤立 Pattern；固定表述"**Pattern 是框架无关的架构与执行模式；框架提供这些 Pattern 的一种或多种实现方式**（LangGraph / OpenAI Agents SDK / Google ADK / CrewAI / AutoGen / Claude 都只是实现之一）"（Evaluator-Optimizer 不讨论供应商 Judge；Tool Calling 不讨论 Function Calling / Tool Use / MCP）

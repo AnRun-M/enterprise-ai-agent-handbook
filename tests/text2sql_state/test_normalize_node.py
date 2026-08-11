@@ -21,15 +21,45 @@ def make_state(question: str, status: AgentStatus = AgentStatus.RUNNING) -> Text
 def test_normalized_question_written_and_original_preserved() -> None:
     state = make_state("  查询昨天的 GMV  ")
     update = normalize_input_node(state)
-    assert update == {"normalized_question": "查询昨天的 GMV"}
+    assert update == {
+        "normalized_question": "查询昨天的 GMV",
+        "status": AgentStatus.RUNNING,
+        "failure_reason": None,
+    }
     # original 不被覆盖（Normalization 不静默破坏原始事实）
     assert state["user_question"] == "  查询昨天的 GMV  "
 
 
-def test_success_partial_update_does_not_touch_other_fields() -> None:
+def test_success_contract_fields_and_original_preserved() -> None:
+    # outcome update contract：success / failure 都返回三个字段
+    # （normalized_question / status / failure_reason），值表达不同 outcome；
+    # 不再把"success 只更新一个字段"作为 T01 contract。
     state = make_state("查询昨天的 GMV")
     update = normalize_input_node(state)
-    assert set(update) == {"normalized_question"}  # 不覆盖 status / failure_reason / user_question
+    assert set(update) == {"normalized_question", "status", "failure_reason"}
+    assert state["user_question"] == "查询昨天的 GMV"  # user_question 不覆盖
+
+
+def test_success_clears_stale_normalization_failure_after_merge() -> None:
+    # 初始 State 已含上一轮 failure outcome（FAILED + failure_reason），
+    # 随后 valid input → success。merge 语义（默认覆盖）："不返回字段" =
+    # "保留已有字段值"——success update 必须显式清空 stale failure state，
+    # 否则旧 FAILED 会让执行流仍处于失败状态。
+    state = {
+        "user_question": "查询昨天 GMV",
+        "normalized_question": None,
+        "status": AgentStatus.FAILED,
+        "failure_reason": _INVALID_INPUT_REASON,
+    }
+    update = normalize_input_node(state)
+    assert update["normalized_question"] == "查询昨天 GMV"
+    assert update["status"] is AgentStatus.RUNNING
+    assert update["failure_reason"] is None
+    # 模拟 Graph State 默认 merge——证明 stale failure 被真正清除
+    merged = {**state, **update}
+    assert merged["normalized_question"] == "查询昨天 GMV"
+    assert merged["status"] is AgentStatus.RUNNING
+    assert merged["failure_reason"] is None
 
 
 # ---------------------------------------------------------------- failure
@@ -45,9 +75,9 @@ def test_empty_input_uses_existing_lifecycle_failure_contract() -> None:
 
 
 def test_failure_partial_update_touches_only_contract_fields() -> None:
-    # partial update 边界区分 success / failure：
-    # success 只写 normalized_question；failure 允许写三个字段
-    # （normalized_question + status + failure_reason），但不覆盖 user_question。
+    # outcome update contract：success / failure 都返回三个字段
+    # （normalized_question / status / failure_reason），值表达不同 outcome；
+    # 两者都不覆盖 user_question。
     state = make_state("")
     update = normalize_input_node(state)
     assert set(update) == {"normalized_question", "status", "failure_reason"}
@@ -101,6 +131,11 @@ def test_no_cross_invoke_mutable_pollution() -> None:
 
 
 def test_repeated_calls_are_stable() -> None:
+    expected = {
+        "normalized_question": "查询 昨天的 GMV",
+        "status": AgentStatus.RUNNING,
+        "failure_reason": None,
+    }
     state = make_state("  查询  昨天的  GMV  ")
-    assert normalize_input_node(state) == {"normalized_question": "查询 昨天的 GMV"}
-    assert normalize_input_node(state) == {"normalized_question": "查询 昨天的 GMV"}
+    assert normalize_input_node(state) == expected
+    assert normalize_input_node(state) == expected

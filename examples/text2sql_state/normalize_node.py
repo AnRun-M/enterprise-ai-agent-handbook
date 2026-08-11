@@ -4,12 +4,16 @@
 - pure normalization function（normalization.py）：lexical normalization，无 Runtime 逻辑
 - Node adapter（本文件）：读取 State → 调用 pure function → 返回 partial State Update
 
-Failure contract（Gate A 冻结 + Gate B/C Review 修正）：
+Outcome contract（Gate A 冻结 + Gate B/C Review 修正）：
 - empty / whitespace-only = expected application input failure ≠ Runtime exception
-- 复用 status + failure_reason（AgentStatus.FAILED），不新造 normalization_error 类型
+- 复用 status + failure_reason（AgentStatus），不新造 normalization_error 类型
 - 不抛业务异常
-- failure 显式 invalidates derived normalized_question（写入 None），
-  防止旧派生值在 Graph State merge（默认覆盖语义）后残留
+- **T01 Node 对 normalized_question / status / failure_reason 形成完整
+  outcome update**（两者都不覆盖 user_question）：
+  - success 清理 stale failure state（写 RUNNING + failure_reason=None）
+  - failure 清理 stale normalized value（写 normalized_question=None）
+  - 理由：merge 语义下"不返回字段" = "保留已有字段值"；T01 Node 对自己
+    拥有的 outcome / derived fields 必须使上一 outcome 的 stale 值失效
 """
 
 from __future__ import annotations
@@ -25,17 +29,21 @@ _INVALID_INPUT_REASON = "empty question: no valid input after normalization"
 def normalize_input_node(state: Text2SQLState) -> dict:
     """读 user_question → 规范化 → 返回部分 State Update。
 
-    success：
-        {"normalized_question": <normalized>}
-        （仅写派生字段；user_question / status / failure_reason 不覆盖）
+    outcome update（三字段完整表达，值表达不同 outcome；不覆盖 user_question）：
+
+    success（valid input）：
+        {"normalized_question": <normalized>,
+         "status": AgentStatus.RUNNING,
+         "failure_reason": None}
+        （success 清理 stale failure state——旧 FAILED / failure_reason
+        在 merge 下不显式清空会残留）
 
     failure（empty / whitespace-only）：
         {"normalized_question": None,
          "status": AgentStatus.FAILED,
          "failure_reason": <reason>}
         （failure 显式 invalidates derived normalized_question，
-        防止旧派生值在 State merge 后残留——merge 语义下"不返回字段"
-        等于"保留已有字段值"；user_question 保留）
+        防止旧派生值在 State merge 后残留）
     """
     normalized = normalize_question(state["user_question"])
     if normalized is None:
@@ -44,4 +52,8 @@ def normalize_input_node(state: Text2SQLState) -> dict:
             "status": AgentStatus.FAILED,
             "failure_reason": _INVALID_INPUT_REASON,
         }
-    return {"normalized_question": normalized}
+    return {
+        "normalized_question": normalized,
+        "status": AgentStatus.RUNNING,
+        "failure_reason": None,
+    }

@@ -106,9 +106,12 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 - T01 **不应通过业务异常表达正常输入校验失败**——空输入是"应用输入无效"的预期结果，不是异常路径
 - **优先复用已有 State lifecycle / failure contract**：`status` + `failure_reason`（ch02 / manual AgentState 既有语义）
 - **不新造** `normalization_error` / `NormalizationFailureResult`——除非仓库事实证明现有契约无法承载；如无法承载，**标 Architecture Conflict，不自行扩 schema**
-- 推荐语义（Gate B/C Review 修正 2026-08-11）：
-  - success：`normalized_question` populated
-  - failure：existing lifecycle State Update（`status` + `failure_reason`）+ **`normalized_question` 显式写 `None`**——failure 显式 invalidates derived normalized_question，防止旧派生值在 Graph State merge（默认覆盖语义：不返回字段 = 保留已有值）后残留；+ 无语义解析（不进入 T02）
+- 推荐语义（Gate B/C Review 修正 2026-08-11，最终复审统一）：
+  - **T01 Node 对 `normalized_question` / `status` / `failure_reason` 形成完整 outcome update**（两者都不覆盖 `user_question`）：
+    - success：`normalized_question` populated + `status` = RUNNING + `failure_reason` cleared——**success 清理 stale failure state**（旧 FAILED / failure_reason 在 merge 下不显式清空会残留）
+    - failure：`normalized_question` = None + `status` = FAILED + `failure_reason` populated——**failure 显式 invalidates stale derived value**（防 merge 残留）
+  - 理由：merge 语义（默认覆盖）下"不返回字段" = "保留已有字段值"；T01 Node 对自己拥有的 outcome / derived fields 必须使上一 outcome 的 stale 值失效
+  - 无语义解析（不进入 T02）由 outcome 表达
 
 ## 九、Evidence（四列制）
 
@@ -164,7 +167,15 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 - 2026-08-11：**Gate B/C Review 修正已应用（feature/t01-input-normalization，等待最终复审）**：
   - **stale normalized_question 修复**：failure update 显式包含 `normalized_question: None`（Graph State merge 语义下"不返回字段"= "保留已有字段值"；不显式 invalidate 会让旧派生值在 merge 后残留，违反"empty input 不进入后续 semantic parsing"）。固定表述：**"failure 显式 invalidates derived normalized_question，防止旧派生值在 State merge 后残留"**（不再写"failure 时 normalized_question 不写入"）
   - **merge-semantics regression test**：`test_failure_invalidates_stale_normalized_question_after_merge`——初始 State 含 stale 值 + 空输入 → 断言 update 写 None 且模拟 `{**state, **update}` merge 后仍为 None
-  - **partial update 边界区分 success/failure**：success 只写 `normalized_question`；failure 允许写 `normalized_question` + `status` + `failure_reason` 三个字段（`test_failure_partial_update_touches_only_contract_fields`）
+  - **partial update 边界区分 success/failure**：success 只写 `normalized_question`；failure 允许写 `normalized_question` + `status` + `failure_reason` 三个字段（`test_failure_partial_update_touches_only_contract_fields`）——**最终复审修正：本表述已废弃**（见下一条记录，success 亦返回三字段完整 outcome update）
   - **evidence test 名称收窄**：`test_no_runtime_exception_on_any_input` → `test_node_handles_representative_string_inputs_without_exception`（有限 samples 不宣称"所有输入均无异常"；contract 与 test evidence 分开）
   - **whitespace policy 工程边界**：当前教学 contract 面向一般自然语言问题（连续 whitespace → 单空格）；不做 word rewriting / punctuation deletion / semantic extraction / SQL rewrite；不承诺 exact code blocks / whitespace-sensitive structured text / preformatted literals 的 whitespace-preserving 语义；不引入 quoted-string parser（`test_no_whitespace_preserving_promise_for_structured_text` 固定边界行为）
   - Gate B/C 状态保持：**等待 Review**；Status 仍 in_progress（Gate D / Merge / Gate E 未完成）。
+- 2026-08-11：**Gate B/C 最终复审修正已应用（等待最终复审）**：
+  - **success 路径 stale failure state 修复**：success update 显式包含三字段 `{"normalized_question": <normalized>, "status": RUNNING, "failure_reason": None}`——与 failure invalidates stale normalized_question 属同一 State outcome consistency 问题：merge 语义下旧 FAILED / failure_reason 在 success 后残留会让执行流仍处于失败状态。固定语义：valid input → normalized_question populated / status=RUNNING / failure_reason cleared；invalid input → normalized_question=None / status=FAILED / failure_reason populated
+  - **success merge regression**：`test_success_clears_stale_normalization_failure_after_merge`——初始 State 含上一轮 failure outcome（FAILED + failure_reason）+ valid input → 模拟 `{**state, **update}` merge 后断言 normalized_question 写入 / RUNNING / failure_reason=None
+  - **outcome update contract 统一**：不再区分"success 只写一个字段 / failure 写三个字段"——success 与 failure 都返回 `normalized_question` + `status` + `failure_reason` 三字段（值表达不同 outcome），两者都不覆盖 `user_question`（`test_success_contract_fields_and_original_preserved` / `test_failure_partial_update_touches_only_contract_fields`）。固定表述：**"T01 Node 对 normalized_question / status / failure_reason 形成完整 outcome update：success 清理 stale failure，failure 清理 stale normalized value"**
+  - **pure function 边界保持**：`normalize_question` 仍只返回 `str | None`；AgentStatus / failure_reason / Graph Runtime 完全不属于 pure function，lifecycle mapping 只属于 Node adapter
+  - **current.md 下一步编号顺延清理**（1-10 无重复）
+  - 其它复审结论保持：failure 显式 None / merge regression / representative-input evidence 命名 / whitespace policy boundary / 无 semantic extraction / 无 Context-Memory assembly / Integration deferred / T03 未实现
+  - Gate B/C 状态保持：**等待最终复审**；Status 仍 in_progress（Gate D / Merge / Gate E 未完成）。
