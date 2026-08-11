@@ -47,9 +47,8 @@ def test_first_failure_priority_is_deterministic(sql: str, expected_rule: str) -
         assert result.rule == expected_rule
 
 
-def test_combined_failures_count() -> None:
-    """precedence 证据数量以代码事实为准：9 组组合失败输入。"""
-    assert len(COMBINED_FAILURES) == 9
+# 注：COMBINED_FAILURES 当前为 9 组 precedence cases（描述性事实，非产品不变量）——
+# 测试用例数量由测试内容决定，不把"9"锁定为 contract。
 
 
 def test_rule_order_matches_observed_priority() -> None:

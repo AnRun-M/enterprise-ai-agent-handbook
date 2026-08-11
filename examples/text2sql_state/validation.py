@@ -43,15 +43,26 @@ RULE_ORDER: tuple[str, ...] = (
 RuleCheck = Callable[[str, AgentConfig], ValidationResult | None]
 
 
+def _statements(sql: str) -> tuple[str, ...]:
+    """过滤出有效语句：按分号切分并去除空白。
+
+    仅含分隔符 / 空白的输入（如 ";"、" ; ; "）返回空元组——
+    这是 empty 判定的依据，也保证后续规则不会对空语句做下标访问。
+    """
+    return tuple(s.strip() for s in sql.strip().split(";") if s.strip())
+
+
 def _rule_empty(sql: str, config: AgentConfig) -> ValidationResult | None:
-    if not sql.strip():
+    # empty 判定基于"有效 statement 数量 == 0"，而非仅 sql.strip()：
+    # 空字符串与仅分号 / 空白输入统一视为 empty SQL。
+    if not _statements(sql):
         return ValidationResult(ok=False, error="empty SQL", rule="empty")
     return None
 
 
 def _rule_multi_statement(sql: str, config: AgentConfig) -> ValidationResult | None:
     # 允许末尾单个分号，拒绝任何真正的多语句。
-    statements = [s.strip() for s in sql.strip().split(";") if s.strip()]
+    statements = _statements(sql)
     if len(statements) > 1:
         return ValidationResult(
             ok=False, error="multi-statement is not allowed", rule="multi_statement"
@@ -65,7 +76,9 @@ def _first_keyword(statement: str) -> str:
 
 
 def _rule_forbidden_keyword(sql: str, config: AgentConfig) -> ValidationResult | None:
-    statements = [s.strip() for s in sql.strip().split(";") if s.strip()]
+    statements = _statements(sql)
+    if not statements:  # 防御：无有效语句时不构成关键字失败（empty 已优先拦截）
+        return None
     keyword = _first_keyword(statements[0])
     if keyword in FORBIDDEN_STATEMENT_KEYWORDS:
         return ValidationResult(
@@ -77,7 +90,9 @@ def _rule_forbidden_keyword(sql: str, config: AgentConfig) -> ValidationResult |
 
 
 def _rule_select_only(sql: str, config: AgentConfig) -> ValidationResult | None:
-    statements = [s.strip() for s in sql.strip().split(";") if s.strip()]
+    statements = _statements(sql)
+    if not statements:  # 防御：无有效语句时不构成 select 失败（empty 已优先拦截）
+        return None
     keyword = _first_keyword(statements[0])
     if keyword != "select":
         return ValidationResult(

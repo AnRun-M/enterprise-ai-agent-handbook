@@ -116,5 +116,10 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
   1. **RULE_ORDER 单一事实源**：`_RULE_TABLE`（第二份有序 tuple）移除 → `_RULE_CHECKS: dict[str, RuleCheck]`（注册表，不携带顺序）；`RULE_ORDER` = runtime first-failure precedence 的唯一事实源；validate 按 `for rule in RULE_ORDER: _RULE_CHECKS[rule](...)` 执行——不再维护两份有序结构靠测试同步
   2. **Registry 完整性测试**：`test_rule_registry_complete_and_consistent`——`set(RULE_ORDER) == set(_RULE_CHECKS)`（双向覆盖）/ 无重复 rule / registry 与 order 数量一致 / 首条 empty
   3. **Review Gate 顺序恢复**：按 TASK-0029 冻结流程——**Gate B/C 通过 → Gate D Documentation（Ch22）→ Task Merge Gate → Merge → Gate E Integration Closure**；本轮修正后 PR #56 仍不 Merge（等待 Gate B/C 复审通过后进入 Gate D）
-  4. **precedence 证据数量修正（以代码事实为准）**：COMBINED_FAILURES 实际 **9 组**（非 10）——补 `test_combined_failures_count` 锁住；清理 "missing_limit vs limit_exceeds" 注释（同一 SQL 中缺 LIMIT 与 LIMIT 超限互斥）——missing_limit 独立验证其 precedence 位置，limit_exceeds 为后置规则单独覆盖
+  4. **precedence 证据数量修正（以代码事实为准）**：COMBINED_FAILURES 实际 **9 组**（非 10）；清理 "missing_limit vs limit_exceeds" 注释（同一 SQL 中缺 LIMIT 与 LIMIT 超限互斥）——missing_limit 独立验证其 precedence 位置，limit_exceeds 为后置规则单独覆盖；**不锁定"9"为产品不变量**（测试用例数量由测试内容决定，数量不决定测试内容）
   5. 边界保持：三字段契约 / rule-error 语义分离 / manual 零修改 / Integration Status = deferred / 不宣称 e2e verified / 不进入 T06-T07 / 不扩展 AST-生产 SQL 安全
+- 2026-08-11：**PR #56 Gate B/C 最终复审修正**（commit：fix: make sql validator total for empty statements）：
+  1. **separator-only SQL IndexError 修复（total contract）**：";" / ";;;" / " ; ; " 此前在 forbidden/select 规则访问 statements[0] 时抛 IndexError——新增共享 helper `_statements(sql)`（分号切分 + 去空白，返回 tuple）；`_rule_empty` 判定改为"有效 statement 数量 == 0"（而非仅 `sql.strip()`）；forbidden_keyword / select_only 增加防御（无有效语句返回 None，不依赖"前面规则碰巧拦截"）；**任何 SQL string → ValidationResult，无异常路径**
+  2. **total-contract 测试**：`test_total_contract_separator_only_sql`（";" / ";;;" / " ; ; " 参数化）断言不抛异常 / ok=False / rule="empty" / error 非空诊断（rule = machine decision、error = human diagnostics 保留）
+  3. **删除 `test_combined_failures_count`**：不把 9 锁定为 contract；保留 precedence 各 case expected rule / 3 次重复稳定性 / observed 与 RULE_ORDER 一致 / registry-完整性
+  4. **Evidence 数量以最终 pytest 为准**：113 passed（57 原有 + 56 新增；= 111 - 1 count 删除 + 3 separator-only + 1 registry-完整性等）——"测试内容决定数量，数量不决定测试内容"；正文不写死测试数量
