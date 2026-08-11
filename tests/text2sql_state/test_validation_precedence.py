@@ -16,8 +16,8 @@ def make_validator() -> RuleBasedSQLValidator:
     return RuleBasedSQLValidator(AgentConfig())
 
 
-# 每条规则一个"同时命中该规则与若干后续规则"的组合输入，
-# 断言总是返回 RULE_ORDER 中较前的规则。
+# 9 组 priority / combined-failure inputs（每组 = 命中该规则，且若同时命中后续规则
+# 必须返回 RULE_ORDER 中较前的规则；重复执行确认确定性，不随执行状态漂移）。
 COMBINED_FAILURES = [
     # empty（最先）vs 其余：空输入同时"缺 LIMIT"
     ("", "empty"),
@@ -30,19 +30,26 @@ COMBINED_FAILURES = [
     # select_only vs missing_limit
     ("SELECTED something", "select_only"),
     ("WITH x AS (SELECT 1) SELECT * FROM x LIMIT 10", "select_only"),
-    # missing_limit vs limit_exceeds（无 LIMIT 时不可能超限，但构造缺 LIMIT + 结构问题）
+    # missing_limit：独立验证其 precedence 位置（缺 LIMIT 与 LIMIT 超限在同一 SQL 中
+    # 不能同时成立——missing LIMIT 与 limit exceeds 是互斥状态）
     ("SELECT * FROM orders", "missing_limit"),
-    # limit_exceeds（单一规则输入）
+    # limit_exceeds：后置规则，单独覆盖（其组合场景已被 forbidden_keyword /
+    # select_only / missing_limit 的 precedence 覆盖）
     ("SELECT * FROM orders LIMIT 2000", "limit_exceeds"),
 ]
 
 
 @pytest.mark.parametrize(("sql", "expected_rule"), COMBINED_FAILURES)
 def test_first_failure_priority_is_deterministic(sql: str, expected_rule: str) -> None:
-    for _ in range(3):  # 重复执行，确认不随执行状态漂移
+    for _ in range(3):  # 9 组 × 3 重复执行，确认不随执行状态漂移
         result = make_validator().validate(sql)
         assert result.ok is False
         assert result.rule == expected_rule
+
+
+def test_combined_failures_count() -> None:
+    """precedence 证据数量以代码事实为准：9 组组合失败输入。"""
+    assert len(COMBINED_FAILURES) == 9
 
 
 def test_rule_order_matches_observed_priority() -> None:

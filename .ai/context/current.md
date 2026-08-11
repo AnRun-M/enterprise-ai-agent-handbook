@@ -219,7 +219,7 @@
 
 ## 下一步
 
-1. **T05 implementation task（SQL 静态校验，首个 implementation task，TASK-0030）**：T01-T12 Execution Planning 完成（TASK-0029，PR #53）。**T05 实施顺序固定**：Gate A Contract 冻结 → Implementation → Unit/Regression/Failure tests → Documentation → Merge → Gate E Integration Closure（等 T06/T07 进 main 后，deferred → closed）。**当前阶段：Gate A 已完成**（ValidationResult 职责边界 / 三字段输入输出 contract（ok / error / rule，向后兼容保留）/ 兼容策略（backward compatibility 优先、教学基线不动）/ 测试证据基线（manual validator 8 用例）；未写代码、未改字段结构）；**等待 Gate A 确认后进入 Implementation**（text2sql_state 校验器深度化）。T05 完成后按 Wave 推进其余 T01-T12（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式）。
+1. **T05 implementation task（SQL 静态校验，首个 implementation task，TASK-0030）**：T01-T12 Execution Planning 完成（TASK-0029，PR #53）。**T05 实施顺序（TASK-0029 冻结）**：Gate A → Gate B Implementation → Gate C Tests/Evidence → Gate D Documentation → Task Merge Gate → Gate E Integration Closure（等 T06/T07 进 main 后，deferred → closed）。**当前阶段：Gate A APPROVED（PR #55）+ Gate B/C 完成**（text2sql_state 规则表驱动校验器；RULE_ORDER 单一事实源 + registry 完整性测试；precedence 9 组 × 3 锁单测；manual 回归对照 17 输入一致；110 tests passed）——**PR #56 待 Gate B/C 复审，通过后进入 Gate D（Ch22 T05 文档），再 Task Merge Gate**。T05 完成后按 Wave 推进其余 T01-T12（Chapter 19 起，按需使用 StateGraph API——选项 3 执行方式）。
 2. **Chapter 17 Ending maintenance（TASK-0027）已完成**：Chapter 17 Ending 句已修正为与冻结决策一致（"下一部分将进入 StateGraph 构图与 Graph Runtime 执行模型——图如何被组装、compile 如何将其转换为可执行 Runtime、invoke/stream 如何驱动执行，而不是重新定义这些运行时概念"），独立 PR 合并完成（commit b93f9a5）。
 3. **Chapter 18 正文初稿（2026-08-08，TASK-0028，本任务；Part 04 前置章）**：
   - `docs/04-text2sql/ch18-stategraph-graph-runtime.md`：18.1-18.10，Q1-Q10，5 张 Mermaid 图

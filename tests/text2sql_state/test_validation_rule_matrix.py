@@ -52,10 +52,14 @@ def test_rule_matrix_accept_cases(sql: str) -> None:
     assert result.rule is None
 
 
-def test_rule_order_is_stable_and_complete() -> None:
-    """RULE_ORDER 是 first-failure priority 的唯一事实源，且覆盖全部规则表。"""
-    from examples.text2sql_state.validation import _RULE_TABLE
+def test_rule_registry_complete_and_consistent() -> None:
+    """Registry 完整性：RULE_ORDER 与 _RULE_CHECKS 双向覆盖、无重复、无未注册规则。
 
-    assert RULE_ORDER == tuple(name for name, _ in _RULE_TABLE)
-    assert len(RULE_ORDER) == 6
+    RULE_ORDER 是 first-failure precedence 的唯一事实源；_RULE_CHECKS 只提供查找。
+    """
+    from examples.text2sql_state.validation import _RULE_CHECKS
+
+    assert set(RULE_ORDER) == set(_RULE_CHECKS)  # 双向覆盖：无 order 未注册 / 无 registry 未进 order
+    assert len(RULE_ORDER) == len(set(RULE_ORDER))  # 无重复 rule
+    assert len(_RULE_CHECKS) == len(RULE_ORDER)  # registry 与 order 数量一致
     assert RULE_ORDER[0] == "empty"  # 空输入最先，其余顺序不得随意变更

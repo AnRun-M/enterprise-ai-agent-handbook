@@ -109,6 +109,12 @@ Gate A（本文件）→ Gate B Implementation → Gate C Tests / Evidence（Con
 - 2026-08-08：**Gate B Implementation 完成**（commit：feat: implement t05 sql validator with deterministic rules）：
   - `examples/text2sql_state/validation.py`：规则表驱动 `RuleBasedSQLValidator` + `RULE_ORDER`（empty / multi_statement / forbidden_keyword / select_only / missing_limit / limit_exceeds——与 manual 名空间完全一致）+ 单 rule 输出（first-failure priority）
   - 复用 manual `ValidationResult` / `AgentConfig`（不复制、不新造第二套结果模型）；教学基线 manual 零改动
-  - **Gate C Tests 完成**：`tests/text2sql_state/` 四件套——rule matrix（13 失败 + 4 接受 + RULE_ORDER 稳定性）/ manual 回归对照（17 输入逐项 (ok, rule, error) 一致）/ precedence 锁单测（10 组合失败 × 3 重复 + observed 顺序与 RULE_ORDER 一致）/ 三字段兼容断言（返回类型 / 成功失败字段契约 / error ≠ rule 语义分离）
+  - **Gate C Tests 完成**：`tests/text2sql_state/` 四件套——rule matrix（13 失败 + 4 接受 + registry 完整性）/ manual 回归对照（17 输入逐项 (ok, rule, error) 一致）/ precedence 锁单测（**9 组组合失败 × 3 重复** + observed 顺序与 RULE_ORDER 一致）/ 三字段兼容断言（返回类型 / 成功失败字段契约 / error ≠ rule 语义分离）
   - 全量 `pytest` 110 passed（57 原有 + 53 新增）；`ruff check .` / `mkdocs build --strict` / `git diff --check` 全过
-  - Ch22 文档按用户指定顺序**留待 Gate D**（先钉 contract 行为，再写文档）
+  - **Ch22 文档按 TASK-0029 冻结流程在 Gate D 阶段完成**（先钉 contract 行为，再写文档）
+- 2026-08-11：**PR #56 Gate B/C Review 修正**（commit：fix: enforce validator rule precedence contract）：
+  1. **RULE_ORDER 单一事实源**：`_RULE_TABLE`（第二份有序 tuple）移除 → `_RULE_CHECKS: dict[str, RuleCheck]`（注册表，不携带顺序）；`RULE_ORDER` = runtime first-failure precedence 的唯一事实源；validate 按 `for rule in RULE_ORDER: _RULE_CHECKS[rule](...)` 执行——不再维护两份有序结构靠测试同步
+  2. **Registry 完整性测试**：`test_rule_registry_complete_and_consistent`——`set(RULE_ORDER) == set(_RULE_CHECKS)`（双向覆盖）/ 无重复 rule / registry 与 order 数量一致 / 首条 empty
+  3. **Review Gate 顺序恢复**：按 TASK-0029 冻结流程——**Gate B/C 通过 → Gate D Documentation（Ch22）→ Task Merge Gate → Merge → Gate E Integration Closure**；本轮修正后 PR #56 仍不 Merge（等待 Gate B/C 复审通过后进入 Gate D）
+  4. **precedence 证据数量修正（以代码事实为准）**：COMBINED_FAILURES 实际 **9 组**（非 10）——补 `test_combined_failures_count` 锁住；清理 "missing_limit vs limit_exceeds" 注释（同一 SQL 中缺 LIMIT 与 LIMIT 超限互斥）——missing_limit 独立验证其 precedence 位置，limit_exceeds 为后置规则单独覆盖
+  5. 边界保持：三字段契约 / rule-error 语义分离 / manual 零修改 / Integration Status = deferred / 不宣称 e2e verified / 不进入 T06-T07 / 不扩展 AST-生产 SQL 安全

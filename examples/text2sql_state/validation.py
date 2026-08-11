@@ -30,7 +30,7 @@ FORBIDDEN_STATEMENT_KEYWORDS = frozenset(
 
 # 确定性 first-failure priority（唯一事实源）。
 # 顺序与 manual FakeSQLValidator 的隐式检查顺序一致（行为兼容）；
-# 新增规则必须在此显式登记，且不得改变既有规则的相对顺序。
+# 新增规则 = 在 _RULE_CHECKS 注册 + 在此追加，不得改变既有规则的相对顺序。
 RULE_ORDER: tuple[str, ...] = (
     "empty",
     "multi_statement",
@@ -107,20 +107,21 @@ def _rule_limit_exceeds(sql: str, config: AgentConfig) -> ValidationResult | Non
     return None
 
 
-# 规则表：顺序 = RULE_ORDER（first-failure priority 的实现载体）。
-# 新增规则 = 在此登记 + 更新 RULE_ORDER；不得改变既有相对顺序。
-_RULE_TABLE: tuple[tuple[str, RuleCheck], ...] = (
-    ("empty", _rule_empty),
-    ("multi_statement", _rule_multi_statement),
-    ("forbidden_keyword", _rule_forbidden_keyword),
-    ("select_only", _rule_select_only),
-    ("missing_limit", _rule_missing_limit),
-    ("limit_exceeds", _rule_limit_exceeds),
-)
+# 规则注册表（registry）：rule 名 → 检查函数。
+# 本表**不携带顺序**——顺序唯一事实源是 RULE_ORDER。
+# 新增规则 = 在此注册 + 追加到 RULE_ORDER（registry 与 order 必须同步，测试锁住）。
+_RULE_CHECKS: dict[str, RuleCheck] = {
+    "empty": _rule_empty,
+    "multi_statement": _rule_multi_statement,
+    "forbidden_keyword": _rule_forbidden_keyword,
+    "select_only": _rule_select_only,
+    "missing_limit": _rule_missing_limit,
+    "limit_exceeds": _rule_limit_exceeds,
+}
 
 
 class RuleBasedSQLValidator:
-    """T05 静态校验器：规则表驱动、确定性优先级、单 rule 输出。
+    """T05 静态校验器：规则注册表驱动、确定性优先级、单 rule 输出。
 
     输出始终为 examples.manual_agent_loop.types.ValidationResult 的三字段契约
     （ok / error / rule）——与 manual 结果模型完全兼容。
@@ -130,8 +131,10 @@ class RuleBasedSQLValidator:
         self._config = config
 
     def validate(self, sql: str) -> ValidationResult:
-        for name, check in _RULE_TABLE:
-            result = check(sql, self._config)
+        # RULE_ORDER = runtime first-failure precedence 的唯一事实源；
+        # _RULE_CHECKS 只提供查找，不参与顺序决策。
+        for rule in RULE_ORDER:
+            result = _RULE_CHECKS[rule](sql, self._config)
             if result is not None:
                 return result
         return ValidationResult(ok=True)
