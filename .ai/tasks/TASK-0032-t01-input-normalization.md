@@ -14,7 +14,7 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t01-input-normalization，本分支）；Gate D / Task Merge / Gate E 待后续。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t01-input-normalization，本分支）；Gate D Documentation 已完成（第 19 章 T01 部分，draft）；Task Merge Gate / Gate E 待后续。**
 
 ---
 
@@ -133,9 +133,10 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
 ## 十一、Review Gate（统一）
 
 - Gate A Architecture / Contract：**completed**（PR #59 Architecture Review 通过并合并）
-- Gate B Implementation（`examples/text2sql_state` 输入规范化实现）：**completed**（本分支）
+- Gate B Implementation（`examples/text2sql_state` 输入规范化实现）：**completed**（本分支，两轮 Review 修正后最终复审 APPROVED）
 - Gate C Tests / Evidence：**completed**（pytest / ruff / mkdocs --strict 通过）
-- 等待 **Gate B/C Architecture + Implementation Review** → Gate D（Ch19 候选 T01 部分）→ Task Merge Gate → Gate E（等 T02 进 main，deferred → closed）
+- Gate D Documentation（第 19 章 T01 可证实部分）：**completed**（`docs/04-text2sql/ch19-input-normalization-intent.md`，draft 状态；T02 部分 pending）
+- **等待 Task Merge Gate 最终 Review** → Task Merge → Gate E（等 T02 进 main，deferred → closed）
 
 ## 验收标准（Gate A 阶段）
 
@@ -179,3 +180,15 @@ canonical T01 旧描述中的"参数化"按此解释（属于 T02 的语义参�
   - **current.md 下一步编号顺延清理**（1-10 无重复）
   - 其它复审结论保持：failure 显式 None / merge regression / representative-input evidence 命名 / whitespace policy boundary / 无 semantic extraction / 无 Context-Memory assembly / Integration deferred / T03 未实现
   - Gate B/C 状态保持：**等待最终复审**；Status 仍 in_progress（Gate D / Merge / Gate E 未完成）。
+- 2026-08-11：**Gate B/C 最终复审 APPROVED**。
+- 2026-08-11：**Gate D Documentation 完成（feature/t01-input-normalization）**：
+  - 创建 `docs/04-text2sql/ch19-input-normalization-intent.md`（状态：**draft**，T01 部分；T02 pending 明确标注）——按 TASK-0029 Candidate Mapping（Ch19 = T01 + T02）只完成 T01 可证实部分
+  - 结构 19.1-19.10：从原始请求到规范化输入 / Original vs Derived / Lexical Normalization Contract / Pure Function-Node Adapter / Outcome State Update / Stale State-Merge Semantics / Failure-Idempotency / Evidence 与测试边界 / T02 接口 / 当前边界
+  - 固定主线逐字保持；四列制证据；已验证 12 项 / 未验证 6 项；正文不写死 pytest 数量
+  - 关键工程语义落正文：完整 outcome update（success 清 stale failure / failure 清 stale normalized）+ merge 语义原则 + Whitespace Policy 冻结边界 + "T01 ends where semantic interpretation begins."
+  - 3 张 Mermaid（pipeline / outcome→merge / stale 双向清理）
+  - `docs/04-text2sql/index.md` 新增"输入与意图"分区；`mkdocs.yml` 新增第 19 章导航
+  - content-map 未修改（仓库无 ch19-ch25 逐章行惯例，Part 4 聚合行保持"进行中"）
+  - **未提前宣布 Chapter 19 completed**（T02 pending）；未修改 ROADMAP
+  - Evidence：**Contract-level verified**；Integration：**deferred**
+  - 等待 Task Merge Gate 最终 Review；Status 仍 in_progress。
