@@ -2,7 +2,7 @@
 
 日期：2026-08-05
 
-阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**T01-T12 Execution Planning 完成**（TASK-0029，PR #53，2026-08-08）；**下一步 T05 implementation task（SQL 静态校验，首个 implementation task）**；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
+阶段：**Part 03（LangGraph Core Runtime Execution Model）完成**（Chapter 08-17 全部最终完成，2026-08-07，Part 03 Release Audit 通过，TASK-0025）；**v0.4.0 完成**；**Part 04 进行中**（v0.5.0：Text-to-SQL 重构）——前置章 Chapter 18 最终完成（PR #51）；**T01-T12 Execution Planning 完成**（TASK-0029，PR #53）；**T05 implementation task 完成**（TASK-0030，PR #56，首个 implementation task）；**下一步按 Recommended Implementation Waves 优先进入 T01 / T03**；v0.5.0 尚未宣布完成；`v0.3.0` 全部完成（Chapter 01-07 最终完成，Part 02 收官）
 
 ## 已完成
 
@@ -240,6 +240,13 @@
    - 预计包含：Runnable / RunnableSequence / RunnableParallel / RunnableBranch / LCEL / PromptTemplate / ChatModel / Messages / Tool Calling / Middleware / create_agent / AgentExecutor（如保留）/ Structured Output / LangSmith（如果未来规划）
    - 原则：LangGraph 可独立使用；LangChain 是更高层 Framework；Part 03 不出现 LangChain API（LangGraph Node 可包装 Runnable，仅作一句边界）
    - 约束：future planning；当前**不修改** ROADMAP Part 编号、content-map、mkdocs.yml；**不新增** TASK 正式文件、不新增章节；Part 03 完成后再单独执行 Scope Planning
+6. **Future Backlog：Agent Workflow Patterns Scope Planning**（TASK-0031，proposed 登记，v0.6.0+，不立即执行）：
+   - 候选 Topics（**14**，统一 7 字段模板）：ReAct / Router / Sequential Workflow / StateGraph Workflow / Planner-Executor / Reflection / Retry / Human-in-the-loop / Map-Reduce / Supervisor / Multi-Agent / Hierarchical Agent / **Evaluator-Optimizer** / **Tool Calling**
+   - 分类（**七大**）：Execution / Coordination / Planning / Recovery / Human Interaction / **Evaluation** / **Tool Interaction** Patterns
+   - **Pattern Taxonomy（唯一组织方式）**：未来新增 Pattern 必须先归入七类之一，不得新增孤立 Pattern；固定表述"**Pattern 是框架无关的架构与执行模式；框架提供这些 Pattern 的一种或多种实现方式**（LangGraph / OpenAI Agents SDK / Google ADK / CrewAI / AutoGen / Claude 都只是实现之一）"（Evaluator-Optimizer 不讨论供应商 Judge；Tool Calling 不讨论 Function Calling / Tool Use / MCP）
+   - **Runtime-first，Framework-second**：每个 Pattern 是"一种 Runtime Workflow Pattern，LangGraph 可以表达，但 Pattern 不属于 LangGraph"；只引用 ch08-18，不重新定义冻结语义
+   - Roadmap：**当前 v0.5.0 专注 Text-to-SQL Runtime Refactor；完成后才进入 Agent Workflow Patterns（v0.6.0+）**——不提前启动
+   - 约束：不影响当前 T01-T12；不修改 ROADMAP / content-map / mkdocs / Runtime Handbook / Part 03-04；不启动任何 Pattern 教学
 
 ## 当前阻塞
 
