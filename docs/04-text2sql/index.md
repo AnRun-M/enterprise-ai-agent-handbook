@@ -4,6 +4,10 @@
 
 - [第 18 章：StateGraph 构图与 Graph Runtime 执行模型](ch18-stategraph-graph-runtime.md)（Part 03 语义如何组装成可执行 Graph：定义图 → 注册组件 → 连接控制流 → compile → invoke/stream → 与 Part 03 对照）
 
+## 校验与修复
+
+- [第 22 章：SQL 校验与修复循环](ch22-sql-validation-repair-loop.md)（T05：rule/error 分离、Rule Namespace、First-Failure Priority、Total Contract；T07 Repair Loop 待补充）
+
 ## 重构流程
 
 ```text
