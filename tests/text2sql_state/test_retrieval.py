@@ -92,6 +92,9 @@ def test_empty_criteria_is_contract_violation() -> None:
 # ---------------------------------------------------------------- provenance
 
 def test_provenance_source_ref_and_evidence() -> None:
+    # provenance identity chain（fake source contract evidence，非生产 catalog 已验证）：
+    # criteria "orders" → source index "orders" → CatalogEntry.key "orders"
+    # → RetrievalReference.source_ref "catalog-v1:orders"
     result = make_retriever().retrieve(RetrievalCriteria(keys=("orders",)))
     ref = result.references[0]
     assert ref.source_ref == "catalog-v1:orders"
@@ -178,6 +181,44 @@ def test_source_input_not_modified_by_retrieval() -> None:
     make_retriever(source).retrieve(RetrievalCriteria(keys=("orders", "gmv")))
     after = source.lookup("orders")
     assert after == before
+
+
+def test_source_rejects_entry_key_mismatch() -> None:
+    # source identity contract：index_key 与 CatalogEntry.key 必须一致——
+    # mismatch 会在 lookup 时造成 silent provenance corruption
+    # （lookup("orders") 却产出 source_ref=catalog:customers），
+    # 必须在 source construction 即 fail fast，不进入 lookup / Retriever。
+    mismatched = CatalogEntry(
+        key="customers",
+        kind=CatalogEntryKind.SCHEMA,
+        content="...",
+        evidence="v1",
+    )
+    with pytest.raises(ValueError, match="must match source index key"):
+        InMemoryMetadataSource(
+            name="catalog",
+            entries={"orders": (mismatched,)},
+        )
+
+
+def test_source_snapshot_isolated_from_caller_container() -> None:
+    # constructor copy / snapshot isolation：调用方后续修改原始 entries
+    # 容器不影响 source 已建立的 read-only snapshot
+    # （不是"整个对象绝对 immutable"声明——只证明 read-only source snapshot）。
+    caller_entries = {
+        "orders": (
+            CatalogEntry(
+                key="orders",
+                kind=CatalogEntryKind.SCHEMA,
+                content="orders: order_id",
+                evidence="v1",
+            ),
+        )
+    }
+    source = InMemoryMetadataSource(name="catalog", entries=caller_entries)
+    before = source.lookup("orders")
+    caller_entries["orders"] = ()  # 调用方修改原始容器
+    assert source.lookup("orders") == before
 
 
 def test_no_hidden_mutable_global_state() -> None:

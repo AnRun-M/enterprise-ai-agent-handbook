@@ -206,3 +206,13 @@ retrieval criteria
   - **同步**：把"unknown kind Enum 构造失败"口径收窄为"**CatalogEntry source boundary 运行时拒绝非 CatalogEntryKind；Enum 本身也拒绝未知值**"
   - 其它 contract 全部保持：sorted(set(keys)) / permutation invariance / duplicate dedup / empty = ValueError / UNAVAILABLE full scan + payload policy A / outcome priority / 五态 / Node lifecycle 边界 / State 边界 / Integration deferred
   - Gate B/C 状态：**修正中，等待最终确认**；Status 仍 in_progress；不得进入 Gate D。
+- 2026-08-12：**Gate B/C 最终复审修正已应用（source identity contract，等待最终确认）**：
+  - **source index / entry identity validation**：`InMemoryMetadataSource.__init__` 构造阶段校验每个 index_key 下的 `CatalogEntry.key == index_key`，mismatch 即 `raise ValueError("CatalogEntry.key must match source index key: ...")`——防止 silent provenance corruption（lookup("orders") 却产出 `source_ref=catalog:customers`）；构造时失败，不进入 lookup / Retriever / Retrieval Outcome
+  - **固定原则（新增）**：**"Source index identity must agree with entry identity."** + **"Provenance correctness starts at source construction, not at retrieval output formatting."**（权威源索引键与事实条目标识必须一致；provenance 的正确性从 source construction 开始，而不是在 Retriever 输出时修补）
+  - **不在 Retriever 掩盖 malformed source**：禁止用 criteria_key 拼 source_ref 掩盖 entry.key mismatch——Retriever 消费已通过 source contract validation 的 entries。Validation 分层更新为四层：① CatalogEntry construction = field runtime validation ② InMemoryMetadataSource construction = index / entry identity validation ③ MetadataRetriever = trusted source consumption ④ RetrievalReference = provenance output（+⑤ Retriever else = defensive impossible-branch protection）
+  - **mismatch contract test**：`test_source_rejects_entry_key_mismatch`——key="customers" 的 entry 放入 index "orders" → ValueError（match 断言）
+  - **provenance identity chain 正向证据**：criteria "orders" → source index "orders" → CatalogEntry.key "orders" → `source_ref=catalog-v1:orders` 完整 chain（仍为 fake source contract evidence，不宣称生产 catalog 已验证）
+  - **收窄 immutable 表述**：InMemoryMetadataSource docstring"构造后不可变"→ **read-only source snapshot**（构造时复制调用方 entries，公开 API 仅只读 lookup，调用方后续修改原始容器不影响 source snapshot；不声称 Python 对象绝对 immutable）
+  - **snapshot isolation test**：`test_source_snapshot_isolated_from_caller_container`——修改 caller_entries 后 source.lookup 结果不变（constructor copy / snapshot isolation 方向）
+  - 其它 contract 全部保持：CatalogEntry.kind runtime validation / Enum strictness / full scan / outcome priority / UNAVAILABLE payload policy A / empty = violation / sorted(set(keys)) / permutation invariance / duplicate dedup / 五态 / Node lifecycle 边界 / State 边界 / Integration deferred
+  - Gate B/C 状态：**修正中，等待最终确认**；Status 仍 in_progress；不得进入 Gate D。

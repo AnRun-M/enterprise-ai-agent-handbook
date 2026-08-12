@@ -69,11 +69,24 @@ class SourceLookup:
 
 
 class InMemoryMetadataSource:
-    """确定性的 fake 权威源（教学规模）。
+    """确定性的 fake 权威源（read-only source snapshot，教学规模）。
 
-    构造后不可变（frozen entries / frozenset unavailable），
-    lookup 只读——保证 deterministic repeated retrieval 与
-    无隐藏可变全局状态。
+    **Source identity validation**（最终复审修正）：
+    - 构造阶段校验每个 index_key 下的 `CatalogEntry.key == index_key`——
+      mismatch 会造成 silent provenance corruption（lookup("orders") 却
+      产出 `source_ref=catalog:customers`），构造即 fail fast，
+      不进入 lookup / Retriever / Retrieval Outcome
+    - 固定原则："Source index identity must agree with entry identity."
+      "Provenance correctness starts at source construction,
+      not at retrieval output formatting."（权威源索引键与事实条目标识
+      必须一致；provenance 的正确性从 source construction 开始，
+      而不是在 Retriever 输出时修补）
+
+    **Snapshot semantics**：构造时复制调用方 entries 为 read-only
+    source snapshot——公开 API 仅暴露只读 lookup；调用方后续修改原始
+    输入容器不会改变 source snapshot。**不声称 Python 对象绝对
+    immutable**（内部为私有 dict 拷贝），保证 deterministic repeated
+    retrieval 与无隐藏可变全局状态。
     """
 
     def __init__(
@@ -83,7 +96,15 @@ class InMemoryMetadataSource:
         unavailable: frozenset[CatalogKey] = frozenset(),
     ) -> None:
         self._name = name
-        # 拷贝入不可变映射，防止调用方后续修改影响 source
+        # 1) index / entry identity validation：mismatch 构造即失败
+        for index_key, values in entries.items():
+            for entry in values:
+                if entry.key != index_key:
+                    raise ValueError(
+                        "CatalogEntry.key must match source index key: "
+                        f"index={index_key!r}, entry.key={entry.key!r}"
+                    )
+        # 2) 拷贝为 read-only snapshot（调用方后续修改原始容器不影响 source）
         self._entries = {k: tuple(v) for k, v in entries.items()}
         self._unavailable = frozenset(unavailable)
 

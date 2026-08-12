@@ -19,11 +19,16 @@ Gate A 冻结（TASK-0033）+ Gate B/C Review 修正：
   五态只描述"合法 retrieval criteria 查询权威源后的结果"
 
 Validation 分层（最终复审明确）：
-1. **CatalogEntry construction = source contract validation**（metadata_source.py
-   `__post_init__` 运行时拒绝非 CatalogEntryKind——malformed source data 在
-   source boundary 即 fail fast，主要校验路径）
-2. **Retriever = 消费已验证的 CatalogEntry**（本文件只读已通过校验的 entries）
-3. **Retriever 内未知 kind 的 else = defensive impossible-branch protection**
+1. **CatalogEntry construction = field runtime validation**（metadata_source.py
+   `__post_init__` 运行时拒绝非 CatalogEntryKind）
+2. **InMemoryMetadataSource construction = index / entry identity validation**
+   （`entry.key == index_key` 构造即失败——provenance 正确性从 source
+   construction 开始，不在 Retriever 输出时修补）
+3. **MetadataRetriever = trusted source consumption**（本文件只读已通过
+   source contract validation 的 entries）
+4. **RetrievalReference = provenance output**（source_ref 只由已验证的
+   entry identity 产生，不掩盖 mismatch）
+5. **Retriever 内未知 kind 的 else = defensive impossible-branch protection**
    （Enum 已封顶 + 构造已校验；不把 malformed data 拖到 materialization
    中途作为主要校验路径）
 """
