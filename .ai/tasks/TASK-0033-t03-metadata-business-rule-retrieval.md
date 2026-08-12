@@ -191,10 +191,18 @@ retrieval criteria
   - **order-dependency 修复**：取消 UNAVAILABLE early return——完整扫描所有 criteria keys，扫描完成后统一计算 outcome。固定原则：**"Outcome priority ≠ iteration short-circuit."** + **"除非 contract 明确声明顺序有业务语义，retrieval criteria 的排列顺序不应改变逻辑检索结果"**
   - **UNAVAILABLE payload policy（策略 A）**：整体 outcome = UNAVAILABLE 时仍保留其它可成功读取 key 的 references / materialized facts（与 PARTIAL"保留找到事实"理念连续）；与 criteria 顺序无关
   - **empty criteria = consumed-contract violation**：`raise ValueError("retrieval criteria must contain at least one key")`——撤销"empty = COMPLETE"（Gate B 新增业务决策，非 Gate A 冻结）；NOT_FOUND ≠ 无 criteria、UNAVAILABLE ≠ invalid criteria；不新增第六个 RetrievalOutcome；未来 T02 若需"合法零事实请求"必须返回 Architecture Review 显式设计
-  - **strict CatalogEntry kind**：`CatalogEntryKind` Enum（SCHEMA / BUSINESS_RULE），`CatalogEntry.kind` 强类型，Retriever 用 Enum 比较 + 防御性 fail-fast——未知 kind 不得静默忽略。原则：**"Retrieval Outcome describes authoritative lookup semantics; malformed source data is a contract error."**（不为其新增 RetrievalOutcome）
+  - **strict CatalogEntry kind**：`CatalogEntryKind` Enum（SCHEMA / BUSINESS_RULE），`CatalogEntry.kind` 强类型，Retriever 用 Enum 比较 + 防御性 fail-fast——未知 kind 不得静默忽略。原则：**"Retrieval Outcome describes authoritative lookup semantics; malformed source data is a contract error."**（不为其新增 RetrievalOutcome）——**最终复审修正：kind 标注升级为 CatalogEntry 构造级运行时校验（`__post_init__` 拒绝非 CatalogEntryKind，TypeError fail-fast）——"Static type annotation ≠ runtime contract validation."；malformed source data 在 source boundary 失败，不进入 Retrieval Outcome 语义**（见下一条记录）
   - **permutation-invariance evidence**：新增（orders, gmv）↔（gmv, orders）完全相等；（orders, broken_source）↔（broken_source, orders）完全相等；（orders, ambiguous_metric, broken_source）全部 6 排列 outcome 恒 UNAVAILABLE 且结果一致——输出经 `sorted(set(keys))` canonical 化（去重 + 排序），等价 criteria set → 等价 RetrievalResult
   - **duplicate keys 去重**：criteria 视为逻辑 key set——（orders, orders）不产生重复 facts / references
   - evidence 三类区分：repeated deterministic / permutation-invariance / source-contract strictness
   - lifecycle 边界保持：Node 只写 retrieval_result，不写 status / failure_reason / next_action / route；State 边界保持（教学规模选择）
   - **清理旧事实**：empty = COMPLETE / unavailable early return 是最终 contract / deterministic 仅等同 same tuple / CatalogEntry.kind 可任意 str / unknown kind 可静默忽略
   - Gate B/C 状态：**修正中，等待最终复审**；Status 仍 in_progress；不得进入 Gate D。
+- 2026-08-12：**Gate B/C 最终复审修正已应用（CatalogEntry runtime contract，等待最终确认）**：
+  - **CatalogEntry runtime strictness**：`kind: CatalogEntryKind` 仅是静态类型标注——dataclass 不会自动在 runtime 校验类型；新增 `__post_init__` 运行时校验（`not isinstance(self.kind, CatalogEntryKind)` → `raise TypeError("CatalogEntry.kind must be a CatalogEntryKind")`）——malformed source entry 在进入 Retriever 前 fail fast
+  - **固定原则（新增）**：**"Static type annotation ≠ runtime contract validation."**（静态类型标注不等于运行时契约校验）；**"Malformed authoritative-source data should fail at the source boundary before retrieval semantics are evaluated."**（畸形权威源数据应在 source boundary 失败，而不是进入 Retrieval Outcome 语义）
+  - **source-contract test**：`test_catalog_entry_rejects_non_enum_kind_at_construction`——`CatalogEntry(key="x", kind="unknown_typo", ...)`（`# type: ignore[arg-type]`）断言 TypeError；原 `CatalogEntryKind("unknown_typo")` → ValueError 测试保留但明确为 **Enum representation test**（不是 CatalogEntry runtime contract 的唯一证据）
+  - **Validation 分层（文档明确）**：① CatalogEntry construction = source contract validation（主要校验路径）② Retriever = 消费已验证的 CatalogEntry ③ Retriever else = defensive impossible-branch protection（不把 malformed data 拖到 materialization 中途作为主要校验路径）
+  - **同步**：把"unknown kind Enum 构造失败"口径收窄为"**CatalogEntry source boundary 运行时拒绝非 CatalogEntryKind；Enum 本身也拒绝未知值**"
+  - 其它 contract 全部保持：sorted(set(keys)) / permutation invariance / duplicate dedup / empty = ValueError / UNAVAILABLE full scan + payload policy A / outcome priority / 五态 / Node lifecycle 边界 / State 边界 / Integration deferred
+  - Gate B/C 状态：**修正中，等待最终确认**；Status 仍 in_progress；不得进入 Gate D。

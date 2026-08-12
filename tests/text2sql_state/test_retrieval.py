@@ -12,6 +12,7 @@ import itertools
 import pytest
 
 from examples.text2sql_state.metadata_source import (
+    CatalogEntry,
     CatalogEntryKind,
     InMemoryMetadataSource,
     build_fixture_source,
@@ -241,12 +242,27 @@ def test_criteria_is_proposed_fixture_contract() -> None:
 # ---------------------------------------------------------------- source-contract strictness
 
 def test_catalog_entry_kind_is_strict_enum() -> None:
-    # CatalogEntryKind 严格 Enum：未知 kind 构造即失败（fail-fast）——
-    # malformed source data 是 contract error，不是 Retrieval Outcome 语义
+    # Enum representation test：CatalogEntryKind 自身拒绝未知值（ValueError）。
+    # 注意：这只是 Enum 自身严格，不是 CatalogEntry runtime contract 的
+    # 唯一证据——真正的 source-contract 校验见
+    # test_catalog_entry_rejects_non_enum_kind_at_construction。
     assert CatalogEntryKind("schema") is CatalogEntryKind.SCHEMA
     assert CatalogEntryKind("business_rule") is CatalogEntryKind.BUSINESS_RULE
     with pytest.raises(ValueError):
         CatalogEntryKind("unknown_typo")  # 无 string typo 静默路径
+
+
+def test_catalog_entry_rejects_non_enum_kind_at_construction() -> None:
+    # source-contract test：CatalogEntry 构造在 source boundary 做
+    # **运行时**校验（__post_init__）——静态类型标注 ≠ 运行时契约校验；
+    # malformed source data 在进入 Retriever / Retrieval Outcome 语义前 fail fast。
+    with pytest.raises(TypeError, match="CatalogEntry.kind must be a CatalogEntryKind"):
+        CatalogEntry(
+            key="x",
+            kind="unknown_typo",  # type: ignore[arg-type]
+            content="...",
+            evidence="v1",
+        )
 
 
 def test_fixture_entries_all_use_typed_kind() -> None:

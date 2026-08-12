@@ -18,10 +18,10 @@ CatalogKey = str
 
 
 class CatalogEntryKind(Enum):
-    """权威源事实的严格类型（fail-fast，不静默忽略未知 kind）。
+    """权威源事实的严格类型（Enum 自身拒绝未知值）。
 
     source-contract 边界：未知 kind 属于 programmer / authoritative-source
-    contract violation（Enum 构造即失败），不是 Retrieval Outcome 语义——
+    contract violation（Enum 构造即 ValueError），不是 Retrieval Outcome 语义——
     "Retrieval Outcome describes authoritative lookup semantics;
     malformed source data is a contract error."
     """
@@ -32,12 +32,27 @@ class CatalogEntryKind(Enum):
 
 @dataclass(frozen=True)
 class CatalogEntry:
-    """权威源中的一条事实（fake，教学规模）。"""
+    """权威源中的一条事实（fake，教学规模）。
+
+    **Runtime contract validation**（最终复审修正）：
+    - kind 的类型标注（CatalogEntryKind）是静态契约；
+    - `__post_init__` 在 **source boundary** 做运行时校验——
+      非 CatalogEntryKind 的 kind 在构造时即 fail fast（TypeError），
+      不进入 Retrieval Outcome 语义
+    - 固定原则："Static type annotation ≠ runtime contract validation."
+      "Malformed authoritative-source data should fail at the source
+      boundary before retrieval semantics are evaluated."（畸形权威源
+      数据应在 source boundary 失败，而不是进入 Retrieval Outcome 语义）
+    """
 
     key: CatalogKey
-    kind: CatalogEntryKind  # 严格 Enum 类型（无 string typo 静默路径）
+    kind: CatalogEntryKind  # 静态标注 + 运行时校验（无 string typo 静默路径）
     content: str  # 事实内容（如 "orders: order_id, gmv_amount"）
     evidence: str  # freshness / version evidence（如 "catalog-v1" / "revision-3"）
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, CatalogEntryKind):
+            raise TypeError("CatalogEntry.kind must be a CatalogEntryKind")
 
 
 @dataclass(frozen=True)

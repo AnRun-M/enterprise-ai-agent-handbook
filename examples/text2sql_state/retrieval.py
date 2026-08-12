@@ -17,6 +17,15 @@ Gate A 冻结（TASK-0033）+ Gate B/C Review 修正：
 - outcome 唯一顺序：UNAVAILABLE > AMBIGUOUS > NOT_FOUND > PARTIAL > COMPLETE
 - empty criteria = consumed-contract violation（ValueError）——
   五态只描述"合法 retrieval criteria 查询权威源后的结果"
+
+Validation 分层（最终复审明确）：
+1. **CatalogEntry construction = source contract validation**（metadata_source.py
+   `__post_init__` 运行时拒绝非 CatalogEntryKind——malformed source data 在
+   source boundary 即 fail fast，主要校验路径）
+2. **Retriever = 消费已验证的 CatalogEntry**（本文件只读已通过校验的 entries）
+3. **Retriever 内未知 kind 的 else = defensive impossible-branch protection**
+   （Enum 已封顶 + 构造已校验；不把 malformed data 拖到 materialization
+   中途作为主要校验路径）
 """
 
 from __future__ import annotations
