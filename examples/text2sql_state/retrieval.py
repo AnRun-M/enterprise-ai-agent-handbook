@@ -1,22 +1,27 @@
 """T03 MetadataRetriever：确定性检索，读取事实不创造事实。
 
-Gate A 冻结（TASK-0033）：
+Gate A 冻结（TASK-0033）+ Gate B/C Review 修正：
 - Retriever 只从权威源读取 schema facts / metadata / business rules
 - LLM 不得成为事实源；无结果时不得静默生成假事实
 - 输出 outcome + provenance/references + materialized facts
 - 不决定继续 T04 / 终止 / retry / ask human（路由由后续应用控制流表达）
 
-Outcome 聚合规则（唯一顺序事实源，deterministic）：
-1. 任一 key 的 source 不可用 → UNAVAILABLE（operational failure）
-2. 任一 key 多个候选 → AMBIGUOUS（需上层澄清）
-3. 全部 key 无匹配 → NOT_FOUND
-4. 部分 key 无匹配 → PARTIAL（是否继续由消费方决定）
-5. 全部 key 唯一匹配 → COMPLETE
+聚合规则（Gate B/C Review 修正）：
+- **Outcome priority ≠ iteration short-circuit**：完整扫描所有 criteria keys，
+  扫描完成后统一计算 outcome——不因 encounter order 提前返回
+- **criteria 排列顺序无业务语义**：除非 contract 明确声明顺序有业务语义，
+  retrieval criteria 的排列顺序不应改变逻辑检索结果（permutation-invariant）
+- **UNAVAILABLE payload policy（策略 A）**：即使整体 outcome = UNAVAILABLE，
+  仍保留其它可成功读取 key 的 references / materialized facts
+  （与 PARTIAL"保留找到事实"理念连续）；且与 criteria 顺序无关
+- outcome 唯一顺序：UNAVAILABLE > AMBIGUOUS > NOT_FOUND > PARTIAL > COMPLETE
+- empty criteria = consumed-contract violation（ValueError）——
+  五态只描述"合法 retrieval criteria 查询权威源后的结果"
 """
 
 from __future__ import annotations
 
-from .metadata_source import InMemoryMetadataSource
+from .metadata_source import CatalogEntryKind, InMemoryMetadataSource
 from .retrieval_types import (
     MaterializedFacts,
     RetrievalCriteria,
@@ -40,34 +45,32 @@ class MetadataRetriever:
         """按检索条件读取事实，聚合 outcome，返回 references + materialized facts。
 
         只读：不修改 source、不修改 criteria（frozen dataclass）、
-        无隐藏可变状态——同一 criteria 重复检索结果确定且一致。
+        无隐藏可变状态——等价 criteria（排列 / 重复 key）→ 等价 RetrievalResult。
+
+        empty criteria：consumed-contract violation，raise ValueError——
+        NOT_FOUND = 权威源对合法 criteria 明确无匹配 ≠ 调用方未提供 criteria；
+        UNAVAILABLE = source operational failure ≠ invalid criteria。
+        不新增第六个 RetrievalOutcome，也不滥用已有五态。
         """
         if not criteria.keys:
-            # 空检索条件：所需事实集合为空集，完整满足（确定性边界决定）
-            return RetrievalResult(
-                outcome=RetrievalOutcome.COMPLETE,
-                references=(),
-                materialized=MaterializedFacts(),
-            )
+            raise ValueError("retrieval criteria must contain at least one key")
+
+        # 逻辑 key set：去重（重复 key 不产生重复 facts）+ 确定性排序
+        # （criteria 排列顺序无业务语义 → 排序保证 permutation-invariant）
+        keys = sorted(set(criteria.keys))
 
         references: list[RetrievalReference] = []
         schema_facts: list[str] = []
         business_rules: list[str] = []
         missing: list[str] = []
         ambiguous = False
+        unavailable = False
 
-        for key in criteria.keys:
+        for key in keys:
             lookup = self._source.lookup(key)
             if not lookup.available:
-                # operational failure：无法取得权威答案——整体 UNAVAILABLE
-                return RetrievalResult(
-                    outcome=RetrievalOutcome.UNAVAILABLE,
-                    references=tuple(references),
-                    materialized=MaterializedFacts(
-                        schema_facts=tuple(schema_facts),
-                        business_rules=tuple(business_rules),
-                    ),
-                )
+                unavailable = True  # 完整扫描，不 early return
+                continue
             if not lookup.entries:
                 missing.append(key)
                 continue
@@ -80,17 +83,24 @@ class MetadataRetriever:
                         evidence=entry.evidence,
                     )
                 )
-                if entry.kind == "schema":
+                if entry.kind is CatalogEntryKind.SCHEMA:
                     schema_facts.append(entry.content)
-                elif entry.kind == "business_rule":
+                elif entry.kind is CatalogEntryKind.BUSINESS_RULE:
                     business_rules.append(entry.content)
+                else:
+                    # Enum 已封顶；防御性 fail-fast——
+                    # malformed source data 是 contract error，不是 outcome 语义
+                    raise ValueError(f"unknown catalog entry kind: {entry.kind}")
 
         materialized = MaterializedFacts(
             schema_facts=tuple(schema_facts),
             business_rules=tuple(business_rules),
         )
 
-        if ambiguous:
+        # 统一计算 outcome（优先级唯一顺序，与扫描顺序无关）
+        if unavailable:
+            outcome = RetrievalOutcome.UNAVAILABLE
+        elif ambiguous:
             outcome = RetrievalOutcome.AMBIGUOUS
         elif not missing and references:
             outcome = RetrievalOutcome.COMPLETE

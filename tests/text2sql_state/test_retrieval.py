@@ -7,10 +7,15 @@
 from __future__ import annotations
 
 import dataclasses
+import itertools
 
 import pytest
 
-from examples.text2sql_state.metadata_source import InMemoryMetadataSource, build_fixture_source
+from examples.text2sql_state.metadata_source import (
+    CatalogEntryKind,
+    InMemoryMetadataSource,
+    build_fixture_source,
+)
 from examples.text2sql_state.retrieval import MetadataRetriever
 from examples.text2sql_state.retrieval_types import (
     RetrievalCriteria,
@@ -62,12 +67,25 @@ def test_unavailable_outcome_operational_failure() -> None:
     assert not result.materialized.business_rules  # 不静默生成假事实
 
 
-def test_empty_criteria_is_complete() -> None:
-    # 空检索条件：所需事实集合为空集，完整满足（确定性边界决定）
-    result = make_retriever().retrieve(RetrievalCriteria())
-    assert result.outcome is RetrievalOutcome.COMPLETE
-    assert not result.references
-    assert not result.materialized.schema_facts
+def test_unavailable_keeps_successfully_read_facts() -> None:
+    # UNAVAILABLE payload policy（策略 A）：整体 outcome = UNAVAILABLE 时，
+    # 仍保留其它可成功读取 key 的 references / materialized facts
+    # （与 PARTIAL"保留找到事实"理念连续；且与 criteria 顺序无关）。
+    result = make_retriever().retrieve(
+        RetrievalCriteria(keys=("orders", "broken_source"))
+    )
+    assert result.outcome is RetrievalOutcome.UNAVAILABLE
+    assert result.materialized.schema_facts  # orders 已成功读取
+    assert len(result.references) == 1
+
+
+def test_empty_criteria_is_contract_violation() -> None:
+    # empty criteria = consumed-contract violation，不映射任何 outcome：
+    # NOT_FOUND = 权威源对合法 criteria 明确无匹配 ≠ 调用方未提供 criteria；
+    # UNAVAILABLE = source operational failure ≠ invalid criteria。
+    # 不新增第六个 RetrievalOutcome，也不滥用已有五态。
+    with pytest.raises(ValueError, match="at least one key"):
+        make_retriever().retrieve(RetrievalCriteria())
 
 
 # ---------------------------------------------------------------- provenance
@@ -104,12 +122,53 @@ def test_references_frozen_and_immutable() -> None:
         ref.source_ref = "changed"  # type: ignore[misc]
 
 
-# ---------------------------------------------------------------- determinism / 无状态污染
+# ---------------------------------------------------------------- determinism / permutation invariance
 
 def test_deterministic_repeated_retrieval() -> None:
+    # evidence 类型 1：同一 criteria 重复执行稳定（repeated deterministic）
     retriever = make_retriever()
     criteria = RetrievalCriteria(keys=("orders", "gmv", "华东"))
     assert retriever.retrieve(criteria) == retriever.retrieve(criteria)
+
+
+def test_permutation_invariance_complete() -> None:
+    # evidence 类型 2：等价 criteria 排列 → 等价 RetrievalResult（不只是 outcome 相同）
+    a = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "gmv")))
+    b = make_retriever().retrieve(RetrievalCriteria(keys=("gmv", "orders")))
+    assert a == b
+
+
+def test_permutation_invariance_unavailable() -> None:
+    a = make_retriever().retrieve(
+        RetrievalCriteria(keys=("orders", "broken_source"))
+    )
+    b = make_retriever().retrieve(
+        RetrievalCriteria(keys=("broken_source", "orders"))
+    )
+    assert a == b
+    assert a.outcome is RetrievalOutcome.UNAVAILABLE
+
+
+def test_unavailable_priority_is_permutation_invariant() -> None:
+    # 含 unavailable + ambiguous + complete 三态混合：任何排列
+    # outcome 必须始终 UNAVAILABLE（优先级最高），references/materialized 一致
+    base = ("orders", "ambiguous_metric", "broken_source")
+    results = [
+        make_retriever().retrieve(RetrievalCriteria(keys=p))
+        for p in itertools.permutations(base)
+    ]
+    assert all(r.outcome is RetrievalOutcome.UNAVAILABLE for r in results)
+    assert all(r == results[0] for r in results)
+
+
+def test_duplicate_keys_deduplicated() -> None:
+    # RetrievalCriteria 视为逻辑 key set：重复 key 去重（不产生重复 facts / references）
+    result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "orders")))
+    assert result.outcome is RetrievalOutcome.COMPLETE
+    assert len(result.references) == 1
+    assert result.materialized.schema_facts == (
+        "orders: order_id, gmv_amount, region, order_date",
+    )
 
 
 def test_source_input_not_modified_by_retrieval() -> None:
@@ -177,3 +236,33 @@ def test_criteria_is_proposed_fixture_contract() -> None:
     # 模拟未来 T02 输出——不是 T02 最终 schema（docstring 锁住标识）
     assert "Proposed" in RetrievalCriteria.__doc__ or ""
     assert "fixture" in RetrievalCriteria.__doc__ or ""
+
+
+# ---------------------------------------------------------------- source-contract strictness
+
+def test_catalog_entry_kind_is_strict_enum() -> None:
+    # CatalogEntryKind 严格 Enum：未知 kind 构造即失败（fail-fast）——
+    # malformed source data 是 contract error，不是 Retrieval Outcome 语义
+    assert CatalogEntryKind("schema") is CatalogEntryKind.SCHEMA
+    assert CatalogEntryKind("business_rule") is CatalogEntryKind.BUSINESS_RULE
+    with pytest.raises(ValueError):
+        CatalogEntryKind("unknown_typo")  # 无 string typo 静默路径
+
+
+def test_fixture_entries_all_use_typed_kind() -> None:
+    # fixture source 全部使用 Enum kind（无被静默忽略的未知 kind）
+    source = build_fixture_source()
+    for key in ("orders", "gmv", "华东", "ambiguous_metric"):
+        for entry in source.lookup(key).entries:
+            assert isinstance(entry.kind, CatalogEntryKind)
+
+
+def test_schema_and_business_rule_kinds_materialize() -> None:
+    # schema kind → schema_facts；business_rule kind → business_rules
+    result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "gmv")))
+    assert result.materialized.schema_facts == (
+        "orders: order_id, gmv_amount, region, order_date",
+    )
+    assert result.materialized.business_rules == (
+        "GMV = 已支付订单金额合计（含税），剔除退款",
+    )

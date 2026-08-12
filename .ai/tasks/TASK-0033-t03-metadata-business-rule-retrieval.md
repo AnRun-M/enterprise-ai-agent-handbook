@@ -155,7 +155,7 @@ retrieval criteria
 - Gate A Architecture / Contract：**completed**（PR #59 Architecture Review 通过并合并）
 - Gate B Implementation（text2sql_state retriever + 测试）：**completed**（本分支）
 - Gate C Tests / Evidence：**completed**（pytest / ruff / mkdocs --strict 通过）
-- 等待 **Gate B/C Architecture + Implementation Review** → Gate D（Ch20 候选 T03 部分）→ Task Merge Gate → Gate E（等 T02/T04 进 main，deferred → closed）。
+- 等待 **Gate B/C Architecture + Implementation Review**（Review 修正已应用，等待最终复审）→ Gate D（Ch20 候选 T03 部分）→ Task Merge Gate → Gate E（等 T02/T04 进 main，deferred → closed）。
 
 ## 验收标准（Gate A 阶段）
 
@@ -187,3 +187,14 @@ retrieval criteria
   - 测试：`tests/text2sql_state/test_retrieval.py`（五态 / provenance / multiple refs / materialized 与 refs 分离 / determinism / source 不被修改 / 无全局可变状态 / 无静默兜底 / 无 LLM 事实 / 无路由意图 / fixture 标识）+ `test_retrieval_node.py`（partial update / lifecycle 边界 / 不修改输入 State / 无跨调用污染）
   - Evidence：**Contract-level verified**；Integration = **deferred**（T02 未实现 / T04 未集成 / 真实 External Source 未接入）
   - 等待 Gate B/C Architecture + Implementation Review；Status 仍 in_progress。
+- 2026-08-12：**Gate B/C Review 修正已应用（feature/t03-metadata-retrieval，等待最终复审）**：
+  - **order-dependency 修复**：取消 UNAVAILABLE early return——完整扫描所有 criteria keys，扫描完成后统一计算 outcome。固定原则：**"Outcome priority ≠ iteration short-circuit."** + **"除非 contract 明确声明顺序有业务语义，retrieval criteria 的排列顺序不应改变逻辑检索结果"**
+  - **UNAVAILABLE payload policy（策略 A）**：整体 outcome = UNAVAILABLE 时仍保留其它可成功读取 key 的 references / materialized facts（与 PARTIAL"保留找到事实"理念连续）；与 criteria 顺序无关
+  - **empty criteria = consumed-contract violation**：`raise ValueError("retrieval criteria must contain at least one key")`——撤销"empty = COMPLETE"（Gate B 新增业务决策，非 Gate A 冻结）；NOT_FOUND ≠ 无 criteria、UNAVAILABLE ≠ invalid criteria；不新增第六个 RetrievalOutcome；未来 T02 若需"合法零事实请求"必须返回 Architecture Review 显式设计
+  - **strict CatalogEntry kind**：`CatalogEntryKind` Enum（SCHEMA / BUSINESS_RULE），`CatalogEntry.kind` 强类型，Retriever 用 Enum 比较 + 防御性 fail-fast——未知 kind 不得静默忽略。原则：**"Retrieval Outcome describes authoritative lookup semantics; malformed source data is a contract error."**（不为其新增 RetrievalOutcome）
+  - **permutation-invariance evidence**：新增（orders, gmv）↔（gmv, orders）完全相等；（orders, broken_source）↔（broken_source, orders）完全相等；（orders, ambiguous_metric, broken_source）全部 6 排列 outcome 恒 UNAVAILABLE 且结果一致——输出经 `sorted(set(keys))` canonical 化（去重 + 排序），等价 criteria set → 等价 RetrievalResult
+  - **duplicate keys 去重**：criteria 视为逻辑 key set——（orders, orders）不产生重复 facts / references
+  - evidence 三类区分：repeated deterministic / permutation-invariance / source-contract strictness
+  - lifecycle 边界保持：Node 只写 retrieval_result，不写 status / failure_reason / next_action / route；State 边界保持（教学规模选择）
+  - **清理旧事实**：empty = COMPLETE / unavailable early return 是最终 contract / deterministic 仅等同 same tuple / CatalogEntry.kind 可任意 str / unknown kind 可静默忽略
+  - Gate B/C 状态：**修正中，等待最终复审**；Status 仍 in_progress；不得进入 Gate D。

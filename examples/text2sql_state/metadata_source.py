@@ -12,8 +12,22 @@ unavailable / partial（partial 由 Retriever 聚合多键结果表达，见 ret
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 CatalogKey = str
+
+
+class CatalogEntryKind(Enum):
+    """权威源事实的严格类型（fail-fast，不静默忽略未知 kind）。
+
+    source-contract 边界：未知 kind 属于 programmer / authoritative-source
+    contract violation（Enum 构造即失败），不是 Retrieval Outcome 语义——
+    "Retrieval Outcome describes authoritative lookup semantics;
+    malformed source data is a contract error."
+    """
+
+    SCHEMA = "schema"
+    BUSINESS_RULE = "business_rule"
 
 
 @dataclass(frozen=True)
@@ -21,7 +35,7 @@ class CatalogEntry:
     """权威源中的一条事实（fake，教学规模）。"""
 
     key: CatalogKey
-    kind: str  # "schema" | "business_rule"
+    kind: CatalogEntryKind  # 严格 Enum 类型（无 string typo 静默路径）
     content: str  # 事实内容（如 "orders: order_id, gmv_amount"）
     evidence: str  # freshness / version evidence（如 "catalog-v1" / "revision-3"）
 
@@ -84,7 +98,7 @@ def build_fixture_source() -> InMemoryMetadataSource:
             "orders": (
                 CatalogEntry(
                     key="orders",
-                    kind="schema",
+                    kind=CatalogEntryKind.SCHEMA,
                     content="orders: order_id, gmv_amount, region, order_date",
                     evidence="catalog-v1",
                 ),
@@ -92,7 +106,7 @@ def build_fixture_source() -> InMemoryMetadataSource:
             "gmv": (
                 CatalogEntry(
                     key="gmv",
-                    kind="business_rule",
+                    kind=CatalogEntryKind.BUSINESS_RULE,
                     content="GMV = 已支付订单金额合计（含税），剔除退款",
                     evidence="revision-3",
                 ),
@@ -100,7 +114,7 @@ def build_fixture_source() -> InMemoryMetadataSource:
             "华东": (
                 CatalogEntry(
                     key="华东",
-                    kind="business_rule",
+                    kind=CatalogEntryKind.BUSINESS_RULE,
                     content="华东 = 上海 / 江苏 / 浙江 / 安徽 / 福建 / 江西",
                     evidence="revision-1",
                 ),
@@ -108,13 +122,13 @@ def build_fixture_source() -> InMemoryMetadataSource:
             "ambiguous_metric": (
                 CatalogEntry(
                     key="ambiguous_metric",
-                    kind="business_rule",
+                    kind=CatalogEntryKind.BUSINESS_RULE,
                     content="销售额口径 A：含税订单金额",
                     evidence="revision-1",
                 ),
                 CatalogEntry(
                     key="ambiguous_metric",
-                    kind="business_rule",
+                    kind=CatalogEntryKind.BUSINESS_RULE,
                     content="销售额口径 B：含税订单金额扣除退款",
                     evidence="revision-2",
                 ),
