@@ -42,6 +42,22 @@ Validation 分层（最终复审明确）：
 5. **Retriever 内未知 kind 的 else = defensive impossible-branch protection**
    （Enum 已封顶 + 构造已校验；不把 malformed data 拖到 materialization
    中途作为主要校验路径）
+
+**Type annotation contract**（最终 code-contract cleanup）：
+- ruff / pytest 通过不等于 type annotation 正确；代码 annotation 必须与
+  已冻结 Python Contract 一致——`MaterializedFacts.schema_facts /
+  business_rules` 是 `tuple[MaterializedFact, ...]`，本文件聚合时的
+  中间 list 也必须标注 `list[MaterializedFact]`（不引入 mypy / pyright /
+  新 CI dependency，只修正既有 annotation）
+
+**fact_id encoding boundary**（最终 code-contract cleanup）：
+- fact_id = `f"{source.name}:{entry.entry_id}"`——`source_name` 与
+  `entry_id` 使用受限 grammar（**non-empty / trimmed / 不含 ":"**，
+  source boundary 构造即 ValueError），使 fact_id 得到无歧义
+  representation；这是**教学级 source-qualified encoding，不是
+  production global identity scheme**（不宣称 global uniqueness /
+  cross-system identity / production URI scheme / production lineage
+  identity verified）
 """
 
 from __future__ import annotations
@@ -99,8 +115,8 @@ class MetadataRetriever:
         keys = sorted(set(criteria.keys))
 
         references: list[RetrievalReference] = []
-        schema_facts: list[str] = []
-        business_rules: list[str] = []
+        schema_facts: list[MaterializedFact] = []
+        business_rules: list[MaterializedFact] = []
         missing: list[str] = []
         ambiguous = False
         unavailable = False

@@ -43,6 +43,16 @@ class CatalogEntry:
       不代表 identity 变化；同一 key / 同一 evidence 下不同内容也不是
       同一事实）
 
+    **Identifier grammar**（最终 code-contract cleanup）：
+    - `entry_id` 使用受限 grammar：**non-empty / trimmed / 不含 ":"**——
+      `__post_init__` 校验，违规即 ValueError fail-fast
+    - **不静默 normalize**：identity boundary 不应改写 caller 提供的
+      identity——`entry_id != entry_id.strip()`（含 whitespace-only）
+      同样拒绝，输入必须已经 canonical
+    - ":" 是 fact_id 的 delimiter——entry_id 含 ":" 会造成 fact_id
+      encoding 歧义（grammar 只冻结教学级最小 identifier，不设计
+      UUID / URN / global ID service / production lineage identifier）
+
     **Runtime contract validation**（最终复审修正）：
     - kind 的类型标注（CatalogEntryKind）是静态契约；
     - `__post_init__` 在 **source boundary** 做运行时校验——
@@ -52,6 +62,8 @@ class CatalogEntry:
       "Malformed authoritative-source data should fail at the source
       boundary before retrieval semantics are evaluated."（畸形权威源
       数据应在 source boundary 失败，而不是进入 Retrieval Outcome 语义）
+    - entry_id grammar violation 同样是 **source / identity contract
+      violation**（ValueError），**不映射为 Retrieval Outcome**
     """
 
     entry_id: str  # 稳定 source-local fact identity（deterministic / 可读 / 不依赖 object identity）
@@ -63,6 +75,15 @@ class CatalogEntry:
     def __post_init__(self) -> None:
         if not isinstance(self.kind, CatalogEntryKind):
             raise TypeError("CatalogEntry.kind must be a CatalogEntryKind")
+        if (
+            not self.entry_id
+            or self.entry_id != self.entry_id.strip()
+            or ":" in self.entry_id
+        ):
+            raise ValueError(
+                "CatalogEntry.entry_id must be non-empty, trimmed, and "
+                f"contain no ':': {self.entry_id!r}"
+            )
 
 
 @dataclass(frozen=True)
@@ -114,6 +135,15 @@ class InMemoryMetadataSource:
         entries: dict[CatalogKey, tuple[CatalogEntry, ...]],
         unavailable: frozenset[CatalogKey] = frozenset(),
     ) -> None:
+        # 0) source name grammar（最终 code-contract cleanup）：non-empty /
+        #    trimmed / 不含 ":"——不静默 normalize（输入必须已 canonical），
+        #    ":" 是 fact_id 的 delimiter，含 ":" 会造成 encoding 歧义。
+        #    教学级最小 grammar，不设计 UUID / URN / production identifier。
+        if not name or name != name.strip() or ":" in name:
+            raise ValueError(
+                "source name must be non-empty, trimmed, and contain no "
+                f"':': {name!r}"
+            )
         self._name = name
         # 1) index / entry identity validation：mismatch 构造即失败
         for index_key, values in entries.items():

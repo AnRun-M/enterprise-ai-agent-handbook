@@ -111,6 +111,8 @@ MaterializedFact(fact_id, content)
 
 同一事实的 evidence 更新仍表示同一事实（stable identity 不变，evidence 明确变化）；同 key 同 evidence 但不同 entry_id 是**不同事实**（身份不由 key / evidence / content 承担）；`source_ref`（如 `catalog-v1:ambiguous_metric`）可对应多个候选 fact——**candidate 唯一性由 fact_id 承担，不由 source_ref / evidence 承担**。
 
+**fact_id encoding boundary（最终 code-contract cleanup）**：当前教学实现使用 `<source_name>:<entry_id>` 作为 fact_id representation；source_name 与 entry_id 使用受限 grammar（non-empty / trimmed / 不含 ":"，source boundary 构造即 ValueError）以避免 delimiter ambiguity。这只是教学级 source-qualified encoding，**不是 production global identity scheme**（不设计 UUID / URN / global ID service / production lineage identifier）。
+
 **两者分离的原因**：references 供 Trace / Replay / Provenance / Reconstruction（可持久化）；materialized 供当前调用消费（不要求完整长期复制进 State，architecture-map 引用策略）。binding 是教学 Contract 所需的最小关联——**不是生产级 lineage schema / 数据库主键设计 / URI registry / distributed provenance service**。
 
 ## 20.5 Criteria Set 与确定性
@@ -213,7 +215,7 @@ flowchart LR
 
 **UNAVAILABLE payload policy（策略 A，冻结）**：即使整体 outcome = UNAVAILABLE，其它成功读取的 facts 仍保留在 references / materialized——因为 **Outcome 与 payload 是两个不同 contract**，整体 operational failure 不要求丢弃已成功取得的权威事实；但**是否允许后续继续 T04 仍由 application policy 决定，T03 不做该决策**。
 
-**尚未验证**（不得写成已实现）：T02 → T03 real integration / T03 → T04 real integration / compiled Graph Runtime path / production metadata catalog / production business-rule repository / network failure semantics / cache invalidation / distributed snapshot consistency / **production lineage schema / per-fact audit lineage（生产级）** / permission-risk policy。（教学 fake authoritative source 的 contract-level identity 已验证——fact-level binding、fact identity uniqueness、fact/evidence separation；**不宣称 production lineage ID scheme verified / global cross-system identity verified / production provenance schema verified**。）
+**尚未验证**（不得写成已实现）：T02 → T03 real integration / T03 → T04 real integration / compiled Graph Runtime path / production metadata catalog / production business-rule repository / network failure semantics / cache invalidation / distributed snapshot consistency / **production lineage schema / per-fact audit lineage（生产级）** / permission-risk policy。（教学 fake authoritative source 的 contract-level identity 已验证——fact-level binding、fact identity uniqueness、fact/evidence separation、**source-qualified identity string encoding 无歧义（受限 grammar：non-empty / trimmed / 不含 ":"）**；**不宣称 global uniqueness / cross-system identity / production URI scheme / production lineage ID scheme / production provenance schema verified**。）
 
 ## 20.10 T02 / T04 接口位置
 
@@ -280,7 +282,7 @@ T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval O
 - [x] Node lifecycle 边界（Outcome ≠ Agent lifecycle）+ State 边界（教学规模选择）
 - [x] T02 / T04 接口位置（fixture 标识；Context Builder 不实现；"T03 ends with trusted facts"；pipeline T01 → T02 → T03 → T04）
 - [x] permission metadata 边界（T06 属权限裁决；当前 T03 不实现权限元数据检索，不预设未来 contract）
-- [x] Evidence 边界（已验证 / 未验证 10 项；不写死 pytest 数量；不宣称 e2e / production integration verified；contract-level identity verified——fact identity uniqueness / fact-evidence separation，不宣称 production lineage ID scheme / global cross-system identity / production provenance schema verified）
+- [x] Evidence 边界（已验证 / 未验证 10 项；不写死 pytest 数量；不宣称 e2e / production integration verified；contract-level identity verified——fact identity uniqueness / fact-evidence separation / source-qualified identity string encoding 无歧义（受限 grammar），不宣称 global uniqueness / cross-system identity / production URI scheme / production lineage ID scheme / production provenance schema verified）
 - [x] 常见误区 10 条
 - [x] Evidence Status：Contract-level verified；Integration deferred
 

@@ -15,7 +15,7 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支，最终复审 APPROVED）；Gate D Documentation 已完成（第 20 章，draft）；Task Merge Gate Review 修正中（方案 A fact-level binding → identity/evidence 分离，等待最终确认）；Gate E 待后续。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支，最终复审 APPROVED）；Gate D Documentation 已完成（第 20 章，draft）；Task Merge Gate Architecture Review 已通过（方案 A fact-level binding → identity/evidence 分离 → 最终 code-contract cleanup 已应用，等待 Merge 确认）；Gate E 待后续。**
 
 ---
 
@@ -248,3 +248,11 @@ retrieval criteria
   - 其它 contract 全部保持：五态 / priority / full scan / payload 策略 A / empty violation / criteria set / permutation / dedup / CatalogEntry runtime validation / source index-key identity / snapshot / fact-level binding / Node lifecycle / State 边界 / T02 fixture / T04 interface / Integration deferred
   - Evidence：**fact identity uniqueness verified + fact/evidence separation verified**（教学 fake authoritative source 的 contract-level identity）；production lineage ID scheme / global cross-system identity / production provenance schema 仍未验证
   - Gate 状态：**修正中，等待 Task Merge Gate 最终确认**；Status 仍 in_progress；不得进入 Gate D。
+- 2026-08-13：**Task Merge Gate Architecture Review 已通过；最终 code-contract cleanup 已应用（feature/t03-metadata-retrieval，等待 Merge 确认）**：
+  - **type annotation 修正**：`retrieval.py` 聚合中间 list 从 `list[str]` 改为 `list[MaterializedFact]`（原 annotation 与实际 append `MaterializedFact(...)` 及冻结 Contract `tuple[MaterializedFact, ...]` 漂移）——固定说明：**"ruff / pytest 通过不等于 type annotation 正确；代码 annotation 必须与已冻结 Python Contract 一致"**；不引入 mypy / pyright / 新 CI dependency
+  - **fact_id encoding grammar 冻结**：`fact_id = f"{source.name}:{entry.entry_id}"`——`source_name` 与 `entry_id` 使用受限 grammar：**non-empty / trimmed / 不含 ":"**（"": 是 delimiter，含 ":" 造成 encoding 歧义）；**不静默 normalize**（identity boundary 不应改写 caller 提供的 identity，输入必须已 canonical）；教学级最小 identifier grammar，不设计 UUID / URN / global ID service / production lineage identifier
+  - **validation boundary**：`CatalogEntry.__post_init__` 校验 entry_id（ValueError）；`InMemoryMetadataSource.__init__` 校验 source name（ValueError）——仍属 **source / identity contract violation**，不映射为 RetrievalOutcome
+  - **grammar tests（8 项新增）**：empty / whitespace-only / untrimmed / 含 ":" 的 entry_id 拒绝；empty / untrimmed / 含 ":" 的 source name 拒绝；正常 grammar（catalog-v1 + schema.orders → fact_id=catalog-v1:schema.orders）通过
+  - **Chapter 20 最小同步**：20.4 Identity 模型附近增加 fact_id encoding boundary 一句（受限 grammar 避免 delimiter ambiguity；教学级 source-qualified encoding，非 production global identity scheme）；20.9 evidence 增加 source-qualified identity string encoding 无歧义 verified（未验证补充 global uniqueness / production URI scheme，不宣称 global uniqueness / cross-system identity / production URI scheme / production lineage identity verified）
+  - **Gate A/B/C/D 决策、Outcome、priority、payload policy、provenance model、integration status 全部未改**
+  - Gate 状态：**Task Merge Gate Architecture Review 通过；等待 Merge 确认**；Status 仍 in_progress。

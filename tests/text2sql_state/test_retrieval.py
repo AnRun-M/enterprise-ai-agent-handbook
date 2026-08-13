@@ -305,6 +305,78 @@ def test_fact_identity_stable_across_evidence_change() -> None:
     assert r2.references[0].evidence == "revision-2"  # evidence 变化 ≠ identity 变化
 
 
+# ---------------------------------------------------------------- identifier grammar（最终 code-contract cleanup）
+
+def _make_entry(entry_id: str) -> CatalogEntry:
+    return CatalogEntry(
+        entry_id=entry_id,
+        key="k",
+        kind=CatalogEntryKind.BUSINESS_RULE,
+        content="...",
+        evidence="v1",
+    )
+
+
+def test_empty_entry_id_rejected() -> None:
+    with pytest.raises(ValueError, match="entry_id"):
+        _make_entry("")
+
+
+def test_whitespace_only_entry_id_rejected() -> None:
+    with pytest.raises(ValueError, match="entry_id"):
+        _make_entry("   ")
+
+
+def test_untrimmed_entry_id_rejected() -> None:
+    # 不静默 normalize：identity boundary 不应改写 caller 提供的 identity——
+    # 输入必须已经 canonical（trimmed strictness）
+    with pytest.raises(ValueError, match="entry_id"):
+        _make_entry(" schema.orders ")
+
+
+def test_entry_id_containing_colon_rejected() -> None:
+    # ":" 是 fact_id 的 delimiter——entry_id 含 ":" 会造成 fact_id encoding 歧义
+    with pytest.raises(ValueError, match="entry_id"):
+        _make_entry("schema:orders")
+
+
+def test_empty_source_name_rejected() -> None:
+    with pytest.raises(ValueError, match="source name"):
+        InMemoryMetadataSource(name="", entries={})
+
+
+def test_untrimmed_source_name_rejected() -> None:
+    with pytest.raises(ValueError, match="source name"):
+        InMemoryMetadataSource(name=" catalog-v1 ", entries={})
+
+
+def test_source_name_containing_colon_rejected() -> None:
+    # ":" 是 fact_id 的 delimiter——source name 含 ":" 会造成 fact_id encoding 歧义
+    with pytest.raises(ValueError, match="source name"):
+        InMemoryMetadataSource(name="catalog:v1", entries={})
+
+
+def test_fact_id_encoding_grammar_unambiguous() -> None:
+    # 受限 grammar（non-empty / trimmed / 无 ":"）下 fact_id 编码无歧义：
+    # source=catalog-v1 + entry_id=schema.orders → fact_id=catalog-v1:schema.orders
+    source = InMemoryMetadataSource(
+        name="catalog-v1",
+        entries={
+            "orders": (
+                CatalogEntry(
+                    entry_id="schema.orders",
+                    key="orders",
+                    kind=CatalogEntryKind.SCHEMA,
+                    content="orders: order_id",
+                    evidence="v1",
+                ),
+            ),
+        },
+    )
+    result = make_retriever(source).retrieve(RetrievalCriteria(keys=("orders",)))
+    assert result.references[0].fact_id == "catalog-v1:schema.orders"
+
+
 # ---------------------------------------------------------------- determinism / permutation invariance
 
 def test_deterministic_repeated_retrieval() -> None:
