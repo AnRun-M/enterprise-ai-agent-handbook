@@ -88,13 +88,28 @@ RetrievalResult
 
 **B. Materialized Facts**——`MaterializedFact`（frozen）：`fact_id` + `content`；`MaterializedFacts`（frozen）：`schema_facts` + `business_rules`，**request-scoped materialization 的教学表示**。T04 将来不能只拿 URI / digest / source_ref——它最终必须拿到真实 facts（20.10）。
 
-**fact-level provenance binding（Task Merge Gate Review 修正）**：`fact_id` 是稳定关联键（由 source 名 + entry key + evidence 构造——deterministic、不依赖 object identity / 随机 UUID、permutation-invariant、duplicate-dedup 后稳定）。同一条 authoritative entry 同时产出 reference（fact_id + source_ref + evidence）与 materialized fact（fact_id + content）——消费者可把**每一条** materialized fact 解析到它的 provenance：
+**fact-level provenance binding（Task Merge Gate Review 修正）**：`fact_id` 是稳定关联键——**source-qualified stable fact identity**（`f"{source.name}:{entry.entry_id}"`，由 source 名 + 稳定 entry_id 构造——deterministic、不依赖 object identity / 随机 UUID、不依赖 criteria 排列、duplicate-dedup 后稳定；entry_id 唯一性是 source-boundary 不变量，因此合法 source 内 fact_id 必然唯一）。同一条 authoritative entry 同时产出 reference（fact_id + source_ref + evidence）与 materialized fact（fact_id + content）——消费者可把**每一条** materialized fact 解析到它的 provenance：
 
 ```
 RetrievalReference(fact_id, source_ref, evidence)
                         ↑ 共享 fact_id
 MaterializedFact(fact_id, content)
 ```
+
+**Identity 模型（Task Merge Gate 最终复审修正）**——四个身份概念严格分离：
+
+| 概念 | 职责 | fixture 例子 |
+|---|---|---|
+| **entry_id** | 稳定 **source-local fact identity**（"这条事实是谁"） | `schema.orders` / `metric.sales_definition.a` |
+| **fact_id** | **source-qualified** stable fact identity（source 名 + entry_id） | `catalog-v1:schema.orders` |
+| **key** | retrieval / semantic **lookup identity**（"按什么查"） | `orders` / `ambiguous_metric` |
+| **evidence** | **freshness / version evidence**（"哪个版本"） | `catalog-v1` / `revision-1` |
+
+固定原则：
+
+> **"Fact identity ≠ freshness/version evidence."**（事实身份不等于版本 / 新鲜度证据）
+
+同一事实的 evidence 更新仍表示同一事实（stable identity 不变，evidence 明确变化）；同 key 同 evidence 但不同 entry_id 是**不同事实**（身份不由 key / evidence / content 承担）；`source_ref`（如 `catalog-v1:ambiguous_metric`）可对应多个候选 fact——**candidate 唯一性由 fact_id 承担，不由 source_ref / evidence 承担**。
 
 **两者分离的原因**：references 供 Trace / Replay / Provenance / Reconstruction（可持久化）；materialized 供当前调用消费（不要求完整长期复制进 State，architecture-map 引用策略）。binding 是教学 Contract 所需的最小关联——**不是生产级 lineage schema / 数据库主键设计 / URI registry / distributed provenance service**。
 
@@ -122,7 +137,7 @@ MaterializedFact(fact_id, content)
 
 **`InMemoryMetadataSource` 只是 deterministic fake source——目标是验证 Contract，不是验证基础设施。** 本轮不接真实数据库 / 向量数据库 / LLM。
 
-当前能表达：**exists / missing / ambiguous / unavailable**；**PARTIAL 由 Retriever 聚合多 key lookup 产生**。教学 fixture（`build_fixture_source`）：`orders`（schema）/ `gmv`（business rule）/ `华东`（business rule）/ `ambiguous_metric`（两条候选）/ `broken_source`（unavailable）。
+当前能表达：**exists / missing / ambiguous / unavailable**；**PARTIAL 由 Retriever 聚合多 key lookup 产生**。教学 fixture（`build_fixture_source`）：`orders`（schema）/ `gmv`（business rule）/ `华东`（business rule）/ `ambiguous_metric`（两条候选）/ `broken_source`（unavailable），并分配稳定 entry_id（`schema.orders` / `metric.gmv` / `region.east_china` / `metric.sales_definition.a` / `metric.sales_definition.b`——deterministic、可读、不依赖 object identity / 随机 UUID / criteria 顺序 / evidence）。
 
 **不要写成"已经实现 metadata service"**——它只是教学规模的确定性假源。
 
@@ -133,28 +148,29 @@ MaterializedFact(fact_id, content)
 | 层 | 校验 / 职责 | 固定原则 |
 |---|---|---|
 | 1. **CatalogEntry field runtime validation** | 构造时 `kind` 必须是 `CatalogEntryKind`（TypeError fail-fast） | **"Static type annotation ≠ runtime contract validation."** |
-| 2. **Source index / entry identity validation** | source index key 必须等于 `CatalogEntry.key`（构造时 ValueError fail-fast） | **"Source index identity must agree with entry identity."** |
+| 2. **Source index / entry identity validation** | source index key 必须等于 `CatalogEntry.key`；**`entry_id` 在同一个 source snapshot 内全局唯一**（均构造时 ValueError fail-fast） | **"Source index identity must agree with entry identity."** + **"Fact identity uniqueness is a source-boundary invariant."** |
 | 3. **Trusted source consumption** | Retriever 消费已通过 source boundary 验证的 entry | — |
 | 4. **Provenance output** | 生成 `source_ref` + freshness / version evidence | **"Provenance correctness starts at source construction, not at retrieval output formatting."** |
 | 5. **Defensive impossible-branch protection** | Retriever 内 unknown-kind else 只作防御，**不是 malformed source 的主要校验路径** | — |
 
-**Provenance Identity Chain**（当前真实例子）：
+**Provenance Identity Chain**（当前真实例子，identity 模型见 20.4）：
 
 ```
-criteria key: orders
+criteria key: orders            （lookup identity）
       ↓
-source index: orders
+source index: orders            （index 与 entry.key 一致校验）
       ↓
-CatalogEntry.key: orders
+CatalogEntry.key: orders        （lookup identity）
+CatalogEntry.entry_id: schema.orders   （stable source-local fact identity）
       ↓
-fact_id: catalog-v1:orders:catalog-v1
+fact_id: catalog-v1:schema.orders      （source-qualified stable fact identity）
       ↓
 RetrievalReference(source_ref: catalog-v1:orders, evidence: catalog-v1)
       ↓
-MaterializedFact(fact_id: catalog-v1:orders:catalog-v1, content: orders: order_id, ...)
+MaterializedFact(fact_id: catalog-v1:schema.orders, content: orders: order_id, ...)
 ```
 
-**不要把 provenance 写成普通日志字符串**——它属于正式 retrieval contract（可持久化、可重建、可审计）。身份链任何一环断裂（如 index 与 entry.key 不一致）都会造成 silent provenance corruption，因此必须在 source construction 阶段 fail fast，而不是在输出时修补。fact_id 贯穿整条链，使每一条 materialized fact 可解析回它的 source_ref / evidence（fact-level binding，20.4）。
+**不要把 provenance 写成普通日志字符串**——它属于正式 retrieval contract（可持久化、可重建、可审计）。身份链任何一环断裂（如 index 与 entry.key 不一致、entry_id 重复）都会造成 silent provenance corruption，因此必须在 source construction 阶段 fail fast，而不是在输出时修补。fact_id 贯穿整条链，使每一条 materialized fact 可解析回它的 source_ref / evidence（fact-level binding，20.4）；**key 与 evidence 都不承担 fact-level unique identity**——`entry_id`（经 fact_id）承担。
 
 **Source Snapshot Boundary**（表述收窄）：不要写"InMemoryMetadataSource 完全 immutable"——更准确：
 
@@ -191,13 +207,13 @@ flowchart LR
 | 类别 | 内容 |
 |---|---|
 | **代码事实** | `retrieval_types.py`（RetrievalOutcome 五态 / RetrievalReference / MaterializedFacts / RetrievalResult / RetrievalCriteria——Proposed fixture）/ `metadata_source.py`（CatalogEntryKind 严格 Enum + `__post_init__` 运行时校验 / InMemoryMetadataSource 构造级 identity 校验 + read-only snapshot）/ `retrieval.py`（full scan + priority aggregation、sorted(set(keys))、empty = ValueError、UNAVAILABLE payload 策略 A）/ `retrieval_node.py`（只写 retrieval_result）/ `state.py`（retrieval_result 字段，教学规模标注） |
-| **测试事实** | `test_retrieval.py` + `test_retrieval_node.py` 专项覆盖：五态 / full scan / outcome priority / repeated determinism / **permutation invariance** / duplicate dedup / **empty criteria contract violation** / **UNAVAILABLE payload policy** / **provenance identity chain** / **fact-to-reference provenance binding**（每条 fact 唯一可解析 binding / schema 与 rule 绑定到正确 source / ambiguous candidates 各自 provenance / permutation 后 binding 不变 / duplicate 不产生重复 binding / fact_id deterministic） / **CatalogEntry kind runtime validation** / **source index-entry identity validation** / **snapshot isolation** / references-materialized 分离 / **Node lifecycle non-interference** / no input State mutation / no cross-call pollution（正文不写死全量 pytest 数量） |
+| **测试事实** | `test_retrieval.py` + `test_retrieval_node.py` 专项覆盖：五态 / full scan / outcome priority / repeated determinism / **permutation invariance** / duplicate dedup / **empty criteria contract violation** / **UNAVAILABLE payload policy** / **provenance identity chain** / **fact-to-reference provenance binding**（每条 fact 唯一可解析 binding / schema 与 rule 绑定到正确 source / ambiguous candidates 各自 provenance / permutation 后 binding 不变 / duplicate 不产生重复 binding / fact_id deterministic） / **fact identity uniqueness verified**（重复 entry_id 构造即 ValueError；同 key 同 evidence 不同 entry_id 产出不同 fact_id）/ **fact/evidence separation verified**（同一 entry_id 的 evidence 变化：fact_id 稳定、evidence 明确变化——identity ≠ evidence）/ **CatalogEntry kind runtime validation** / **source index-entry identity validation** / **snapshot isolation** / references-materialized 分离 / **Node lifecycle non-interference** / no input State mutation / no cross-call pollution（正文不写死全量 pytest 数量） |
 | **设计约束** | outcome 不决定路由（20.3 / 20.8）；criteria set 语义（20.5）；source contract 五层（20.7）；策略 A（20.9 下一段） |
 | **尚未验证** | 见下 |
 
 **UNAVAILABLE payload policy（策略 A，冻结）**：即使整体 outcome = UNAVAILABLE，其它成功读取的 facts 仍保留在 references / materialized——因为 **Outcome 与 payload 是两个不同 contract**，整体 operational failure 不要求丢弃已成功取得的权威事实；但**是否允许后续继续 T04 仍由 application policy 决定，T03 不做该决策**。
 
-**尚未验证**（不得写成已实现）：T02 → T03 real integration / T03 → T04 real integration / compiled Graph Runtime path / production metadata catalog / production business-rule repository / network failure semantics / cache invalidation / distributed snapshot consistency / **production lineage schema / per-fact audit lineage（生产级）** / permission-risk policy。（教学 Contract 的 fact-level binding 已验证；**不宣称 production lineage verified / production provenance schema verified**。）
+**尚未验证**（不得写成已实现）：T02 → T03 real integration / T03 → T04 real integration / compiled Graph Runtime path / production metadata catalog / production business-rule repository / network failure semantics / cache invalidation / distributed snapshot consistency / **production lineage schema / per-fact audit lineage（生产级）** / permission-risk policy。（教学 fake authoritative source 的 contract-level identity 已验证——fact-level binding、fact identity uniqueness、fact/evidence separation；**不宣称 production lineage ID scheme verified / global cross-system identity verified / production provenance schema verified**。）
 
 ## 20.10 T02 / T04 接口位置
 
@@ -243,7 +259,7 @@ flowchart LR
 
 ## 20.12 总结
 
-T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval Outcome 五态描述权威源查询语义；References / Provenance 与 Materialized Facts 分层承担"事实从哪来"与"事实是什么"，并以稳定 fact_id 建立 fact-level provenance binding；Source Contract 五层保证 malformed source data 在进入语义前 fail fast；Node 只把结果写入 State，不触碰 lifecycle、不决定路由。下一步：T02（意图与语义解析）与 T04（SQL 生成）进入后，经 Integration Closure Gate 验证 T01 → T02 → T03 → T04 真实路径。
+T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval Outcome 五态描述权威源查询语义；References / Provenance 与 Materialized Facts 分层承担"事实从哪来"与"事实是什么"，并以稳定 fact_id（source-qualified entry identity）建立 fact-level provenance binding——**事实身份（entry_id / fact_id）与版本 / 新鲜度证据（evidence）严格分离（"Fact identity ≠ freshness/version evidence."），entry_id 唯一性是 source-boundary 不变量**；Source Contract 五层保证 malformed source data 在进入语义前 fail fast；Node 只把结果写入 State，不触碰 lifecycle、不决定路由。下一步：T02（意图与语义解析）与 T04（SQL 生成）进入后，经 Integration Closure Gate 验证 T01 → T02 → T03 → T04 真实路径。
 
 ---
 
@@ -254,6 +270,8 @@ T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval O
 - [x] 12 节全部覆盖（为什么需要 / 职责与边界 / Outcome / 三层 contract / Criteria Set / Fake Source / Source Contract / Node-State / Evidence / 接口位置 / 常见误区 / 总结）
 - [x] 六个概念边界（Metadata / Business Rule / Semantic Context / External Source of Truth / Model Context / Memory；T03 ≠ Memory）
 - [x] 三层 Retrieval Contract（outcome / references / materialized；"Reference tells us where the fact came from."——以稳定 fact_id 建立 **fact-level provenance binding**，非仅 aggregate provenance）
+- [x] Identity 模型分离（entry_id = source-local fact identity / fact_id = source-qualified / key = lookup / evidence = freshness-version；**"Fact identity ≠ freshness/version evidence."**；同 key 同 evidence 不同 entry_id = 不同事实；同一 entry_id evidence 变化仍同一事实；entry_id 唯一性 = source-boundary invariant）
+- [x] source_ref 只承担 source / lookup identity，不承担 fact-level unique identity（`catalog-v1:ambiguous_metric` 可对应多候选；candidate 唯一性由 fact_id 承担）
 - [x] Retrieval Outcome 五态 + priority（UNAVAILABLE > AMBIGUOUS > NOT_FOUND > PARTIAL > COMPLETE；priority ≠ short-circuit）
 - [x] empty criteria = consumed-contract violation（不新增第六态）
 - [x] Criteria Set 语义（等价 set → 等价 result；sorted(set(keys)) 是实现非框架要求）
@@ -262,7 +280,7 @@ T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval O
 - [x] Node lifecycle 边界（Outcome ≠ Agent lifecycle）+ State 边界（教学规模选择）
 - [x] T02 / T04 接口位置（fixture 标识；Context Builder 不实现；"T03 ends with trusted facts"；pipeline T01 → T02 → T03 → T04）
 - [x] permission metadata 边界（T06 属权限裁决；当前 T03 不实现权限元数据检索，不预设未来 contract）
-- [x] Evidence 边界（已验证 / 未验证 10 项；不写死 pytest 数量；不宣称 e2e / production integration verified）
+- [x] Evidence 边界（已验证 / 未验证 10 项；不写死 pytest 数量；不宣称 e2e / production integration verified；contract-level identity verified——fact identity uniqueness / fact-evidence separation，不宣称 production lineage ID scheme / global cross-system identity / production provenance schema verified）
 - [x] 常见误区 10 条
 - [x] Evidence Status：Contract-level verified；Integration deferred
 

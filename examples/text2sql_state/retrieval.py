@@ -21,6 +21,13 @@ Gate A 冻结（TASK-0033）+ Gate B/C Review 修正：
   同一条 entry 同时产出 RetrievalReference（fact_id + source_ref + evidence）
   与 MaterializedFact（fact_id + content），共享稳定 fact_id——
   消费者可把每一条 materialized fact 解析到它的 provenance
+- **fact identity ≠ freshness/version evidence**（Task Merge Gate Review
+  修正）：fact_id = source-qualified entry identity（source 名 + 稳定
+  entry_id）——entry_id 承担稳定 fact identity；key 只承担 lookup 身份；
+  evidence 只承担 freshness / version 证据，不承担 identity discriminator；
+  不把 content 变化等同 identity 变化（同一事实的 evidence 更新仍表示
+  同一事实）；entry_id 唯一性由 source construction 保证
+  （metadata_source.py：source-boundary invariant）
 
 Validation 分层（最终复审明确）：
 1. **CatalogEntry construction = field runtime validation**（metadata_source.py
@@ -62,13 +69,16 @@ class MetadataRetriever:
 
     @staticmethod
     def _fact_id(entry: CatalogEntry, source_name: str) -> str:
-        """稳定关联键：source 名 + entry key + evidence。
+        """稳定关联键：source-qualified entry identity。
 
-        deterministic（纯字符串构造）/ 不依赖 object identity / 不依赖
-        随机值 / permutation-invariant / duplicate-dedup 后稳定——
-        fact 与 provenance 的 binding 不随 criteria 排列或重复变化。
+        `f"{source_name}:{entry.entry_id}"`——由 source 名 + 稳定
+        entry_id 构造：deterministic（纯字符串构造）/ 不依赖 object
+        identity / 不依赖随机 UUID / permutation-invariant /
+        duplicate-dedup 后稳定。entry_id 唯一性是 source-boundary
+        不变量（metadata_source 构造即校验），因此 fact_id 在合法
+        source 内必然唯一——不依赖 evidence / content 作 discriminator。
         """
-        return f"{source_name}:{entry.key}:{entry.evidence}"
+        return f"{source_name}:{entry.entry_id}"
 
     def retrieve(self, criteria: RetrievalCriteria) -> RetrievalResult:
         """按检索条件读取事实，聚合 outcome，返回 references + materialized facts。

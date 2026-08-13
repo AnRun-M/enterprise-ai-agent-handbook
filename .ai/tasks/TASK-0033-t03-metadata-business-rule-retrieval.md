@@ -7,7 +7,7 @@
 | Status | in_progress |
 | Owner | AnRun-M |
 | Created | 2026-08-11 |
-| Updated | 2026-08-11 |
+| Updated | 2026-08-13 |
 | Related ADR | ADR-0002 / ADR-0005（规则分层） |
 | Related Task | TASK-0029（T03 = Wave 1）、TASK-0032（T01 Gate A，同分支规划） |
 | Related Example | examples/text2sql_state（默认载体） |
@@ -15,7 +15,7 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支，最终复审 APPROVED）；Gate D Documentation 已完成（第 20 章，draft）；Task Merge Gate / Gate E 待后续。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支，最终复审 APPROVED）；Gate D Documentation 已完成（第 20 章，draft）；Task Merge Gate Review 修正中（方案 A fact-level binding → identity/evidence 分离，等待最终确认）；Gate E 待后续。**
 
 ---
 
@@ -235,4 +235,16 @@ retrieval criteria
   - **Chapter 20 修正**：20.4 三层 contract 加 fact_id binding 机制与代码示意；20.7 provenance identity chain 加 fact_id 层；20.9 evidence 加 fact-to-reference binding verified（未验证补充 production lineage schema / per-fact audit lineage，不宣称 production lineage verified）；20.12 总结 pipeline 修正为 **T01 → T02 → T03 → T04**（原遗漏 T02）；20.2 permission metadata 表述修正（"T03 只提供权限元数据（不裁决）"→"当前 T03 不实现权限元数据检索，T06 属权限裁决；未来扩展需明确 authoritative-source contract，不在本章预设"）
   - 其它 contract 全部保持：五态 / priority / full scan / payload 策略 A / empty violation / criteria set / permutation / dedup / CatalogEntry runtime validation / source identity / snapshot / Node lifecycle / State 边界 / T02 fixture / Integration deferred
   - Evidence：**fact-to-reference provenance binding verified**（教学 Contract 级）；production lineage / production provenance schema 仍未验证
+  - Gate 状态：**修正中，等待 Task Merge Gate 最终确认**；Status 仍 in_progress；不得进入 Gate D。
+- 2026-08-13：**Task Merge Gate 最终复审修正已应用（identity / evidence 分离，等待最终确认）**：
+  - **Contract 缺口修复**：原 fact_id = `f"{source}:{entry.key}:{entry.evidence}"` 存在 collision 风险——source contract 只保证 `entry.key == index_key`，不保证同 key 下 evidence 唯一；合法 source 可能出现同 key 同 evidence 不同 content → 不同事实相同 fact_id（fixture 的 revision-1 / revision-2 只是测试数据恰好不同，不是 Contract 唯一性保证）
+  - **新增 `CatalogEntry.entry_id: str`** = 稳定 source-local fact identity（"这条事实是谁"）——明确区分：`entry_id` = stable fact identity / `key` = retrieval / semantic lookup key / `evidence` = freshness / version evidence。固定原则：**"Fact identity ≠ freshness/version evidence."**（事实身份不等于版本 / 新鲜度证据）
+  - **fact_id 最终定义**：`f"{source.name}:{entry.entry_id}"`——source-qualified entry identity；不再依赖 evidence 作 identity discriminator，不采用 content hash（内容变化 ≠ identity 变化）
+  - **source uniqueness invariant**：`InMemoryMetadataSource` 构造阶段校验同一个 source snapshot 内 `entry_id` 全局唯一（跨所有 index key），重复即 fail fast——固定原则：**"Fact identity uniqueness is a source-boundary invariant."**（不在 Retriever 产生 duplicate fact_id 后才补救）
+  - **fixture 更新**：分配稳定 entry_id——`schema.orders` / `metric.gmv` / `region.east_china` / `metric.sales_definition.a` / `metric.sales_definition.b`（deterministic / 可读 / 不依赖 object identity / 不依赖随机 UUID / 不依赖 criteria 顺序 / 不把 evidence 当 identity）
+  - **identity / evidence 分离测试（4 项新增）**：同 key + 同 evidence + 不同 entry_id → fact_id 不同（evidence 不承担唯一身份）/ 重复 entry_id → source construction fail fast / ambiguous candidates 每 candidate 唯一 entry_id / fact_id（source_ref 相同但 fact_id 唯一）/ 同一 entry_id evidence revision-1 → revision-2：stable identity 仍同一事实、evidence 明确变化（representation 边界，不实现 history / version store）
+  - **DTO 保持**：RetrievalReference（fact_id + source_ref + evidence）/ MaterializedFact（fact_id + content）不重复塞 entry_id——fact_id 已承担 source-qualified identity；references / materialized 分层保持；source_ref 只承担 source / lookup identity，不承担 fact-level unique identity（`catalog-v1:ambiguous_metric` 可对应多候选）
+  - **Chapter 20 同步**：20.4 增加 Identity 模型四概念表 + 固定原则（删除"fact_id 由 source + key + evidence 构造"表述）；20.6 fixture entry_id 说明；20.7 Source Contract 层 2 扩展 entry_id 唯一性 + identity chain 增加 entry_id 层；20.9 evidence 增加 fact identity uniqueness / fact/evidence separation verified（未验证补充 production lineage ID scheme / global cross-system identity）；20.12 总结同步；验收 checklist 增加 identity 模型与 source_ref 职责行
+  - 其它 contract 全部保持：五态 / priority / full scan / payload 策略 A / empty violation / criteria set / permutation / dedup / CatalogEntry runtime validation / source index-key identity / snapshot / fact-level binding / Node lifecycle / State 边界 / T02 fixture / T04 interface / Integration deferred
+  - Evidence：**fact identity uniqueness verified + fact/evidence separation verified**（教学 fake authoritative source 的 contract-level identity）；production lineage ID scheme / global cross-system identity / production provenance schema 仍未验证
   - Gate 状态：**修正中，等待 Task Merge Gate 最终确认**；Status 仍 in_progress；不得进入 Gate D。

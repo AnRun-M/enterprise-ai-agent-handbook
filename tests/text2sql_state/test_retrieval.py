@@ -188,13 +188,121 @@ def test_duplicate_criteria_do_not_duplicate_bindings() -> None:
 
 
 def test_fact_id_is_deterministic_and_stable() -> None:
-    # fact_id 基于 source 名 + entry key + evidence 构造：
-    # 不依赖 object identity / 随机 UUID；重复检索完全稳定
+    # fact_id = source-qualified entry identity（source 名 + 稳定 entry_id）：
+    # 不依赖 object identity / 随机 UUID / criteria 排列 / evidence；重复检索完全稳定
     source = build_fixture_source()
     r1 = make_retriever(source).retrieve(RetrievalCriteria(keys=("orders",)))
     r2 = make_retriever(source).retrieve(RetrievalCriteria(keys=("orders",)))
     assert r1 == r2
-    assert r1.references[0].fact_id == "catalog-v1:orders:catalog-v1"
+    assert r1.references[0].fact_id == "catalog-v1:schema.orders"
+
+
+# ---------------------------------------------------------------- identity / evidence 分离（Task Merge Gate 最终复审）
+
+def test_same_key_same_evidence_distinct_entry_ids_produce_distinct_fact_ids() -> None:
+    # evidence 不承担唯一身份职责：同 key + 同 evidence 的合法 source
+    # （不同内容 = 不同事实），必须产出不同 fact_id——身份由 entry_id 承担
+    source = InMemoryMetadataSource(
+        name="catalog",
+        entries={
+            "k": (
+                CatalogEntry(
+                    entry_id="fact.a",
+                    key="k",
+                    kind=CatalogEntryKind.BUSINESS_RULE,
+                    content="口径 A",
+                    evidence="v1",
+                ),
+                CatalogEntry(
+                    entry_id="fact.b",
+                    key="k",
+                    kind=CatalogEntryKind.BUSINESS_RULE,
+                    content="口径 B",
+                    evidence="v1",  # 与上一条同 evidence——合法且不冲突
+                ),
+            ),
+        },
+    )
+    result = make_retriever(source).retrieve(RetrievalCriteria(keys=("k",)))
+    fact_ids = {ref.fact_id for ref in result.references}
+    assert fact_ids == {"catalog:fact.a", "catalog:fact.b"}
+    assert {ref.evidence for ref in result.references} == {"v1"}  # 双事实共享 evidence
+
+
+def test_duplicate_entry_id_fails_at_source_construction() -> None:
+    # fact identity uniqueness 是 source-boundary invariant：
+    # 重复 entry_id（跨 index key）会在 source construction 即 fail fast，
+    # 不等到 Retriever 产出 duplicate fact_id 才发现
+    with pytest.raises(ValueError, match="entry_id must be unique"):
+        InMemoryMetadataSource(
+            name="catalog",
+            entries={
+                "orders": (
+                    CatalogEntry(
+                        entry_id="schema.orders",
+                        key="orders",
+                        kind=CatalogEntryKind.SCHEMA,
+                        content="orders: order_id",
+                        evidence="v1",
+                    ),
+                ),
+                "gmv": (
+                    CatalogEntry(
+                        entry_id="schema.orders",  # 跨 key 重复 entry_id
+                        key="gmv",
+                        kind=CatalogEntryKind.BUSINESS_RULE,
+                        content="GMV = ...",
+                        evidence="v1",
+                    ),
+                ),
+            },
+        )
+
+
+def test_ambiguous_candidates_have_unique_fact_ids() -> None:
+    # ambiguous candidates：每 candidate 唯一 entry_id / fact_id——
+    # source_ref（catalog-v1:ambiguous_metric）相同但 fact_id 不同，
+    # candidate 唯一性由 fact_id 承担，不由 source_ref / evidence 承担
+    result = make_retriever().retrieve(RetrievalCriteria(keys=("ambiguous_metric",)))
+    refs = result.references
+    assert len(refs) == 2
+    assert {ref.fact_id for ref in refs} == {
+        "catalog-v1:metric.sales_definition.a",
+        "catalog-v1:metric.sales_definition.b",
+    }
+    assert {ref.source_ref for ref in refs} == {"catalog-v1:ambiguous_metric"}
+    assert {ref.evidence for ref in refs} == {"revision-1", "revision-2"}
+
+
+def test_fact_identity_stable_across_evidence_change() -> None:
+    # 同一 entry_id，evidence 从 revision-1 → revision-2：stable identity
+    # 仍表示同一事实，evidence 明确变化（representation 边界——
+    # 不实现 history / version store，只验证 identity ≠ evidence）
+    def make_source(evidence: str) -> InMemoryMetadataSource:
+        return InMemoryMetadataSource(
+            name="catalog-v1",
+            entries={
+                "gmv": (
+                    CatalogEntry(
+                        entry_id="metric.gmv",  # 同一稳定 identity
+                        key="gmv",
+                        kind=CatalogEntryKind.BUSINESS_RULE,
+                        content="GMV = 已支付订单金额合计（含税），剔除退款",
+                        evidence=evidence,
+                    ),
+                ),
+            },
+        )
+
+    r1 = make_retriever(make_source("revision-1")).retrieve(
+        RetrievalCriteria(keys=("gmv",))
+    )
+    r2 = make_retriever(make_source("revision-2")).retrieve(
+        RetrievalCriteria(keys=("gmv",))
+    )
+    assert r1.references[0].fact_id == r2.references[0].fact_id == "catalog-v1:metric.gmv"
+    assert r1.references[0].evidence == "revision-1"
+    assert r2.references[0].evidence == "revision-2"  # evidence 变化 ≠ identity 变化
 
 
 # ---------------------------------------------------------------- determinism / permutation invariance
@@ -261,6 +369,7 @@ def test_source_rejects_entry_key_mismatch() -> None:
     # （lookup("orders") 却产出 source_ref=catalog:customers），
     # 必须在 source construction 即 fail fast，不进入 lookup / Retriever。
     mismatched = CatalogEntry(
+        entry_id="schema.customers",
         key="customers",
         kind=CatalogEntryKind.SCHEMA,
         content="...",
@@ -280,6 +389,7 @@ def test_source_snapshot_isolated_from_caller_container() -> None:
     caller_entries = {
         "orders": (
             CatalogEntry(
+                entry_id="schema.orders",
                 key="orders",
                 kind=CatalogEntryKind.SCHEMA,
                 content="orders: order_id",
@@ -372,6 +482,7 @@ def test_catalog_entry_rejects_non_enum_kind_at_construction() -> None:
     # malformed source data 在进入 Retriever / Retrieval Outcome 语义前 fail fast。
     with pytest.raises(TypeError, match="CatalogEntry.kind must be a CatalogEntryKind"):
         CatalogEntry(
+            entry_id="schema.x",
             key="x",
             kind="unknown_typo",  # type: ignore[arg-type]
             content="...",

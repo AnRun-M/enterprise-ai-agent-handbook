@@ -35,18 +35,27 @@ class RetrievalOutcome(Enum):
 class RetrievalReference:
     """可持久化的 provenance / 追踪信息（适合进入 State）。
 
-    fact_id：**稳定关联键**——把 materialized fact 与其 provenance 绑定
-    （deterministic：由 source 名 + entry key + evidence 构造；
-    不依赖 Python object identity / 随机 UUID；permutation-invariant；
-    duplicate-dedup 后稳定）。
-    source_ref：事实来自哪个 source；
-    evidence：freshness / version evidence——具体表现依 source capability
-    （version / revision / timestamp / etag / digest / snapshot id）。
+    **Identity 模型**（Task Merge Gate Review 修正）：
+    - `entry_id`（CatalogEntry）= 稳定 **source-local fact identity**
+    - `fact_id` = **source-qualified stable fact identity**——
+      由 source 名 + entry_id 构造（`f"{source.name}:{entry.entry_id}"`），
+      deterministic / 不依赖 object identity / 不依赖随机 UUID /
+      permutation-invariant / duplicate-dedup 后稳定
+    - `key` = retrieval / semantic **lookup identity**——不承担 fact-level
+      unique identity（如 `catalog-v1:ambiguous_metric` 可对应多个候选）
+    - `evidence` = **freshness / version evidence**——具体表现依 source
+      capability（version / revision / timestamp / etag / digest /
+      snapshot id）；**不承担 identity discriminator**
+    - 固定原则："Fact identity ≠ freshness/version evidence."
+      （事实身份不等于版本 / 新鲜度证据）
+
+    source_ref：事实来自哪个 authoritative source / lookup identity；
+    不承担 fact-level unique identity（candidate 唯一性由 fact_id 承担）。
     """
 
-    fact_id: str
-    source_ref: str
-    evidence: str
+    fact_id: str  # source-qualified stable fact identity（source:entry_id）
+    source_ref: str  # source / lookup identity（如 "catalog-v1:ambiguous_metric"，可对应多候选）
+    evidence: str  # freshness / version evidence——不是 identity
 
 
 @dataclass(frozen=True)
