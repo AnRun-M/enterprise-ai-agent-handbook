@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| Status | in_progress |
+| Status | completed |
 | Owner | AnRun-M |
 | Created | 2026-08-11 |
 | Updated | 2026-08-13 |
@@ -15,7 +15,7 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支，最终复审 APPROVED）；Gate D Documentation 已完成（第 20 章，draft）；Task Merge Gate Architecture Review 已通过（方案 A fact-level binding → identity/evidence 分离 → 最终 code-contract cleanup 已应用，等待 Merge 确认）；Gate E 待后续。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**全部 Gate 已通过：Gate A（PR #59 合并）→ Gate B/C（最终复审 APPROVED）→ Gate D（第 20 章，draft）→ Task Merge Gate（Architecture Review 通过 + 最终确认 APPROVED）→ PR #62 squash merge（4cb6b44）→ TASK-0033 completed。Gate E 属 Milestone Integration Closure，等 T02/T04 进 main 后关闭，非 TASK-0033 completed 的阻塞条件。**
 
 ---
 
@@ -152,11 +152,13 @@ retrieval criteria
 
 ## 十一、Review Gate（统一）
 
-- Gate A Architecture / Contract：**completed** ✅（PR #59 Architecture Review 通过并合并）
+- Gate A Architecture / Contract：**completed** ✅（PR #59 Architecture Review 通过并合并，eb9d324）
 - Gate B Implementation（text2sql_state retriever + 测试）：**completed** ✅（三轮 Review 修正后最终复审 APPROVED）
 - Gate C Tests / Evidence：**completed** ✅（pytest / ruff / mkdocs --strict 通过）
 - Gate D Documentation（第 20 章 T03）：**completed** ✅（`docs/04-text2sql/ch20-metadata-business-rule-retrieval.md`，draft；T04 / Context Builder 仅接口位置）
-- **等待 Task Merge Gate 最终 Review** → Task Merge → Gate E（等 T02/T04 进 main，deferred → closed）。
+- Task Merge Gate：**completed** ✅（Architecture Review 通过 → 最终 code-contract cleanup → 最终确认 APPROVED）
+- PR #62 Merge：**completed** ✅（squash merge `4cb6b44`，2026-08-13）
+- Gate E（Milestone Integration Closure）：**deferred**——等 T02/T04 进 main 后关闭；**不是 TASK-0033 completed 的阻塞条件**。
 
 ## 验收标准（Gate A 阶段）
 
@@ -171,7 +173,7 @@ retrieval criteria
 - [x] Memory 边界（T03 ≠ Memory；authoritative 来自 External Source of Truth）
 - [x] Evidence 四列制；未实现 Retriever
 - [x] Architecture Decisions 6 项收敛
-- [ ] 等待 Architecture Review 复审
+- [x] Architecture Review 复审（PR #59 通过合并）
 
 ## 完成记录
 
@@ -256,3 +258,11 @@ retrieval criteria
   - **Chapter 20 最小同步**：20.4 Identity 模型附近增加 fact_id encoding boundary 一句（受限 grammar 避免 delimiter ambiguity；教学级 source-qualified encoding，非 production global identity scheme）；20.9 evidence 增加 source-qualified identity string encoding 无歧义 verified（未验证补充 global uniqueness / production URI scheme，不宣称 global uniqueness / cross-system identity / production URI scheme / production lineage identity verified）
   - **Gate A/B/C/D 决策、Outcome、priority、payload policy、provenance model、integration status 全部未改**
   - Gate 状态：**Task Merge Gate Architecture Review 通过；等待 Merge 确认**；Status 仍 in_progress。
+- 2026-08-13：**PR #62 Task Merge Gate 最终确认 APPROVED → squash merge（commit `4cb6b44`）→ TASK-0033 completed**：
+  - **PR #62**：feat: implement t03 metadata retrieval contract；squash merge `4cb6b4467ef0536039b77143be59cff5253b1b56`；head `71e28ee`；docs CI + tests CI 双绿；PR 描述含六轮 Review 修正记录
+  - **T03 最终状态快照**：T03 implementation = **complete**（retrieval_types.py / metadata_source.py / retrieval.py / retrieval_node.py / state.py retrieval_result 字段）；T03 tests = **complete**（test_retrieval.py 55 项 + test_retrieval_node.py，全量 208 passed）；T03 documentation = **complete**（第 20 章 draft，T03 内容完整承载，T04 / Context Builder 仅接口位置）
+  - **Evidence Status** = **Contract-level verified**（repeated deterministic / permutation-invariance / source-contract strictness / fact-to-reference provenance binding / fact identity uniqueness / fact-evidence separation / source-qualified identity string encoding 无歧义）
+  - **Integration Status** = **deferred**，deferred 原因：① T02 尚未实现 ② T03 → T04 尚未真实集成 ③ compiled Graph Runtime path 尚未验证 ④ 真实 External Source 尚未接入；**不写 e2e verified / production metadata integration verified**；Gate E 属 **Milestone Integration Closure**，不是 TASK-0033 completed 的阻塞条件
+  - **六轮 Review 修正摘要**：① order-stability（full scan + priority aggregation；payload 策略 A；empty = contract violation；strict Enum）② CatalogEntry 构造级运行时校验（TypeError）③ source index/entry identity validation + snapshot 收窄 ④ 方案 A fact-level provenance binding（fact_id + MaterializedFact）⑤ identity/evidence 分离（entry_id；fact_id = source:entry_id；entry_id 全局唯一）⑥ final code-contract cleanup（type annotation list[MaterializedFact]；identifier grammar non-empty/trimmed/无 ":"；fact_id encoding boundary）
+  - **Future maintenance**：None（无明确遗留事项）
+  - Gate 状态：**TASK-0033 completed**；Chapter 20 保持 draft（T03 内容 complete，留 Part 04 release closure 统一收敛状态标注）；Part 04 进行中；v0.5.0 未完成。
