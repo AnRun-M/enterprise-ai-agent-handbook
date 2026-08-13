@@ -15,7 +15,7 @@
 
 ## 定位
 
-Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支）；Gate D / Task Merge / Gate E 待后续。**
+Wave 1 并行任务之一（T01 / T03 均无 Strong dependency）。**Gate A：Architecture / Contract 已冻结并通过 Review（PR #59 合并）；Gate B Implementation + Gate C Tests 已完成（feature/t03-metadata-retrieval，本分支，最终复审 APPROVED）；Gate D Documentation 已完成（第 20 章，draft）；Task Merge Gate / Gate E 待后续。**
 
 ---
 
@@ -152,10 +152,11 @@ retrieval criteria
 
 ## 十一、Review Gate（统一）
 
-- Gate A Architecture / Contract：**completed**（PR #59 Architecture Review 通过并合并）
-- Gate B Implementation（text2sql_state retriever + 测试）：**completed**（本分支）
-- Gate C Tests / Evidence：**completed**（pytest / ruff / mkdocs --strict 通过）
-- 等待 **Gate B/C Architecture + Implementation Review**（Review 修正已应用，等待最终复审）→ Gate D（Ch20 候选 T03 部分）→ Task Merge Gate → Gate E（等 T02/T04 进 main，deferred → closed）。
+- Gate A Architecture / Contract：**completed** ✅（PR #59 Architecture Review 通过并合并）
+- Gate B Implementation（text2sql_state retriever + 测试）：**completed** ✅（三轮 Review 修正后最终复审 APPROVED）
+- Gate C Tests / Evidence：**completed** ✅（pytest / ruff / mkdocs --strict 通过）
+- Gate D Documentation（第 20 章 T03）：**completed** ✅（`docs/04-text2sql/ch20-metadata-business-rule-retrieval.md`，draft；T04 / Context Builder 仅接口位置）
+- **等待 Task Merge Gate 最终 Review** → Task Merge → Gate E（等 T02/T04 进 main，deferred → closed）。
 
 ## 验收标准（Gate A 阶段）
 
@@ -216,3 +217,13 @@ retrieval criteria
   - **snapshot isolation test**：`test_source_snapshot_isolated_from_caller_container`——修改 caller_entries 后 source.lookup 结果不变（constructor copy / snapshot isolation 方向）
   - 其它 contract 全部保持：CatalogEntry.kind runtime validation / Enum strictness / full scan / outcome priority / UNAVAILABLE payload policy A / empty = violation / sorted(set(keys)) / permutation invariance / duplicate dedup / 五态 / Node lifecycle 边界 / State 边界 / Integration deferred
   - Gate B/C 状态：**修正中，等待最终确认**；Status 仍 in_progress；不得进入 Gate D。
+- 2026-08-13：**Gate B/C 最终复审 APPROVED**。
+- 2026-08-13：**Gate D Documentation 完成（feature/t03-metadata-retrieval）**：
+  - 创建 `docs/04-text2sql/ch20-metadata-business-rule-retrieval.md`（状态：**draft**，T03 完整承载；T04 / Context Builder 仅接口位置）——按 TASK-0029 Candidate Mapping（Ch20 = T03）
+  - 结构 20.1-20.12：为什么需要可信事实 / 职责与边界（六概念，T03 ≠ Memory）/ Retrieval Outcome 五态 + priority / 三层 Retrieval Contract / Criteria Set 语义 / Fake Authoritative Source / Source Contract 五层 + Provenance Identity Chain + snapshot 边界 / Node 与 Graph State / Evidence 与未验证（10 项）/ T02-T04 接口位置 / 常见误区 10 条 / 总结
+  - 固定主线逐字保持；四列制证据；正文不写死 pytest 数量；不宣称 e2e / production integration verified
+  - 4 张 Mermaid（pipeline / outcome≠lifecycle / source contract 链 / T02→T04 接口）
+  - `docs/04-text2sql/index.md` 新增"检索与生成"分区；`mkdocs.yml` 新增第 20 章导航
+  - content-map / ROADMAP 未修改（无 ch19-ch25 逐章行惯例，Part 4 聚合行保持"进行中"）；Chapter 20 标 draft 不标 completed
+  - Evidence：**Contract-level verified**；Integration：**deferred**（T02 未实现 / T04 未集成 / 真实 External Source 未接入）
+  - 等待 Task Merge Gate 最终 Review；Status 仍 in_progress。
