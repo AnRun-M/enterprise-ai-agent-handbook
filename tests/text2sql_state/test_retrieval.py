@@ -19,9 +19,11 @@ from examples.text2sql_state.metadata_source import (
 )
 from examples.text2sql_state.retrieval import MetadataRetriever
 from examples.text2sql_state.retrieval_types import (
+    MaterializedFact,
     RetrievalCriteria,
     RetrievalOutcome,
     RetrievalReference,
+    RetrievalResult,
 )
 
 FIXTURE = build_fixture_source()
@@ -36,8 +38,14 @@ def make_retriever(source: InMemoryMetadataSource | None = None) -> MetadataRetr
 def test_complete_outcome_returns_facts_and_references() -> None:
     result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "gmv")))
     assert result.outcome is RetrievalOutcome.COMPLETE
-    assert "orders: order_id, gmv_amount, region, order_date" in result.materialized.schema_facts
-    assert "GMV = 已支付订单金额合计（含税），剔除退款" in result.materialized.business_rules
+    assert any(
+        f.content == "orders: order_id, gmv_amount, region, order_date"
+        for f in result.materialized.schema_facts
+    )
+    assert any(
+        f.content == "GMV = 已支付订单金额合计（含税），剔除退款"
+        for f in result.materialized.business_rules
+    )
     assert len(result.references) == 2
 
 
@@ -111,19 +119,82 @@ def test_multiple_references_for_multiple_entries() -> None:
 
 def test_materialized_facts_separated_from_references() -> None:
     result = make_retriever().retrieve(RetrievalCriteria(keys=("orders",)))
-    # references 只承载 source_ref + evidence（无事实内容）
+    # references 只承载 fact_id + source_ref + evidence（无事实内容）
     for ref in result.references:
+        assert ref.fact_id
         assert ref.source_ref
         assert ref.evidence
-    # materialized 只承载事实内容（无 source_ref / evidence）
-    assert result.materialized.schema_facts == ("orders: order_id, gmv_amount, region, order_date",)
-    assert "catalog-v1:orders" not in result.materialized.schema_facts[0]
+    # materialized 只承载 fact_id + content（无 source_ref / evidence）
+    schema_fact = result.materialized.schema_facts[0]
+    assert schema_fact.content == "orders: order_id, gmv_amount, region, order_date"
+    assert "catalog-v1:orders" not in schema_fact.content
 
 
 def test_references_frozen_and_immutable() -> None:
-    ref = RetrievalReference(source_ref="s", evidence="e")
+    ref = RetrievalReference(fact_id="f", source_ref="s", evidence="e")
     with pytest.raises(dataclasses.FrozenInstanceError):
         ref.source_ref = "changed"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------- fact-level provenance binding
+
+def _find_reference(result: RetrievalResult, fact: MaterializedFact) -> RetrievalReference:
+    bound = [ref for ref in result.references if ref.fact_id == fact.fact_id]
+    assert len(bound) == 1  # 每条 fact 有唯一可解析 binding
+    return bound[0]
+
+
+def test_every_fact_binds_to_exactly_one_reference() -> None:
+    # 目标不是"result 有 references"，而是"每个 materialized fact 都能
+    # 关联到它的 provenance"
+    result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "gmv")))
+    facts = (*result.materialized.schema_facts, *result.materialized.business_rules)
+    assert len(facts) == 2
+    for fact in facts:
+        ref = _find_reference(result, fact)
+        assert ref.fact_id == fact.fact_id
+
+
+def test_schema_and_business_rule_facts_bind_to_correct_source() -> None:
+    result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "gmv")))
+    schema_ref = _find_reference(result, result.materialized.schema_facts[0])
+    rule_ref = _find_reference(result, result.materialized.business_rules[0])
+    assert schema_ref.source_ref == "catalog-v1:orders"
+    assert rule_ref.source_ref == "catalog-v1:gmv"
+
+
+def test_binding_is_permutation_invariant() -> None:
+    a = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "gmv")))
+    b = make_retriever().retrieve(RetrievalCriteria(keys=("gmv", "orders")))
+    assert a == b  # fact_id 构造与 criteria 排列无关 → 完全相等含 binding
+
+
+def test_ambiguous_candidates_keep_own_provenance() -> None:
+    result = make_retriever().retrieve(RetrievalCriteria(keys=("ambiguous_metric",)))
+    facts = result.materialized.business_rules
+    assert len(facts) == 2
+    # 每个 candidate 都保留自己的 provenance（fact_id + evidence 各自唯一）
+    fact_ids = {_find_reference(result, f).fact_id for f in facts}
+    evidences = {_find_reference(result, f).evidence for f in facts}
+    assert len(fact_ids) == 2
+    assert evidences == {"revision-1", "revision-2"}
+
+
+def test_duplicate_criteria_do_not_duplicate_bindings() -> None:
+    result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "orders")))
+    assert len(result.references) == 1
+    assert len(result.materialized.schema_facts) == 1
+    assert result.references[0].fact_id == result.materialized.schema_facts[0].fact_id
+
+
+def test_fact_id_is_deterministic_and_stable() -> None:
+    # fact_id 基于 source 名 + entry key + evidence 构造：
+    # 不依赖 object identity / 随机 UUID；重复检索完全稳定
+    source = build_fixture_source()
+    r1 = make_retriever(source).retrieve(RetrievalCriteria(keys=("orders",)))
+    r2 = make_retriever(source).retrieve(RetrievalCriteria(keys=("orders",)))
+    assert r1 == r2
+    assert r1.references[0].fact_id == "catalog-v1:orders:catalog-v1"
 
 
 # ---------------------------------------------------------------- determinism / permutation invariance
@@ -170,8 +241,9 @@ def test_duplicate_keys_deduplicated() -> None:
     result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "orders")))
     assert result.outcome is RetrievalOutcome.COMPLETE
     assert len(result.references) == 1
-    assert result.materialized.schema_facts == (
-        "orders: order_id, gmv_amount, region, order_date",
+    assert len(result.materialized.schema_facts) == 1
+    assert result.materialized.schema_facts[0].content == (
+        "orders: order_id, gmv_amount, region, order_date"
     )
 
 
@@ -246,7 +318,8 @@ def test_no_llm_generated_facts() -> None:
     source = build_fixture_source()
     result = make_retriever(source).retrieve(RetrievalCriteria(keys=("orders",)))
     entry = source.lookup("orders").entries[0]
-    assert result.materialized.schema_facts == (entry.content,)
+    assert len(result.materialized.schema_facts) == 1
+    assert result.materialized.schema_facts[0].content == entry.content
     assert result.materialized.business_rules == ()
 
 
@@ -317,9 +390,11 @@ def test_fixture_entries_all_use_typed_kind() -> None:
 def test_schema_and_business_rule_kinds_materialize() -> None:
     # schema kind → schema_facts；business_rule kind → business_rules
     result = make_retriever().retrieve(RetrievalCriteria(keys=("orders", "gmv")))
-    assert result.materialized.schema_facts == (
-        "orders: order_id, gmv_amount, region, order_date",
+    assert len(result.materialized.schema_facts) == 1
+    assert result.materialized.schema_facts[0].content == (
+        "orders: order_id, gmv_amount, region, order_date"
     )
-    assert result.materialized.business_rules == (
-        "GMV = 已支付订单金额合计（含税），剔除退款",
+    assert len(result.materialized.business_rules) == 1
+    assert result.materialized.business_rules[0].content == (
+        "GMV = 已支付订单金额合计（含税），剔除退款"
     )

@@ -227,3 +227,12 @@ retrieval criteria
   - content-map / ROADMAP 未修改（无 ch19-ch25 逐章行惯例，Part 4 聚合行保持"进行中"）；Chapter 20 标 draft 不标 completed
   - Evidence：**Contract-level verified**；Integration：**deferred**（T02 未实现 / T04 未集成 / 真实 External Source 未接入）
   - 等待 Task Merge Gate 最终 Review；Status 仍 in_progress。
+- 2026-08-13：**Task Merge Gate Review 修正已应用（方案 A：fact-level provenance binding，等待最终确认）**：
+  - **缺口**：references 与 materialized facts 是两个独立 tuple——多 facts / ambiguous candidates 时消费者无法判断"某条 fact 具体来自哪个 source_ref / evidence"（只有 aggregate / result-level provenance，但 Chapter 20 的"Reference tells us where the fact came from"易被理解为 fact-level lineage）
+  - **采用方案 A（最小 fact-to-reference binding，二选一已决）**：`RetrievalReference` 增加 `fact_id`；新增 `MaterializedFact`（fact_id + content）；`MaterializedFacts.schema_facts / business_rules` 改为 `tuple[MaterializedFact, ...]`；同一条 entry 同时产出 reference 与 fact，共享 fact_id
+  - **fact_id deterministic**：`f"{source_name}:{entry.key}:{entry.evidence}"`——纯字符串构造、不依赖 object identity / 随机 UUID、permutation-invariant、duplicate-dedup 后稳定（无 Architecture Conflict，无需随机 identifier）
+  - **binding tests（6 项）**：每条 fact 唯一可解析 binding / schema 与 rule 绑定到正确 source / permutation 后 binding 不变 / ambiguous candidates 各自保留 provenance（revision-1 vs revision-2）/ duplicate criteria 不产生重复 binding / fact_id deterministic 且稳定
+  - **Chapter 20 修正**：20.4 三层 contract 加 fact_id binding 机制与代码示意；20.7 provenance identity chain 加 fact_id 层；20.9 evidence 加 fact-to-reference binding verified（未验证补充 production lineage schema / per-fact audit lineage，不宣称 production lineage verified）；20.12 总结 pipeline 修正为 **T01 → T02 → T03 → T04**（原遗漏 T02）；20.2 permission metadata 表述修正（"T03 只提供权限元数据（不裁决）"→"当前 T03 不实现权限元数据检索，T06 属权限裁决；未来扩展需明确 authoritative-source contract，不在本章预设"）
+  - 其它 contract 全部保持：五态 / priority / full scan / payload 策略 A / empty violation / criteria set / permutation / dedup / CatalogEntry runtime validation / source identity / snapshot / Node lifecycle / State 边界 / T02 fixture / Integration deferred
+  - Evidence：**fact-to-reference provenance binding verified**（教学 Contract 级）；production lineage / production provenance schema 仍未验证
+  - Gate 状态：**修正中，等待 Task Merge Gate 最终确认**；Status 仍 in_progress；不得进入 Gate D。

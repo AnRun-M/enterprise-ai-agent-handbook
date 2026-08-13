@@ -35,13 +35,30 @@ class RetrievalOutcome(Enum):
 class RetrievalReference:
     """可持久化的 provenance / 追踪信息（适合进入 State）。
 
+    fact_id：**稳定关联键**——把 materialized fact 与其 provenance 绑定
+    （deterministic：由 source 名 + entry key + evidence 构造；
+    不依赖 Python object identity / 随机 UUID；permutation-invariant；
+    duplicate-dedup 后稳定）。
     source_ref：事实来自哪个 source；
     evidence：freshness / version evidence——具体表现依 source capability
     （version / revision / timestamp / etag / digest / snapshot id）。
     """
 
+    fact_id: str
     source_ref: str
     evidence: str
+
+
+@dataclass(frozen=True)
+class MaterializedFact:
+    """一条已物化的事实内容 + 稳定关联键。
+
+    fact_id 与对应 RetrievalReference.fact_id 相同——消费者可把
+    "这条事实"解析到"它的 provenance"（fact-level binding）。
+    """
+
+    fact_id: str
+    content: str
 
 
 @dataclass(frozen=True)
@@ -54,8 +71,8 @@ class MaterializedFacts:
     便于 Context Builder 直接组装 Model Context。
     """
 
-    schema_facts: tuple[str, ...] = field(default_factory=tuple)
-    business_rules: tuple[str, ...] = field(default_factory=tuple)
+    schema_facts: tuple[MaterializedFact, ...] = field(default_factory=tuple)
+    business_rules: tuple[MaterializedFact, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

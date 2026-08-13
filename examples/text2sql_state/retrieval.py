@@ -17,6 +17,10 @@ Gate A 冻结（TASK-0033）+ Gate B/C Review 修正：
 - outcome 唯一顺序：UNAVAILABLE > AMBIGUOUS > NOT_FOUND > PARTIAL > COMPLETE
 - empty criteria = consumed-contract violation（ValueError）——
   五态只描述"合法 retrieval criteria 查询权威源后的结果"
+- **fact-level provenance binding**（Task Merge Gate Review 修正）：
+  同一条 entry 同时产出 RetrievalReference（fact_id + source_ref + evidence）
+  与 MaterializedFact（fact_id + content），共享稳定 fact_id——
+  消费者可把每一条 materialized fact 解析到它的 provenance
 
 Validation 分层（最终复审明确）：
 1. **CatalogEntry construction = field runtime validation**（metadata_source.py
@@ -35,8 +39,9 @@ Validation 分层（最终复审明确）：
 
 from __future__ import annotations
 
-from .metadata_source import CatalogEntryKind, InMemoryMetadataSource
+from .metadata_source import CatalogEntry, CatalogEntryKind, InMemoryMetadataSource
 from .retrieval_types import (
+    MaterializedFact,
     MaterializedFacts,
     RetrievalCriteria,
     RetrievalOutcome,
@@ -54,6 +59,16 @@ class MetadataRetriever:
     @property
     def source(self) -> InMemoryMetadataSource:
         return self._source
+
+    @staticmethod
+    def _fact_id(entry: CatalogEntry, source_name: str) -> str:
+        """稳定关联键：source 名 + entry key + evidence。
+
+        deterministic（纯字符串构造）/ 不依赖 object identity / 不依赖
+        随机值 / permutation-invariant / duplicate-dedup 后稳定——
+        fact 与 provenance 的 binding 不随 criteria 排列或重复变化。
+        """
+        return f"{source_name}:{entry.key}:{entry.evidence}"
 
     def retrieve(self, criteria: RetrievalCriteria) -> RetrievalResult:
         """按检索条件读取事实，聚合 outcome，返回 references + materialized facts。
@@ -91,18 +106,27 @@ class MetadataRetriever:
             if len(lookup.entries) > 1:
                 ambiguous = True
             for entry in lookup.entries:
+                # fact-level provenance binding：同一条 entry 同时产出
+                # reference（fact_id + source_ref + evidence）与
+                # materialized fact（fact_id + content）——共享 fact_id
+                fact_id = self._fact_id(entry, self._source.name)
                 references.append(
                     RetrievalReference(
+                        fact_id=fact_id,
                         source_ref=f"{self._source.name}:{entry.key}",
                         evidence=entry.evidence,
                     )
                 )
                 if entry.kind is CatalogEntryKind.SCHEMA:
-                    schema_facts.append(entry.content)
+                    schema_facts.append(
+                        MaterializedFact(fact_id=fact_id, content=entry.content)
+                    )
                 elif entry.kind is CatalogEntryKind.BUSINESS_RULE:
-                    business_rules.append(entry.content)
+                    business_rules.append(
+                        MaterializedFact(fact_id=fact_id, content=entry.content)
+                    )
                 else:
-                    # Enum 已封顶；防御性 fail-fast——
+                    # Enum 已封顶；防御性 impossible-branch protection——
                     # malformed source data 是 contract error，不是 outcome 语义
                     raise ValueError(f"unknown catalog entry kind: {entry.kind}")
 

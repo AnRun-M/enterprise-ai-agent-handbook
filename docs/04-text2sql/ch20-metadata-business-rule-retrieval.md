@@ -44,7 +44,7 @@ canonical 流程中 T03 是生成之前、检索之后的**可信上下文入口
 
 **T03 ≠ Memory（强调）**：历史对话 / 缓存**不能直接替代权威业务事实**。Memory 可以帮助产生 retrieval criteria（如常用指标偏好），但最终可信事实仍来自 External Source of Truth——不得把旧对话缓存直接当业务事实（Gate A：authoritative metadata / business rule 仍来自外部权威源）。
 
-**T03 不负责**：Intent Classification（T02）/ SQL Generation（T04）/ Validation（T05）/ Risk-Permission（T06）/ Repair（T07）——权限与风险检查是 T06，T03 只提供权限元数据（不裁决）；不做 Router / Scheduler 决策。
+**T03 不负责**：Intent Classification（T02）/ SQL Generation（T04）/ Validation（T05）/ Risk-Permission（T06）/ Repair（T07）——**权限与风险裁决属于 T06；当前 T03 不实现权限元数据检索**（本实现无 permission metadata contract）。若未来 T06 需要权限相关事实，应通过明确的 authoritative-source contract 扩展，不在本章预设；T03 不做 Router / Scheduler 决策。
 
 ## 20.3 Retrieval Outcome
 
@@ -84,11 +84,19 @@ RetrievalResult
 > **Reference tells us where the fact came from.**
 > **Materialized payload tells the current call what the fact actually is.**
 
-**A. References / Provenance**——`RetrievalReference`（frozen）：`source_ref` + `evidence`（freshness / version evidence）。**不强制所有 source 有统一 version 字段**——具体表现依 source capability：version / revision / timestamp / etag / digest / snapshot id。当前教学实现 `evidence: str` 只是**最小 representation，不是生产统一标准**。
+**A. References / Provenance**——`RetrievalReference`（frozen）：`fact_id` + `source_ref` + `evidence`（freshness / version evidence）。**不强制所有 source 有统一 version 字段**——具体表现依 source capability：version / revision / timestamp / etag / digest / snapshot id。当前教学实现 `evidence: str` 只是**最小 representation，不是生产统一标准**。
 
-**B. Materialized Facts**——`MaterializedFacts`（frozen）：`schema_facts` + `business_rules`，**request-scoped materialization 的教学表示**。T04 将来不能只拿 URI / digest / source_ref——它最终必须拿到真实 facts（20.10）。
+**B. Materialized Facts**——`MaterializedFact`（frozen）：`fact_id` + `content`；`MaterializedFacts`（frozen）：`schema_facts` + `business_rules`，**request-scoped materialization 的教学表示**。T04 将来不能只拿 URI / digest / source_ref——它最终必须拿到真实 facts（20.10）。
 
-**两者分离的原因**：references 供 Trace / Replay / Provenance / Reconstruction（可持久化）；materialized 供当前调用消费（不要求完整长期复制进 State，architecture-map 引用策略）。
+**fact-level provenance binding（Task Merge Gate Review 修正）**：`fact_id` 是稳定关联键（由 source 名 + entry key + evidence 构造——deterministic、不依赖 object identity / 随机 UUID、permutation-invariant、duplicate-dedup 后稳定）。同一条 authoritative entry 同时产出 reference（fact_id + source_ref + evidence）与 materialized fact（fact_id + content）——消费者可把**每一条** materialized fact 解析到它的 provenance：
+
+```
+RetrievalReference(fact_id, source_ref, evidence)
+                        ↑ 共享 fact_id
+MaterializedFact(fact_id, content)
+```
+
+**两者分离的原因**：references 供 Trace / Replay / Provenance / Reconstruction（可持久化）；materialized 供当前调用消费（不要求完整长期复制进 State，architecture-map 引用策略）。binding 是教学 Contract 所需的最小关联——**不是生产级 lineage schema / 数据库主键设计 / URI registry / distributed provenance service**。
 
 ## 20.5 Criteria Set 与确定性
 
@@ -139,10 +147,14 @@ source index: orders
       ↓
 CatalogEntry.key: orders
       ↓
-RetrievalReference.source_ref: catalog-v1:orders
+fact_id: catalog-v1:orders:catalog-v1
+      ↓
+RetrievalReference(source_ref: catalog-v1:orders, evidence: catalog-v1)
+      ↓
+MaterializedFact(fact_id: catalog-v1:orders:catalog-v1, content: orders: order_id, ...)
 ```
 
-**不要把 provenance 写成普通日志字符串**——它属于正式 retrieval contract（可持久化、可重建、可审计）。身份链任何一环断裂（如 index 与 entry.key 不一致）都会造成 silent provenance corruption，因此必须在 source construction 阶段 fail fast，而不是在输出时修补。
+**不要把 provenance 写成普通日志字符串**——它属于正式 retrieval contract（可持久化、可重建、可审计）。身份链任何一环断裂（如 index 与 entry.key 不一致）都会造成 silent provenance corruption，因此必须在 source construction 阶段 fail fast，而不是在输出时修补。fact_id 贯穿整条链，使每一条 materialized fact 可解析回它的 source_ref / evidence（fact-level binding，20.4）。
 
 **Source Snapshot Boundary**（表述收窄）：不要写"InMemoryMetadataSource 完全 immutable"——更准确：
 
@@ -179,13 +191,13 @@ flowchart LR
 | 类别 | 内容 |
 |---|---|
 | **代码事实** | `retrieval_types.py`（RetrievalOutcome 五态 / RetrievalReference / MaterializedFacts / RetrievalResult / RetrievalCriteria——Proposed fixture）/ `metadata_source.py`（CatalogEntryKind 严格 Enum + `__post_init__` 运行时校验 / InMemoryMetadataSource 构造级 identity 校验 + read-only snapshot）/ `retrieval.py`（full scan + priority aggregation、sorted(set(keys))、empty = ValueError、UNAVAILABLE payload 策略 A）/ `retrieval_node.py`（只写 retrieval_result）/ `state.py`（retrieval_result 字段，教学规模标注） |
-| **测试事实** | `test_retrieval.py` + `test_retrieval_node.py` 专项覆盖：五态 / full scan / outcome priority / repeated determinism / **permutation invariance** / duplicate dedup / **empty criteria contract violation** / **UNAVAILABLE payload policy** / **provenance identity chain** / **CatalogEntry kind runtime validation** / **source index-entry identity validation** / **snapshot isolation** / references-materialized 分离 / **Node lifecycle non-interference** / no input State mutation / no cross-call pollution（正文不写死全量 pytest 数量） |
+| **测试事实** | `test_retrieval.py` + `test_retrieval_node.py` 专项覆盖：五态 / full scan / outcome priority / repeated determinism / **permutation invariance** / duplicate dedup / **empty criteria contract violation** / **UNAVAILABLE payload policy** / **provenance identity chain** / **fact-to-reference provenance binding**（每条 fact 唯一可解析 binding / schema 与 rule 绑定到正确 source / ambiguous candidates 各自 provenance / permutation 后 binding 不变 / duplicate 不产生重复 binding / fact_id deterministic） / **CatalogEntry kind runtime validation** / **source index-entry identity validation** / **snapshot isolation** / references-materialized 分离 / **Node lifecycle non-interference** / no input State mutation / no cross-call pollution（正文不写死全量 pytest 数量） |
 | **设计约束** | outcome 不决定路由（20.3 / 20.8）；criteria set 语义（20.5）；source contract 五层（20.7）；策略 A（20.9 下一段） |
 | **尚未验证** | 见下 |
 
 **UNAVAILABLE payload policy（策略 A，冻结）**：即使整体 outcome = UNAVAILABLE，其它成功读取的 facts 仍保留在 references / materialized——因为 **Outcome 与 payload 是两个不同 contract**，整体 operational failure 不要求丢弃已成功取得的权威事实；但**是否允许后续继续 T04 仍由 application policy 决定，T03 不做该决策**。
 
-**尚未验证**（不得写成已实现）：T02 → T03 real integration / T03 → T04 real integration / compiled Graph Runtime path / production metadata catalog / production business-rule repository / network failure semantics / cache invalidation / distributed snapshot consistency / production provenance schema / permission-risk policy。
+**尚未验证**（不得写成已实现）：T02 → T03 real integration / T03 → T04 real integration / compiled Graph Runtime path / production metadata catalog / production business-rule repository / network failure semantics / cache invalidation / distributed snapshot consistency / **production lineage schema / per-fact audit lineage（生产级）** / permission-risk policy。（教学 Contract 的 fact-level binding 已验证；**不宣称 production lineage verified / production provenance schema verified**。）
 
 ## 20.10 T02 / T04 接口位置
 
@@ -231,7 +243,7 @@ flowchart LR
 
 ## 20.12 总结
 
-T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval Outcome 五态描述权威源查询语义；References / Provenance 与 Materialized Facts 分层承担"事实从哪来"与"事实是什么"；Source Contract 五层保证 malformed source data 在进入语义前 fail fast；Node 只把结果写入 State，不触碰 lifecycle、不决定路由。下一步：T02（意图与语义解析）与 T04（SQL 生成）进入后，经 Integration Closure Gate 验证 T01 → T03 → T04 真实路径。
+T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval Outcome 五态描述权威源查询语义；References / Provenance 与 Materialized Facts 分层承担"事实从哪来"与"事实是什么"，并以稳定 fact_id 建立 fact-level provenance binding；Source Contract 五层保证 malformed source data 在进入语义前 fail fast；Node 只把结果写入 State，不触碰 lifecycle、不决定路由。下一步：T02（意图与语义解析）与 T04（SQL 生成）进入后，经 Integration Closure Gate 验证 T01 → T02 → T03 → T04 真实路径。
 
 ---
 
@@ -241,13 +253,15 @@ T03 的工程核心是**把"事实获取"与"控制决策"分离**：Retrieval O
 - [x] 只讲 T03 可证实内容（代码 / 测试 / 契约 / 边界），四列制证据
 - [x] 12 节全部覆盖（为什么需要 / 职责与边界 / Outcome / 三层 contract / Criteria Set / Fake Source / Source Contract / Node-State / Evidence / 接口位置 / 常见误区 / 总结）
 - [x] 六个概念边界（Metadata / Business Rule / Semantic Context / External Source of Truth / Model Context / Memory；T03 ≠ Memory）
+- [x] 三层 Retrieval Contract（outcome / references / materialized；"Reference tells us where the fact came from."——以稳定 fact_id 建立 **fact-level provenance binding**，非仅 aggregate provenance）
 - [x] Retrieval Outcome 五态 + priority（UNAVAILABLE > AMBIGUOUS > NOT_FOUND > PARTIAL > COMPLETE；priority ≠ short-circuit）
 - [x] empty criteria = consumed-contract violation（不新增第六态）
 - [x] Criteria Set 语义（等价 set → 等价 result；sorted(set(keys)) 是实现非框架要求）
 - [x] UNAVAILABLE payload 策略 A（outcome 与 payload 分离）
 - [x] Source Contract 五层 + Provenance Identity Chain（catalog-v1:orders）+ snapshot boundary 收窄
 - [x] Node lifecycle 边界（Outcome ≠ Agent lifecycle）+ State 边界（教学规模选择）
-- [x] T02 / T04 接口位置（fixture 标识；Context Builder 不实现；"T03 ends with trusted facts"）
+- [x] T02 / T04 接口位置（fixture 标识；Context Builder 不实现；"T03 ends with trusted facts"；pipeline T01 → T02 → T03 → T04）
+- [x] permission metadata 边界（T06 属权限裁决；当前 T03 不实现权限元数据检索，不预设未来 contract）
 - [x] Evidence 边界（已验证 / 未验证 10 项；不写死 pytest 数量；不宣称 e2e / production integration verified）
 - [x] 常见误区 10 条
 - [x] Evidence Status：Contract-level verified；Integration deferred
