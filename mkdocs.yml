@@ -67,6 +67,7 @@ nav:
       - 概览: 04-text2sql/index.md
       - 第 18 章: 04-text2sql/ch18-stategraph-graph-runtime.md
       - 第 19 章: 04-text2sql/ch19-input-normalization-intent.md
+      - 第 20 章: 04-text2sql/ch20-metadata-business-rule-retrieval.md
       - 第 22 章: 04-text2sql/ch22-sql-validation-repair-loop.md
       - 规范流程: 04-text2sql/canonical-pipeline.md
   - Production:

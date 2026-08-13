@@ -4,9 +4,15 @@ T01 Gate A 冻结（TASK-0032）：
 - user_question = 原始自然语言输入（不覆盖）
 - normalized_question = 不改变业务含义的规范化自然语言输入
 
-最小字段集（不为 T01 建立庞大 State abstraction）：
+T03 Gate A 冻结（TASK-0033）：
+- retrieval_result = T03 检索输出（outcome + references/provenance +
+  materialized facts）——教学规模下小型 payload 进 State（明确的教学实现
+  选择，非生产建议；生产按 architecture-map 引用策略只持久化必要引用）
+
+最小字段集（不为单个 T 建立庞大 State abstraction）：
 - 生命周期复用 manual AgentStatus（既有 lifecycle enum）
 - failure 复用 status + failure_reason（不新造 normalization_error 类型）
+- T03 不写 status / failure_reason（Retrieval Outcome ≠ Agent lifecycle）
 
 教学基线（manual / basic）不修改；本包 State 随 T01-T12 演进按需扩展。
 """
@@ -17,6 +23,8 @@ from typing import TypedDict
 
 from examples.manual_agent_loop.types import AgentStatus
 
+from .retrieval_types import RetrievalResult
+
 
 class Text2SQLState(TypedDict):
     """Part 04 图执行状态（最小契约）。
@@ -24,11 +32,14 @@ class Text2SQLState(TypedDict):
     字段语义：
     - user_question：用户原始自然语言输入（T01 不覆盖）
     - normalized_question：规范化结果（T01 写入；空输入失败时不进入后续语义解析）
+    - retrieval_result：T03 检索输出（T03 写入；含 outcome / references /
+      materialized facts——教学规模选择，非生产建议）
     - status / failure_reason：复用既有 lifecycle / failure contract
       （empty-input 是 expected application input failure，不是 Runtime exception）
     """
 
     user_question: str
     normalized_question: str | None
+    retrieval_result: RetrievalResult | None
     status: AgentStatus
     failure_reason: str | None
