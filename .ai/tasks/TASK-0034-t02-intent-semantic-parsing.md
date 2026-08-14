@@ -46,7 +46,7 @@
 
 ## 三、T02 / T03 边界（Gate A 重点）
 
-- **T02 产生**：retrieval criteria / semantic requirements（"用户想查 GMV"）
+- **T02 产生**：structured semantic interpretation 以及 source-agnostic retrieval requirements（"用户想查 GMV"）；source-specific RetrievalCriteria 由 integration / source-specific adapter 产生
 - **T03 产生**：authoritative facts（"GMV = paid_amount − refund"——来自 External Source of Truth）
 
 固定原则：
@@ -55,7 +55,7 @@
 
 （语义解释可以识别需要哪些事实；不得制造权威事实。）
 
-T02 可以推断用户想要哪个 metric / dimension / entity 的**语义候选**；但 metric 定义、region mapping、业务口径、canonical rule **必须来自 T03 权威源**。T02 输出的一切 interpretation 都带语义候选性质，不是已核验事实。
+T02 可以推断用户想要哪个 metric / dimension / entity 的**语义候选**；但 metric 定义、region mapping、业务口径、canonical rule **必须来自 T03 权威源**。T02 输出始终属于 **structured inference**，不是 **authoritative fact**；其中既可以包含 **resolved interpretation**，也可以包含 **ambiguous candidates**。
 
 ## 四、LLM 的角色
 
@@ -66,7 +66,7 @@ T02 是未来 Model Decision 挂载点，但必须区分：
 | 可输出 | metric candidate / dimension candidate / time expression interpretation / intent classification | ✗ 禁止 |
 | 不可成为 | — | schema source / metric definition source / permission source / business-rule authority |
 
-**不得因为使用 LLM 就把结果称为"事实"**。模型输出是 candidate interpretation，只有经 T03 权威检索确认的内容才具有事实地位。Gate A 冻结：T02 的 output contract 必须显式表达"候选 / interpretation"性质，不得以 facts 自居。
+**不得因为使用 LLM 就把结果称为"事实"**。模型输出属于 interpretation（structured inference，非 authoritative fact），其中可以包含 resolved interpretation 或 ambiguous candidates；只有经 T03 权威检索确认的内容才具有事实地位。Gate A 冻结：T02 的 output contract 必须显式表达 interpretation 性质（resolved / candidate / unresolved / not-applicable 四语义状态可区分，见第八节），不得以 facts 自居。
 
 ## 五、Contract 设计方案比较
 
@@ -90,7 +90,7 @@ T02 是未来 Model Decision 挂载点，但必须区分：
 | ambiguity representation | 需逐字段 ambiguity 标志 | outcome + 对象内候选表示 | outcome + 对象内候选表示 ✅ |
 | backward compatibility | 多新可选字段 | 一个新可选 channel（additive） | 一个新可选 channel（additive）✅ |
 
-**不要因为 T03 当前有 RetrievalCriteria 就直接把它升级成 T02 最终 schema**。RetrievalCriteria 仍是 fixture；T02 可以生成它或映射到它，但两者是否同一 contract 由 Gate A 决策（见第十四节：**不是同一 contract**）。
+**不要因为 T03 当前有 RetrievalCriteria 就直接把它升级成 T02 最终 schema**。RetrievalCriteria 是 T03 当前的 **source-specific fixture**，不是 T02 final semantic contract；**T02 不直接生成 RetrievalCriteria**。具体 source lookup representation 由 integration / source-specific adapter 根据 source-agnostic retrieval requirements 映射得到（第十三节方案 2 决策）。
 
 ## 六、推荐 Contract 决策
 
@@ -233,7 +233,7 @@ T03 当前 `RetrievalCriteria` 明确是 **Proposed fixture**。本轮决策：
 | 方案 | 内容 | 评估 |
 |---|---|---|
 | 方案 1 | T02 最终直接产 RetrievalCriteria | ❌ T02 被 T03 当前 fake source key 反向绑定；T03 fixture 演化会反向改变 T02 contract |
-| 方案 2（推荐） | T02 产 **IntentResult**；另有 **deterministic adapter：IntentResult → RetrievalCriteria**（由 metric / dimension / entity / filter intent tokens 推导检索 keys） | ✅ semantic interpretation ≠ retrieval query representation；T02 不被 fixture 反向绑定；adapter 可独立单测 |
+| 方案 2（推荐） | T02 产 **IntentResult** → source-agnostic retrieval requirements → **integration / source-specific adapter** → RetrievalCriteria（由 metric / dimension / entity / filter intent tokens 经逻辑契约层推导 source-specific 检索 keys） | ✅ semantic interpretation ≠ retrieval query representation；T02 不被 fixture 反向绑定；adapter 可独立单测 |
 
 **Gate A 决策：方案 2，并细化为三层**（Review 修正）。固定原则升级为：
 
@@ -284,7 +284,7 @@ T04 SQL Generation 未来需要 **semantic intent + T03 trusted facts**：
 | 类别 | 内容 |
 |---|---|
 | **已有证据** | T01 `normalized_question`（TASK-0029 Proposed NormalizationResult 在 Gate B 以简化字段落地——T02 IntentResult 同理可按语义类别落地）；T03 `RetrievalCriteria` fixture（Proposed）；T03 trusted retrieval contract（五态 / fact-level binding）；TASK-0029 IntentResult Proposed |
-| **需要新增** | T02 unit evidence（deterministic fake parser）；semantic ambiguity（interpretation vs authoritative-source）；stale-state invalidation（整体 overwrite + failure None）；IntentResult → RetrievalCriteria adapter；T01 → T02 integration |
+| **需要新增** | T02 unit evidence（deterministic fake parser）；semantic ambiguity（interpretation vs authoritative-source）；stale-state invalidation（整体 overwrite + failure None）；IntentResult → source-agnostic retrieval requirements → RetrievalCriteria（三层 adapter 链路）；T01 → T02 integration |
 | **尚不能验证** | 真实 LLM interpretation quality；production multilingual semantic parsing；真实 business ontology；T03 → T04；full compiled graph；e2e |
 
 ## 十七、Integration Closure 设计（edge-scoped）
@@ -366,9 +366,9 @@ real source                                              （edge-scoped：deferr
 - [x] Evidence Planning 四列制（已有 / 需新增 / 尚不能验证）
 - [x] Integration Closure edge-scoped（"Integration evidence is edge-scoped, not task-wide."）
 - [x] Gate A 决策 10 项全部给出明确结论
-- [ ] 等待 Architecture Review（Gate A Review PR）
+- [x] Gate A Architecture Review：**APPROVED**（final consistency cleanup 完成；等待最终 Merge 确认）
 
-## Review Focus（等待 T02 Gate A 最终 Architecture Review）
+## Review Focus（Gate A 最终 Architecture Review：APPROVED——以下为最终复审清单）
 
 1. T02 output 是否仍被称为 fact（语义解释 ≠ authoritative fact）
 2. IntentResult 是否明确属于 structured inference（"Semantic interpretation is structured inference, not authoritative fact."）
@@ -407,3 +407,10 @@ real source                                              （edge-scoped：deferr
   - Gate A 决策表重写为 10 项最终结论（第 1 项 = interpretation not fact；第 6 项 = eligibility；第 7 项 = requirement data not routing；第 9 项 = lifecycle / routing authority 都不拥有；第 10 项 = edge-scoped + data edge ≠ routing edge）
   - Review Focus 更新为 10 项最终清单
   - 等待最终复审；Status 仍 in_progress；不得进入 Gate B。
+- 2026-08-14：**Gate A 最终 Architecture Review：APPROVED（final consistency cleanup 完成，等待最终 Merge 确认）**：
+  - **retrieval criteria 旧口径清理**（第三节）："T02 产生 retrieval criteria / semantic requirements" → "T02 产生 structured semantic interpretation 以及 source-agnostic retrieval requirements；source-specific RetrievalCriteria 由 integration / source-specific adapter 产生"——**T02 不直接产生 RetrievalCriteria**
+  - **resolved / candidate 术语清理**（第三、四节）："T02 输出的一切 interpretation 都带语义候选性质" → "T02 输出始终属于 structured inference，不是 authoritative fact；其中既可以包含 resolved interpretation，也可以包含 ambiguous candidates"——保持 **resolved ≠ authoritative fact**，不再写 resolved = candidate；LLM 角色节同步（模型输出属 interpretation，可含 resolved / ambiguous candidates）
+  - **RetrievalCriteria final boundary**（第五节）：删除"T02 可以生成它或映射到它"与"是否同一 contract 由 Gate A 决策"——RetrievalCriteria 是 T03 当前的 source-specific fixture，不是 T02 final semantic contract；具体 source lookup representation 由 integration / source-specific adapter 根据 source-agnostic retrieval requirements 映射得到
+  - **adapter 三层表述**（第十三节）：方案 2 描述统一为 IntentResult → source-agnostic retrieval requirements → integration / source-specific adapter → RetrievalCriteria，不把 adapter 写成直接映射 fake source key；Evidence Planning 同步三层链路
+  - **residual scan 无残留**：TASK-0034 / current.md / PR #64 不再出现"T02 产生 retrieval criteria""T02 直接生成 RetrievalCriteria""一切 interpretation 都是 candidate""IntentResult → RetrievalCriteria 直接 adapter""是否同一 contract 待 Gate A 决策"
+  - Status 仍 **in_progress**；Gate A = Architecture Review **APPROVED**；final consistency cleanup **completed / pending merge**；**不得进入 Gate B**。
