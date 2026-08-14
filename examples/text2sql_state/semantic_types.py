@@ -48,6 +48,20 @@ Gate A 冻结（TASK-0034）：
 - 禁止 malformed payload 通过 `.strip()` / 属性访问延迟成 AttributeError
 - 禁止 frozen dataclass 内部保存 mutable list（candidates / semantic_refs
   必须是 tuple——不仅 annotation，也是 runtime invariant）
+
+**Semantic resolution ≠ authoritative grounding completeness（最终
+Architecture Review）**：
+- 固定原则："Semantic resolution ≠ authoritative grounding completeness."
+  （语义已解析，不等于执行所需的权威事实已经齐全）
+- `time_range = RESOLVED("yesterday")` 表示 T02 已唯一理解"昨天"；但
+  timezone / business calendar / fiscal calendar / data freshness cutoff
+  仍可能需要 external authoritative context（GROUND_EXECUTION_CONTEXT
+  requirement）
+- **不得为了触发 retrieval 把 RESOLVED 改成 REQUIRED_UNRESOLVED**——缺的
+  是 authoritative grounding，不是 semantic interpretation
+- COMPLETE_INTERPRETATION = semantic interpretation 本身仍缺失；
+  GROUND_EXECUTION_CONTEXT = semantic interpretation 已 resolved，但执行
+  需要 authoritative context——两者不混淆
 """
 
 from __future__ import annotations
@@ -214,6 +228,7 @@ class RetrievalPurpose(Enum):
     VERIFY_DEFINITION = "verify_definition"  # 已解析语义需要权威定义/映射验证
     RESOLVE_AMBIGUITY = "resolve_ambiguity"  # 候选集需要权威源确认哪些是正式事实
     COMPLETE_INTERPRETATION = "complete_interpretation"  # 补齐 unresolved required 语义所需权威事实
+    GROUND_EXECUTION_CONTEXT = "ground_execution_context"  # 语义已 resolved，但执行仍需 external authoritative context（calendar / timezone / freshness 等）
 
 
 @dataclass(frozen=True)
@@ -221,7 +236,8 @@ class RetrievalRequirement:
     """source-agnostic retrieval requirement（逻辑契约层）。
 
     - `category`：哪个语义类别需要权威事实
-    - `purpose`：为什么需要（verify / resolve ambiguity / complete interpretation）
+    - `purpose`：为什么需要（verify / resolve ambiguity / complete
+      interpretation / ground execution context）
     - `semantic_refs`：结构化语义引用集合（tuple）——**保持结构化，不降级
       成人类展示字符串**（固定原则："Structured candidate semantics must
       remain structured across contract boundaries."）；
@@ -234,6 +250,10 @@ class RetrievalRequirement:
     - COMPLETE_INTERPRETATION：semantic_refs 必须为空——unresolved 的语义
       类别已由 `category` 表达，不得再用 "metric" / "time_range" 伪装成
       semantic ref
+    - GROUND_EXECUTION_CONTEXT：恰好 1 个 non-empty trimmed ref（已 resolved
+      的语义 token，如 ("yesterday",)）——固定原则："Semantic resolution ≠
+      authoritative grounding completeness."（语义已解析 ≠ 执行所需权威事实
+      已齐全）
     - category / purpose 运行时类型校验（禁止 type hint-only contract）
 
     固定原则："Semantic interpretation ≠ retrieval requirement ≠
@@ -306,6 +326,12 @@ class RetrievalRequirement:
                 raise ValueError(
                     "COMPLETE_INTERPRETATION must not carry semantic refs "
                     "(the unresolved category is expressed by `category`)"
+                )
+        elif self.purpose is RetrievalPurpose.GROUND_EXECUTION_CONTEXT:
+            if len(self.semantic_refs) != 1:
+                raise ValueError(
+                    "GROUND_EXECUTION_CONTEXT requires exactly one semantic ref, "
+                    f"got {len(self.semantic_refs)}"
                 )
         else:
             # Enum 已封顶；防御性 impossible-branch protection
@@ -455,8 +481,18 @@ class IntentResult:
           requirements；Gate A 八节 eligibility 冻结）
         - RESOLVED（metric/dimension/entity/filter）→ VERIFY_DEFINITION
           （`semantic_refs = (resolved,)`，恰好 1 个 ref）
-          （time/aggregation/query intent 的 resolved 解释视为完整 interpretation，
-          日历等外部事实裁决留 integration 边界）
+        - RESOLVED（TIME_RANGE）→ **GROUND_EXECUTION_CONTEXT**
+          （`semantic_refs = (semantic token,)`，如 ("yesterday",)）——
+          fixed principle："Semantic resolution ≠ authoritative grounding
+          completeness."：time_range = RESOLVED("yesterday") 表示 T02 已唯一
+          理解"昨天"，但 timezone / business calendar / fiscal calendar /
+          data freshness cutoff 仍可能需要 external authoritative context；
+          **不得为了触发 retrieval 把 RESOLVED 改成 REQUIRED_UNRESOLVED**
+          （那是语义错误：缺的是 authoritative grounding，不是 semantic
+          interpretation）
+        - aggregation_intent / query_intent 的 resolved 解释视为完整
+          interpretation，不自动产生 grounding requirement（除非未来
+          Contract 有明确 external fact need）
         - AMBIGUOUS_CANDIDATES → RESOLVE_AMBIGUITY（`semantic_refs` 原样保留
           结构化候选 tuple——不降级成 join 字符串）
         - REQUIRED_UNRESOLVED → COMPLETE_INTERPRETATION（`semantic_refs` 为空，
@@ -470,11 +506,16 @@ class IntentResult:
             return ()
         requirements: list[RetrievalRequirement] = []
         for category, value in self._category_values():
-            if value.state is SemanticState.RESOLVED:
-                if (
-                    category.value in _FACT_GROUNDED_CATEGORIES
-                    and value.resolved is not None
-                ):
+            if value.state is SemanticState.RESOLVED and value.resolved is not None:
+                if category is SemanticCategory.TIME_RANGE:
+                    requirements.append(
+                        RetrievalRequirement(
+                            category=category,
+                            semantic_refs=(value.resolved,),
+                            purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+                        )
+                    )
+                elif category.value in _FACT_GROUNDED_CATEGORIES:
                     requirements.append(
                         RetrievalRequirement(
                             category=category,

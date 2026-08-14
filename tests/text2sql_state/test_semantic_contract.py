@@ -32,12 +32,16 @@ from examples.text2sql_state.semantic_types import (
 
 
 def make_result(**overrides: SemanticValue) -> IntentResult:
-    """构造一个"全部 resolved / not-applicable"的基准 IntentResult。"""
+    """构造一个"全部 resolved / not-applicable"的基准 IntentResult。
+
+    默认 time_range = NOT_APPLICABLE——避免 grounding requirement 污染
+    其它 requirements 断言；需要 time 语义的测试显式传入。
+    """
     defaults = {
         "metric": SemanticValue.make_resolved("GMV"),
         "dimension": SemanticValue.make_not_applicable(),
         "entity": SemanticValue.make_not_applicable(),
-        "time_range": SemanticValue.make_resolved("yesterday"),
+        "time_range": SemanticValue.make_not_applicable(),
         "filters": SemanticValue.make_not_applicable(),
         "aggregation_intent": SemanticValue.make_not_applicable(),
         "query_intent": SemanticValue.make_resolved("query"),
@@ -415,13 +419,52 @@ def test_requirements_derived_from_states() -> None:
     )
 
 
-def test_time_resolved_does_not_produce_requirement() -> None:
-    # Gate A 十一节：time 的 resolved 解释是 semantic token；日历 / 时区 /
-    # 新鲜度裁决属外部事实，留 T02→T03 integration 边界——不自动生成 requirement
-    result = make_result()
+def test_time_resolved_produces_grounding_requirement() -> None:
+    # 固定原则："Semantic resolution ≠ authoritative grounding completeness."
+    # time_range = RESOLVED("yesterday") 表示 T02 已唯一理解"昨天"；但
+    # timezone / business calendar 等执行上下文仍可能需要 authoritative
+    # grounding——产生 GROUND_EXECUTION_CONTEXT requirement，
+    # **outcome 不因此变 PARTIAL**（缺的是 grounding，不是 interpretation）
+    result = make_result(time_range=SemanticValue.make_resolved("yesterday"))
+    assert result.time_range.state is SemanticState.RESOLVED
     assert result.time_range.resolved == "yesterday"
-    assert all(r.category is not SemanticCategory.TIME_RANGE
-               for r in result.retrieval_requirements)
+    assert result.outcome is IntentOutcome.COMPLETE
+    assert RetrievalRequirement(
+        category=SemanticCategory.TIME_RANGE,
+        purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+        semantic_refs=("yesterday",),
+    ) in result.retrieval_requirements
+
+
+def test_not_applicable_time_produces_no_grounding_requirement() -> None:
+    # NOT_APPLICABLE time（根本没提时间）不产生 grounding requirement
+    result = make_result()
+    assert result.time_range.state is SemanticState.NOT_APPLICABLE
+    assert all(
+        r.category is not SemanticCategory.TIME_RANGE
+        for r in result.retrieval_requirements
+    )
+
+
+def test_ground_execution_context_requires_exactly_one_ref() -> None:
+    with pytest.raises(ValueError):
+        RetrievalRequirement(
+            category=SemanticCategory.TIME_RANGE,
+            purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+            semantic_refs=(),
+        )
+    with pytest.raises(ValueError):
+        RetrievalRequirement(
+            category=SemanticCategory.TIME_RANGE,
+            purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+            semantic_refs=("yesterday", "today"),
+        )
+    valid = RetrievalRequirement(
+        category=SemanticCategory.TIME_RANGE,
+        purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+        semantic_refs=("yesterday",),
+    )
+    assert valid.semantic_refs == ("yesterday",)
 
 
 def test_ambiguous_produces_candidate_scoped_requirement() -> None:
@@ -437,9 +480,20 @@ def test_ambiguous_produces_candidate_scoped_requirement() -> None:
 
 def test_unresolved_produces_complete_interpretation_requirement() -> None:
     result = make_result(time_range=SemanticValue.make_required_unresolved())
+    assert result.time_range.state is SemanticState.REQUIRED_UNRESOLVED
     (requirement,) = [
         r for r in result.retrieval_requirements
         if r.purpose is RetrievalPurpose.COMPLETE_INTERPRETATION
     ]
     assert requirement.category is SemanticCategory.TIME_RANGE
     assert requirement.semantic_refs == ()  # 类别由 category 表达，不伪装 ref
+
+
+def test_unresolved_time_stays_complete_interpretation_not_ground() -> None:
+    # 区分（审查项七）：REQUIRED_UNRESOLVED time = interpretation 本身缺失
+    # → COMPLETE_INTERPRETATION；**不**误走 GROUND_EXECUTION_CONTEXT
+    # （后者只用于 semantic interpretation 已 resolved 的情况）
+    result = make_result(time_range=SemanticValue.make_required_unresolved())
+    purposes = {r.purpose for r in result.retrieval_requirements}
+    assert RetrievalPurpose.COMPLETE_INTERPRETATION in purposes
+    assert RetrievalPurpose.GROUND_EXECUTION_CONTEXT not in purposes

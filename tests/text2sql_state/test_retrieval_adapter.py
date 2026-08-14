@@ -39,17 +39,26 @@ def criteria_for(question: str) -> RetrievalCriteria | None:
 
 # ---------------------------------------------------------------- IntentResult → requirements（派生）
 
-def test_complete_result_produces_verify_definition_requirement() -> None:
+def test_complete_result_produces_verify_and_grounding_requirements() -> None:
+    # "查询昨天GMV"：metric VERIFY_DEFINITION("GMV") + time RESOLVED →
+    # GROUND_EXECUTION_CONTEXT("yesterday")（固定原则："Semantic resolution ≠
+    # authoritative grounding completeness."——timezone / business calendar
+    # 等执行上下文仍需权威 grounding）
     result = PARSER.parse("查询昨天的GMV")
     assert result.outcome is IntentOutcome.COMPLETE
+    assert result.time_range.resolved == "yesterday"
     assert result.retrieval_requirements == (
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
             semantic_refs=("GMV",),
             purpose=RetrievalPurpose.VERIFY_DEFINITION,
         ),
+        RetrievalRequirement(
+            category=SemanticCategory.TIME_RANGE,
+            semantic_refs=("yesterday",),
+            purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+        ),
     )
-    # time resolved 是 semantic token（interpretation-complete），不产生 requirement
 
 
 def test_ambiguous_result_produces_candidate_scoped_requirement() -> None:
@@ -71,12 +80,21 @@ def test_partial_result_includes_complete_interpretation_requirement() -> None:
         RetrievalPurpose.VERIFY_DEFINITION,
         RetrievalPurpose.COMPLETE_INTERPRETATION,
     }
+    # unresolved time 不误走 GROUND_EXECUTION_CONTEXT（interpretation 缺失 ≠ 已解析待 grounding）
+    assert RetrievalPurpose.GROUND_EXECUTION_CONTEXT not in purposes
 
 
 # ---------------------------------------------------------------- requirements → RetrievalCriteria（adapter）
 
 def test_adapter_maps_complete_result_to_source_keys() -> None:
+    # metric → "gmv"；time grounding → "business_calendar"（fake/source-specific key）
     criteria = criteria_for("查询昨天的GMV")
+    assert criteria == RetrievalCriteria(keys=("business_calendar", "gmv"))
+
+
+def test_adapter_maps_without_time_to_metric_key_only() -> None:
+    # 无 time（NOT_APPLICABLE）→ 不产生 grounding criteria
+    criteria = criteria_for("查询GMV")
     assert criteria == RetrievalCriteria(keys=("gmv",))
 
 
@@ -236,11 +254,27 @@ def test_edge_criteria_to_t03_retrieval_result_complete() -> None:
 
     仅验证 data edge（requirements → criteria → RetrievalResult）；
     real source / compiled graph 仍 deferred；不宣称 T02 路由 T03。
+    无 time 的请求：("gmv",) → T03 COMPLETE。
     """
-    criteria = criteria_for("查询昨天的GMV")
+    criteria = criteria_for("查询GMV")
     assert criteria is not None
     result = FIXTURE_RETRIEVER.retrieve(criteria)
     assert result.outcome is RetrievalOutcome.COMPLETE
+    assert any(f.content for f in result.materialized.business_rules)
+
+
+def test_edge_grounding_to_t03_fact_deferred() -> None:
+    """edge-scoped：grounding requirement → business_calendar criteria =
+    adapter-level verified；business_calendar → real authoritative fact =
+    **deferred**——当前 T03 fixture 无该 fact，T03 诚实返回 NOT_FOUND。
+
+    不宣称 time grounding integration closed（审查项九）。
+    """
+    criteria = criteria_for("查询昨天的GMV")
+    assert criteria == RetrievalCriteria(keys=("business_calendar", "gmv"))
+    result = FIXTURE_RETRIEVER.retrieve(criteria)
+    # gmv 找到（metric definition）、business_calendar 无权威事实 → PARTIAL
+    assert result.outcome is RetrievalOutcome.PARTIAL
     assert any(f.content for f in result.materialized.business_rules)
 
 

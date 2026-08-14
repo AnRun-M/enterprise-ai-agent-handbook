@@ -28,6 +28,11 @@ Gate A 冻结（TASK-0034 十三节 方案 2，固定原则）：
 - **候选集不丢失**：RESOLVE_AMBIGUITY 按 category 映射 ambiguous fixture key，
   但 requirement 中的结构化候选 tuple（`semantic_refs`）原样保留——
   adapter 只消费它需要的映射信息，不修改 / 不降级 requirements
+- **GROUND_EXECUTION_CONTEXT**：TIME_RANGE + GROUND_EXECUTION_CONTEXT →
+  "business_calendar"——这是 fake / source-specific vocabulary，不得进入
+  IntentResult / RetrievalRequirement；未来 timezone 若有独立 source key，
+  由后续 integration task 扩展；本轮不设计 production calendar source
+  （固定原则："Semantic resolution ≠ authoritative grounding completeness."）
 """
 
 from __future__ import annotations
@@ -56,6 +61,10 @@ _COMPLETE_INTERPRETATION_KEYS: dict[SemanticCategory, str] = {
     SemanticCategory.TIME_RANGE: "business_calendar",
 }
 
+_GROUND_EXECUTION_CONTEXT_KEYS: dict[SemanticCategory, str] = {
+    SemanticCategory.TIME_RANGE: "business_calendar",
+}
+
 
 def build_retrieval_criteria(
     requirements: tuple[RetrievalRequirement, ...],
@@ -69,6 +78,9 @@ def build_retrieval_criteria(
       候选集保留在 requirement 内（本函数不修改 requirements）
     - COMPLETE_INTERPRETATION：按 category 映射（unresolved 类别由
       `category` 表达，不伪造 semantic ref）
+    - GROUND_EXECUTION_CONTEXT：按 category 映射执行上下文权威键
+      （TIME_RANGE → "business_calendar"；semantic token 如 "yesterday"
+      只是 requirement 内数据，映射由 category 决定）
     - 去重 + 排序保证确定性（criteria 排列顺序无业务语义——
       T03 以排列无关方式消费）
     - 未映射 ref / category → ValueError（integration gap，fail-fast）
@@ -101,6 +113,13 @@ def build_retrieval_criteria(
                 raise ValueError(
                     "no source key vocabulary for completing interpretation of "
                     f"category {requirement.category.value}"
+                )
+        elif requirement.purpose is RetrievalPurpose.GROUND_EXECUTION_CONTEXT:
+            key = _GROUND_EXECUTION_CONTEXT_KEYS.get(requirement.category)
+            if key is None:
+                raise ValueError(
+                    "no source key vocabulary for grounding execution context "
+                    f"of category {requirement.category.value}"
                 )
         else:
             # Enum 已封顶；防御性 impossible-branch protection——
