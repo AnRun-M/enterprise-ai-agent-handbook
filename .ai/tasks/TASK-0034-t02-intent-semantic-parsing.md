@@ -436,3 +436,18 @@ real source                                              （edge-scoped：deferr
   - **⑪ Gate A contract 全部保持**：四态 outcome / expected outcome 全返 IntentResult / required-semantics 判定 / 四语义状态 / whole overwrite / requirement = data not routing / T02 不写 status/failure_reason / 不 route/call T03 / source-specific adapter 分层 / RetrievalCriteria fixture 身份 / edge-scoped Integration
   - 验证：`pytest tests/text2sql_state` **242 passed**（新增 18 项 Review 测试）；`ruff check .`（ruff 0.16.3，与 CI 同版本）**All checks passed**；`git diff --check` 干净；docs/ 零改动 → mkdocs build 不受影响
   - Status 仍 **in_progress**；等待 **T02 Gate B/C 最终复审**；**不得 Merge / 不得进入 Gate D**。
+- 2026-08-14：**Gate B/C 最终复审修正已应用（feature/t02-intent-semantic-parsing，PR #65 追加 commit，等待最终确认；不得 Merge / 不得进入 Gate D）**——本轮不重新设计 Architecture，只闭合 runtime payload contract：
+  - **① SemanticValue.resolved runtime type**：RESOLVED 分支先 `isinstance(resolved, str)` → TypeError，再 non-empty / trimmed → ValueError——不得因 `.strip()` 延迟成 AttributeError
+  - **② SemanticValue.candidates container contract**：`isinstance(candidates, tuple)` → TypeError——frozen dataclass 不得保存 mutable list（"tuple[str, ...]" 不仅是 annotation 也是 runtime invariant）
+  - **③ candidate leaf type**：AMBIGUOUS_CANDIDATES 下每个 candidate 先 `isinstance(candidate, str)` → TypeError，再 non-empty / trimmed / distinct / ≥2 → ValueError
+  - **④ RetrievalRequirement.semantic_refs container contract**：`isinstance(semantic_refs, tuple)` → TypeError（`semantic_refs=["GMV"]` 在 construction boundary fail fast）
+  - **⑤ semantic ref leaf type**：每个 ref 先 `isinstance(ref, str)` → TypeError，再 non-empty / trimmed → ValueError——区分 wrong runtime type vs invalid domain value
+  - **⑥ unsupported_reason runtime type**：非 None 且非 str → TypeError（不得出现 int.strip()），再 non-empty / trimmed → ValueError
+  - **⑦ 固定原则（新增）**："A runtime contract must validate both the discriminant and its payload shape."（运行时契约不仅要验证状态标签，还要验证该状态对应的 payload 类型与容器形状）；继续保留 "Static type annotation ≠ runtime contract validation."
+  - **⑧ direct-constructor tests（+8）**：`SemanticValue(RESOLVED, resolved=123)` → TypeError / `candidates=["GMV","paid_amount"]`（list）→ TypeError / `candidates=("GMV", 123)` → TypeError / `semantic_refs=["GMV"]` → TypeError / `semantic_refs=("GMV", 123)` → TypeError / `unsupported_reason=123` → TypeError / ref leaf `(None,)` 归入 TypeError / legal payloads 均为 tuple（immutability regression）
+  - **⑨ immutability regression**：合法 candidates / semantic_refs 均为 tuple；不接受 mutable list representation（不引入深拷贝 / immutable library）
+  - **⑩ Error taxonomy 统一**：TypeError = runtime payload / container type 错误；ValueError = 类型正确但 domain value 不合法（resolved="" / candidate="  " / duplicate candidates / unsupported_reason="" / semantic_refs 数量不符合 purpose）
+  - **⑪ 其它 Contract 全部保持**：四态 / outcome 派生 / expected outcome 全返 IntentResult / whole overwrite / retrieval eligibility / semantic_refs structured tuple / purpose shape / SemanticParser Protocol / Node lifecycle-routing 边界 / adapter source-specific 边界 / RetrievalCriteria fixture 身份 / edge-scoped Integration
+  - 只修改 `semantic_types.py` + `test_semantic_contract.py`（semantic_parser / semantic_node / retrieval_adapter 无需改动，符合审查十二节）
+  - 验证：`pytest tests/text2sql_state` **250 passed**（全量除 langgraph 281 passed）；`ruff check .`（0.16.3）**All checks passed**；`mkdocs build --strict` 通过；`git diff --check` 干净
+  - Status 仍 **in_progress**；等待 **T02 Gate B/C 最终确认**；**不得 Merge / 不得进入 Gate D**。

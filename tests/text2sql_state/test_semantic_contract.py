@@ -292,11 +292,76 @@ def test_complete_interpretation_requires_empty_refs() -> None:
 
 
 def test_requirement_refs_must_be_non_empty_trimmed() -> None:
-    for bad_refs in (("",), ("  GMV  ",), (None,)):  # type: ignore[list-item]
+    # domain value 不合法（类型正确但值坏）→ ValueError
+    for bad_refs in (("",), ("  GMV  ",)):
         with pytest.raises(ValueError):
             RetrievalRequirement(category=SemanticCategory.METRIC,
-                                 semantic_refs=bad_refs,  # type: ignore[arg-type]
+                                 semantic_refs=bad_refs,
                                  purpose=RetrievalPurpose.VERIFY_DEFINITION)
+
+
+def test_requirement_ref_leaf_type_must_be_str() -> None:
+    # wrong runtime type → TypeError（不是 ValueError）——Error taxonomy 区分
+    with pytest.raises(TypeError):
+        RetrievalRequirement(category=SemanticCategory.METRIC,
+                             semantic_refs=(None,),
+                             purpose=RetrievalPurpose.VERIFY_DEFINITION)
+
+
+# ------------------------------------------------ runtime payload contract（最终复审闭合）
+
+def test_resolved_payload_must_be_str() -> None:
+    # RESOLVED 分支的 .strip() 不得因非 str payload 延迟成 AttributeError
+    with pytest.raises(TypeError):
+        SemanticValue(SemanticState.RESOLVED, resolved=123, candidates=())
+
+
+def test_candidates_container_must_be_tuple() -> None:
+    # mutable list 不得进入 frozen dataclass（container shape 是 runtime invariant）
+    with pytest.raises(TypeError):
+        SemanticValue(SemanticState.AMBIGUOUS_CANDIDATES, resolved=None,
+                      candidates=["GMV", "paid_amount"])
+
+
+def test_candidate_leaf_type_must_be_str() -> None:
+    with pytest.raises(TypeError):
+        SemanticValue(SemanticState.AMBIGUOUS_CANDIDATES, resolved=None,
+                      candidates=("GMV", 123))
+
+
+def test_semantic_refs_container_must_be_tuple() -> None:
+    with pytest.raises(TypeError):
+        RetrievalRequirement(category=SemanticCategory.METRIC,
+                             purpose=RetrievalPurpose.VERIFY_DEFINITION,
+                             semantic_refs=["GMV"])
+
+
+def test_semantic_ref_leaf_type_must_be_str() -> None:
+    with pytest.raises(TypeError):
+        RetrievalRequirement(category=SemanticCategory.METRIC,
+                             purpose=RetrievalPurpose.VERIFY_DEFINITION,
+                             semantic_refs=("GMV", 123))
+
+
+def test_unsupported_reason_leaf_type_must_be_str() -> None:
+    # int.strip() 不得出现——非 None 且非 str → TypeError
+    with pytest.raises(TypeError):
+        make_not_applicable_result(unsupported_reason=123)
+
+
+def test_legal_payloads_use_tuple_containers() -> None:
+    # immutability regression：合法 candidates / semantic_refs 均为 tuple，
+    # 不接受 mutable list representation（无需证明 Python 深度 immutable）
+    value = SemanticValue.make_ambiguous("GMV", "paid_amount")
+    assert isinstance(value.candidates, tuple)
+    requirement = RetrievalRequirement(
+        category=SemanticCategory.METRIC,
+        purpose=RetrievalPurpose.RESOLVE_AMBIGUITY,
+        semantic_refs=("GMV", "paid_amount"),
+    )
+    assert isinstance(requirement.semantic_refs, tuple)
+    resolved = SemanticValue.make_resolved("GMV")
+    assert isinstance(resolved.candidates, tuple)
 
 
 # ------------------------------------------------ candidate 结构化保持（Review 加固五、八）

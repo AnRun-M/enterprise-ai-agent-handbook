@@ -32,6 +32,22 @@ Gate A 冻结（TASK-0034）：
   构造边界 fail-fast（与 T03 CatalogEntry 的 source-boundary 校验同构：
   "Static type annotation ≠ runtime contract validation."），不是
   在实现层用 if/assert 修补 outcome 矛盾
+
+**Runtime payload contract（Gate B/C 最终复审闭合）**：
+- 固定原则（新增）："A runtime contract must validate both the discriminant
+  and its payload shape."——运行时契约不仅要验证状态标签（discriminant），
+  还要验证该状态对应的 payload 类型与容器形状
+- 校验顺序：discriminant → container shape → leaf type → domain value
+- **Error taxonomy（统一）**：
+  - `TypeError`：runtime payload type / container type 错误
+    （resolved 非 str、candidates 非 tuple、candidate 元素非 str、
+    semantic_refs 非 tuple、ref 元素非 str、unsupported_reason 非 str）
+  - `ValueError`：类型正确，但 domain value 不合法
+    （resolved=""、candidate="  "、duplicate candidates、
+    unsupported_reason=""、semantic_refs 数量不符合 purpose）
+- 禁止 malformed payload 通过 `.strip()` / 属性访问延迟成 AttributeError
+- 禁止 frozen dataclass 内部保存 mutable list（candidates / semantic_refs
+  必须是 tuple——不仅 annotation，也是 runtime invariant）
 """
 
 from __future__ import annotations
@@ -121,15 +137,47 @@ class SemanticValue:
         return cls(state=SemanticState.NOT_APPLICABLE, resolved=None, candidates=())
 
     def __post_init__(self) -> None:
-        # 第一步：runtime contract validation——type annotation 不等于运行时校验。
-        # malformed state（如 str）不得落入下方 REQUIRED_UNRESOLVED /
-        # NOT_APPLICABLE 共用的 else 分支（固定原则："Static type annotation
-        # ≠ runtime contract validation."）。
+        # runtime contract validation 顺序（固定原则："A runtime contract must
+        # validate both the discriminant and its payload shape."——不仅要验证
+        # 状态标签，还要验证该状态对应的 payload 类型与容器形状；且
+        # "Static type annotation ≠ runtime contract validation."）。
+        #
+        # 校验顺序：discriminant → container shape → leaf type → domain value。
+        # Error taxonomy：TypeError = runtime payload/container 类型错误；
+        # ValueError = 类型正确但 domain value 不合法。
+        #
+        # 1) discriminant：state 必须是 SemanticState——malformed state 不得
+        #    落入下方 REQUIRED_UNRESOLVED / NOT_APPLICABLE 共用的 else 分支
         if not isinstance(self.state, SemanticState):
             raise TypeError(
                 "SemanticValue.state must be a SemanticState, got "
                 f"{type(self.state).__name__}"
             )
+        # 2) container shape：candidates 必须是 tuple——frozen dataclass 中
+        #    保存 mutable list 仍可被外部修改，破坏 structured / deterministic
+        #    contract（"SemanticValue candidates = tuple[str, ...]" 不仅是
+        #    annotation，也是 runtime invariant）
+        if not isinstance(self.candidates, tuple):
+            raise TypeError(
+                "SemanticValue.candidates must be a tuple, got "
+                f"{type(self.candidates).__name__}"
+            )
+        # 3) leaf type：resolved 必须是 str | None——RESOLVED 分支后续
+        #    `.strip()` 不得因非 str payload 延迟成 AttributeError
+        if self.resolved is not None and not isinstance(self.resolved, str):
+            raise TypeError(
+                "SemanticValue.resolved must be a str or None, got "
+                f"{type(self.resolved).__name__}"
+            )
+        # 3') leaf type：每个 candidate 必须是 str——禁止 malformed payload
+        #    通过 `.strip()` 延迟成 AttributeError
+        for candidate in self.candidates:
+            if not isinstance(candidate, str):
+                raise TypeError(
+                    "SemanticValue candidate must be a str, got "
+                    f"{type(candidate).__name__}"
+                )
+        # 4) domain value / 状态特定形状（此时 payload 类型已保证正确）
         if self.state is SemanticState.RESOLVED:
             if not self.resolved or self.resolved != self.resolved.strip():
                 raise ValueError(
@@ -198,6 +246,12 @@ class RetrievalRequirement:
     semantic_refs: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
+        # runtime contract validation（"A runtime contract must validate both
+        # the discriminant and its payload shape."）：discriminant → container
+        # shape → leaf type → domain value。
+        # Error taxonomy：TypeError = runtime 类型 / 容器错误；ValueError =
+        # 类型正确但 domain value 不合法。
+        # 1) discriminant：category / purpose 必须是对应 Enum
         if not isinstance(self.category, SemanticCategory):
             raise TypeError(
                 "RetrievalRequirement.category must be a SemanticCategory, got "
@@ -208,12 +262,29 @@ class RetrievalRequirement:
                 "RetrievalRequirement.purpose must be a RetrievalPurpose, got "
                 f"{type(self.purpose).__name__}"
             )
+        # 2) container shape：semantic_refs 必须是 tuple——frozen dataclass
+        #    不得保存 mutable list（semantic_refs=["GMV"] 在 construction
+        #    boundary fail fast）
+        if not isinstance(self.semantic_refs, tuple):
+            raise TypeError(
+                "RetrievalRequirement.semantic_refs must be a tuple, got "
+                f"{type(self.semantic_refs).__name__}"
+            )
+        # 3) leaf type：每个 semantic ref 必须是 str（wrong runtime type →
+        #    TypeError，不得靠 `.strip()` 延迟成 AttributeError）
         for ref in self.semantic_refs:
-            if not isinstance(ref, str) or not ref or ref != ref.strip():
+            if not isinstance(ref, str):
+                raise TypeError(
+                    "RetrievalRequirement semantic ref must be a str, got "
+                    f"{type(ref).__name__}"
+                )
+            # 4) domain value：类型正确但 non-empty / trimmed 不合法 → ValueError
+            if not ref or ref != ref.strip():
                 raise ValueError(
                     "semantic refs must be non-empty trimmed text, got "
                     f"{ref!r}"
                 )
+        # 5) purpose + payload shape（此时类型已保证正确）
         if self.purpose is RetrievalPurpose.VERIFY_DEFINITION:
             if len(self.semantic_refs) != 1:
                 raise ValueError(
@@ -312,15 +383,24 @@ class IntentResult:
                     f"IntentResult.{field_name} must be a SemanticValue, got "
                     f"{type(value).__name__}"
                 )
-        # 2) unsupported_reason invariant（不依赖 factory）：None 或 non-empty trimmed
-        if self.unsupported_reason is not None and (
-            not self.unsupported_reason
-            or self.unsupported_reason != self.unsupported_reason.strip()
-        ):
-            raise ValueError(
-                "unsupported_reason must be None or non-empty trimmed text, got "
-                f"{self.unsupported_reason!r}"
-            )
+        # 2) unsupported_reason invariant（不依赖 factory）：
+        #    leaf type 先验证——非 None 且非 str → TypeError（不得出现
+        #    int.strip() → AttributeError；Error taxonomy：TypeError =
+        #    runtime 类型错误 / ValueError = 类型正确但 domain value 不合法）
+        if self.unsupported_reason is not None:
+            if not isinstance(self.unsupported_reason, str):
+                raise TypeError(
+                    "IntentResult.unsupported_reason must be a str or None, got "
+                    f"{type(self.unsupported_reason).__name__}"
+                )
+            if (
+                not self.unsupported_reason
+                or self.unsupported_reason != self.unsupported_reason.strip()
+            ):
+                raise ValueError(
+                    "unsupported_reason must be None or non-empty trimmed text, got "
+                    f"{self.unsupported_reason!r}"
+                )
         # 3) UNSUPPORTED 不得携带 category semantics（在 1) 校验通过后安全访问 state）
         if self.unsupported_reason is not None:
             for _category, value in self._category_values():
