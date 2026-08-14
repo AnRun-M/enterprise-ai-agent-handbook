@@ -90,6 +90,7 @@
 - Tool 输入输出优先结构化
 - LLM 和执行引擎支持依赖注入
 - 核心逻辑必须可测试
+- **推送前必须通过统一本地验证**：`python scripts/verify.py`（pytest / ruff check / mkdocs build --strict / git diff --check；`--typing` 可选跑 mypy）——唯一本地验证入口（TASK-0035）
 
 ## Text-to-SQL 安全底线
 
