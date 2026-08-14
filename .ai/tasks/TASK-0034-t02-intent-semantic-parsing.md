@@ -465,3 +465,16 @@ real source                                              （edge-scoped：deferr
   - 只修改 `semantic_types.py` + `retrieval_adapter.py` + `test_semantic_contract.py` + `test_retrieval_adapter.py`（semantic_node / state 无需改动，符合审查十二节）
   - 验证：`pytest tests/text2sql_state` **255 passed**（全量除 langgraph 286 passed）；`ruff check .`（0.16.3）**All checks passed**；`mkdocs build --strict` 通过；`git diff --check` 干净
   - Status 仍 **in_progress**；等待 **T02 Gate B/C 最终确认**；**不得 Merge / 不得进入 Gate D**。
+- 2026-08-14：**Gate B/C 最终 cleanup 已应用（feature/t02-intent-semantic-parsing，PR #65 追加 commit，等待最终确认；不得 Merge / 不得进入 Gate D）——Category × Purpose compatibility matrix**：
+  - **① Category × Purpose matrix 冻结**（`_CATEGORY_PURPOSE_MATRIX`，`RetrievalRequirement.__post_init__` 第 6 步 cross-field 校验）：
+    - VERIFY_DEFINITION：仅允许 METRIC / DIMENSION / ENTITY / FILTER
+    - GROUND_EXECUTION_CONTEXT：当前仅允许 TIME_RANGE
+    - RESOLVE_AMBIGUITY：**保持 source-agnostic**，不因 fake adapter 当前只支持 METRIC 而限制为 METRIC（所有 category 允许）
+    - COMPLETE_INTERPRETATION：保持所有可 REQUIRED_UNRESOLVED 的 semantic category（所有 category 允许）
+  - **② 非法组合 construction boundary raise ValueError**（测试覆盖）：TIME_RANGE / AGGREGATION_INTENT / QUERY_INTENT + VERIFY → ValueError；METRIC / DIMENSION / ENTITY / FILTER / AGGREGATION_INTENT / QUERY_INTENT + GROUND → ValueError；TIME_RANGE + GROUND → 合法
+  - **③ domain semantic validity ≠ source mapping availability**：METRIC + VERIFY("unknown_metric") 构造成功（domain-valid），fake adapter 无 vocabulary → adapter ValueError——RetrievalRequirement 不预检 adapter vocabulary（测试在 contract 与 adapter 两层覆盖）
+  - **④ `_FACT_GROUNDED_CATEGORIES`（frozenset[str]）→ `_DEFINITION_GROUNDED_CATEGORIES`（frozenset[SemanticCategory]）**：派生逻辑直接 `category in _DEFINITION_GROUNDED_CATEGORIES`（不再 category.value 字符串匹配）
+  - **⑤ 固定原则（新增）**："Payload shape validity ≠ semantic combination validity." / "Domain contracts must validate cross-field invariants, not only each field independently."
+  - 只修改 `semantic_types.py` + `test_semantic_contract.py` + `test_retrieval_adapter.py`（semantic_parser / semantic_node / retrieval_adapter / state 零改动）
+  - 验证：`pytest tests/text2sql_state` **262 passed**（全量除 langgraph 293 passed）；`ruff check .`（0.16.3）**All checks passed**；`mkdocs build --strict` 通过；`git diff --check` 干净
+  - Status 仍 **in_progress**；等待 **T02 Gate B/C 最终确认**；**不得 Merge / 不得进入 Gate D**。

@@ -168,15 +168,17 @@ def test_source_vocabulary_never_leaks_into_intent_result() -> None:
 # ---------------------------------------------------------------- integration gap fail-fast
 
 def test_unmapped_verify_definition_ref_raises() -> None:
-    requirements = (
-        RetrievalRequirement(
-            category=SemanticCategory.METRIC,
-            semantic_refs=("unknown_metric",),
-            purpose=RetrievalPurpose.VERIFY_DEFINITION,
-        ),
+    # domain semantic validity ≠ source mapping availability：METRIC +
+    # VERIFY("unknown_metric") 是合法领域组合（RetrievalRequirement 构造
+    # 成功）；fake adapter 无该 ref 的 source vocabulary → adapter ValueError
+    requirement = RetrievalRequirement(
+        category=SemanticCategory.METRIC,
+        semantic_refs=("unknown_metric",),
+        purpose=RetrievalPurpose.VERIFY_DEFINITION,
     )
+    assert requirement.semantic_refs == ("unknown_metric",)  # 构造成功（domain-valid）
     with pytest.raises(ValueError, match="no source key vocabulary"):
-        build_retrieval_criteria(requirements)
+        build_retrieval_criteria((requirement,))
 
 
 def test_unmapped_ambiguity_category_raises() -> None:

@@ -312,6 +312,90 @@ def test_requirement_ref_leaf_type_must_be_str() -> None:
                              purpose=RetrievalPurpose.VERIFY_DEFINITION)
 
 
+# ------------------------------------------------ Category × Purpose compatibility matrix（最终 cleanup）
+
+def test_verify_definition_illegal_categories_rejected() -> None:
+    # 固定原则："Payload shape validity ≠ semantic combination validity."
+    # TIME_RANGE / AGGREGATION_INTENT / QUERY_INTENT + VERIFY → ValueError
+    for category in (
+        SemanticCategory.TIME_RANGE,
+        SemanticCategory.AGGREGATION_INTENT,
+        SemanticCategory.QUERY_INTENT,
+    ):
+        with pytest.raises(ValueError, match="invalid category"):
+            RetrievalRequirement(category=category,
+                                 purpose=RetrievalPurpose.VERIFY_DEFINITION,
+                                 semantic_refs=("GMV",))
+
+
+def test_verify_definition_legal_categories_accepted() -> None:
+    # METRIC / DIMENSION / ENTITY / FILTER + VERIFY → 构造成功
+    for category in (
+        SemanticCategory.METRIC,
+        SemanticCategory.DIMENSION,
+        SemanticCategory.ENTITY,
+        SemanticCategory.FILTER,
+    ):
+        requirement = RetrievalRequirement(category=category,
+                                           purpose=RetrievalPurpose.VERIFY_DEFINITION,
+                                           semantic_refs=("some-ref",))
+        assert requirement.category is category
+
+
+def test_ground_execution_context_illegal_categories_rejected() -> None:
+    # 当前 GROUND 仅允许 TIME_RANGE——其它类别 + GROUND → ValueError
+    for category in (
+        SemanticCategory.METRIC,
+        SemanticCategory.DIMENSION,
+        SemanticCategory.ENTITY,
+        SemanticCategory.FILTER,
+        SemanticCategory.AGGREGATION_INTENT,
+        SemanticCategory.QUERY_INTENT,
+    ):
+        with pytest.raises(ValueError, match="invalid category"):
+            RetrievalRequirement(category=category,
+                                 purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+                                 semantic_refs=("yesterday",))
+
+
+def test_ground_execution_context_legal_category_accepted() -> None:
+    requirement = RetrievalRequirement(category=SemanticCategory.TIME_RANGE,
+                                       purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
+                                       semantic_refs=("yesterday",))
+    assert requirement.category is SemanticCategory.TIME_RANGE
+
+
+def test_resolve_ambiguity_remains_source_agnostic() -> None:
+    # RESOLVE_AMBIGUITY 不因 fake adapter 当前只支持 METRIC 而限制为 METRIC——
+    # 所有 category 都可构造（source-agnostic 逻辑层）
+    for category in SemanticCategory:
+        requirement = RetrievalRequirement(category=category,
+                                           purpose=RetrievalPurpose.RESOLVE_AMBIGUITY,
+                                           semantic_refs=("candidate-a", "candidate-b"))
+        assert requirement.category is category
+
+
+def test_complete_interpretation_accepts_all_categories() -> None:
+    # COMPLETE_INTERPRETATION 保持所有可 REQUIRED_UNRESOLVED 的类别
+    for category in SemanticCategory:
+        requirement = RetrievalRequirement(category=category,
+                                           purpose=RetrievalPurpose.COMPLETE_INTERPRETATION,
+                                           semantic_refs=())
+        assert requirement.category is category
+
+
+def test_domain_valid_requirement_does_not_precheck_adapter_vocabulary() -> None:
+    # domain semantic validity ≠ source mapping availability：
+    # METRIC + VERIFY("unknown_metric") 是合法领域组合（构造成功）；
+    # fake adapter 无该 ref 的 source vocabulary → adapter 抛 ValueError。
+    requirement = RetrievalRequirement(category=SemanticCategory.METRIC,
+                                       purpose=RetrievalPurpose.VERIFY_DEFINITION,
+                                       semantic_refs=("unknown_metric",))
+    assert requirement.semantic_refs == ("unknown_metric",)
+    with pytest.raises(ValueError, match="no source key vocabulary"):
+        build_retrieval_criteria((requirement,))
+
+
 # ------------------------------------------------ runtime payload contract（最终复审闭合）
 
 def test_resolved_payload_must_be_str() -> None:

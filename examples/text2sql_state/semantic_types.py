@@ -62,21 +62,35 @@ Architecture Review）**：
 - COMPLETE_INTERPRETATION = semantic interpretation 本身仍缺失；
   GROUND_EXECUTION_CONTEXT = semantic interpretation 已 resolved，但执行
   需要 authoritative context——两者不混淆
+
+**Category × Purpose compatibility matrix（最终 cleanup）**：
+- 固定原则（新增）：
+  - "Payload shape validity ≠ semantic combination validity."（payload
+    形状合法 ≠ 语义组合合法）
+  - "Domain contracts must validate cross-field invariants, not only each
+    field independently."（领域契约必须校验跨字段不变式，而不是只逐字段
+    独立校验）
+- `RetrievalRequirement.__post_init__` 冻结 `_CATEGORY_PURPOSE_MATRIX`：
+  - VERIFY_DEFINITION：仅允许 METRIC / DIMENSION / ENTITY / FILTER
+  - GROUND_EXECUTION_CONTEXT：当前仅允许 TIME_RANGE
+  - RESOLVE_AMBIGUITY：保持 source-agnostic，**不因 fake adapter 当前只
+    支持 METRIC 而限制为 METRIC**（所有 category 允许）
+  - COMPLETE_INTERPRETATION：保持所有可 REQUIRED_UNRESOLVED 的 semantic
+    category（所有 category 允许）
+- 非法组合（如 TIME_RANGE + VERIFY、METRIC + GROUND）在 construction
+  boundary raise **ValueError**
+- **domain semantic validity ≠ source mapping availability**：合法组合
+  （如 METRIC + VERIFY("unknown_metric")）构造成功，但 fake adapter 无该
+  semantic ref 的 source vocabulary 时由 adapter 抛 ValueError——
+  RetrievalRequirement 不预检 adapter vocabulary
+- `_DEFINITION_GROUNDED_CATEGORIES` 是 **SemanticCategory Enum 集合**
+  （非字符串集合），派生逻辑直接 `category in _DEFINITION_GROUNDED_CATEGORIES`
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-
-_FACT_GROUNDED_CATEGORIES = frozenset(
-    {
-        "metric",
-        "dimension",
-        "entity",
-        "filter",
-    }
-)
 
 
 class IntentOutcome(Enum):
@@ -111,6 +125,18 @@ class SemanticCategory(Enum):
     FILTER = "filter"
     AGGREGATION_INTENT = "aggregation_intent"
     QUERY_INTENT = "query_intent"
+
+
+# SemanticCategory Enum 集合（非字符串集合）——resolved 语义需要权威定义/
+# 映射验证的类别（VERIFY_DEFINITION 的 legal category 集合）。
+_DEFINITION_GROUNDED_CATEGORIES = frozenset(
+    {
+        SemanticCategory.METRIC,
+        SemanticCategory.DIMENSION,
+        SemanticCategory.ENTITY,
+        SemanticCategory.FILTER,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -231,6 +257,23 @@ class RetrievalPurpose(Enum):
     GROUND_EXECUTION_CONTEXT = "ground_execution_context"  # 语义已 resolved，但执行仍需 external authoritative context（calendar / timezone / freshness 等）
 
 
+# Category × Purpose compatibility matrix（cross-field invariant，最终
+# cleanup 冻结）——固定原则："Payload shape validity ≠ semantic combination
+# validity." / "Domain contracts must validate cross-field invariants, not
+# only each field independently."
+# - VERIFY_DEFINITION：仅允许需要权威定义/映射验证的类别
+# - GROUND_EXECUTION_CONTEXT：当前仅允许 TIME_RANGE（执行上下文 grounding）
+# - RESOLVE_AMBIGUITY：保持 source-agnostic，不因 fake adapter 当前只支持
+#   METRIC 而限制为 METRIC（所有 category 允许）
+# - COMPLETE_INTERPRETATION：保持所有可 REQUIRED_UNRESOLVED 的类别
+_CATEGORY_PURPOSE_MATRIX: dict[RetrievalPurpose, frozenset[SemanticCategory]] = {
+    RetrievalPurpose.VERIFY_DEFINITION: _DEFINITION_GROUNDED_CATEGORIES,
+    RetrievalPurpose.GROUND_EXECUTION_CONTEXT: frozenset({SemanticCategory.TIME_RANGE}),
+    RetrievalPurpose.RESOLVE_AMBIGUITY: frozenset(SemanticCategory),
+    RetrievalPurpose.COMPLETE_INTERPRETATION: frozenset(SemanticCategory),
+}
+
+
 @dataclass(frozen=True)
 class RetrievalRequirement:
     """source-agnostic retrieval requirement（逻辑契约层）。
@@ -255,6 +298,20 @@ class RetrievalRequirement:
       authoritative grounding completeness."（语义已解析 ≠ 执行所需权威事实
       已齐全）
     - category / purpose 运行时类型校验（禁止 type hint-only contract）
+
+    **Category × Purpose compatibility matrix（cross-field invariant）**：
+    - VERIFY_DEFINITION：仅允许 METRIC / DIMENSION / ENTITY / FILTER
+    - GROUND_EXECUTION_CONTEXT：当前仅允许 TIME_RANGE
+    - RESOLVE_AMBIGUITY：source-agnostic，所有 category 允许
+      （不因 fake adapter 当前只支持 METRIC 而限制）
+    - COMPLETE_INTERPRETATION：所有可 REQUIRED_UNRESOLVED 的 category 允许
+    - 非法组合在 construction boundary raise ValueError——固定原则：
+      "Payload shape validity ≠ semantic combination validity."
+      "Domain contracts must validate cross-field invariants, not only
+      each field independently."
+    - domain semantic validity ≠ source mapping availability：合法组合
+      （如 METRIC + VERIFY("unknown_metric")）构造成功；source vocabulary
+      缺口由 source-specific adapter 抛 ValueError，不由本对象预检
 
     固定原则："Semantic interpretation ≠ retrieval requirement ≠
     source-specific retrieval criteria."——本对象只表达逻辑需求，
@@ -336,6 +393,19 @@ class RetrievalRequirement:
         else:
             # Enum 已封顶；防御性 impossible-branch protection
             raise ValueError(f"unknown retrieval purpose: {self.purpose}")
+        # 6) Category × Purpose compatibility matrix（cross-field invariant）——
+        #    payload 形状合法 ≠ 语义组合合法；非法组合（如 TIME_RANGE + VERIFY、
+        #    METRIC + GROUND）在 construction boundary fail fast。
+        #    固定原则："Payload shape validity ≠ semantic combination validity."
+        #    "Domain contracts must validate cross-field invariants, not only
+        #    each field independently."
+        allowed_categories = _CATEGORY_PURPOSE_MATRIX[self.purpose]
+        if self.category not in allowed_categories:
+            raise ValueError(
+                f"invalid category {self.category.value!r} for purpose "
+                f"{self.purpose.value!r}: allowed categories are "
+                f"{sorted(c.value for c in allowed_categories)}"
+            )
 
 
 @dataclass(frozen=True)
@@ -515,7 +585,7 @@ class IntentResult:
                             purpose=RetrievalPurpose.GROUND_EXECUTION_CONTEXT,
                         )
                     )
-                elif category.value in _FACT_GROUNDED_CATEGORIES:
+                elif category in _DEFINITION_GROUNDED_CATEGORIES:
                     requirements.append(
                         RetrievalRequirement(
                             category=category,
