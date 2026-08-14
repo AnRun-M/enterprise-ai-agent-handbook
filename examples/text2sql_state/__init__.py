@@ -16,12 +16,23 @@ T03 元数据与业务规则检索（TASK-0033，本分支）：
 
 T05 SQL 静态校验（TASK-0030）：
 - RULE_ORDER / RuleBasedSQLValidator（canonical T05）
+
+T02 意图与语义解析（TASK-0034，Gate B/C 本分支）：
+- IntentOutcome / SemanticState / SemanticValue / IntentResult /
+  RetrievalRequirement（semantic contract 类型：outcome 派生、四语义状态
+  可区分、retrieval requirements 为 source-agnostic 逻辑契约层）
+- FakeSemanticParser（deterministic fake semantic parser，不接真实 LLM）
+- parse_intent_node（Graph Node adapter：只写 intent_result，不触碰
+  shared lifecycle，不调用 / 路由 T03）
+- build_retrieval_criteria（source-specific adapter：source-agnostic
+  retrieval requirements → T03 RetrievalCriteria fixture）
 """
 
 from .metadata_source import InMemoryMetadataSource, build_fixture_source
 from .normalization import normalize_question
 from .normalize_node import normalize_input_node
 from .retrieval import MetadataRetriever
+from .retrieval_adapter import build_retrieval_criteria
 from .retrieval_node import retrieve_metadata_node
 from .retrieval_types import (
     MaterializedFacts,
@@ -29,6 +40,17 @@ from .retrieval_types import (
     RetrievalOutcome,
     RetrievalReference,
     RetrievalResult,
+)
+from .semantic_node import parse_intent_node
+from .semantic_parser import FakeSemanticParser
+from .semantic_types import (
+    IntentOutcome,
+    IntentResult,
+    RetrievalPurpose,
+    RetrievalRequirement,
+    SemanticCategory,
+    SemanticState,
+    SemanticValue,
 )
 from .validation import RULE_ORDER, RuleBasedSQLValidator
 
@@ -46,4 +68,14 @@ __all__ = [
     "normalize_input_node",
     "normalize_question",
     "retrieve_metadata_node",
+    "FakeSemanticParser",
+    "IntentOutcome",
+    "IntentResult",
+    "RetrievalPurpose",
+    "RetrievalRequirement",
+    "SemanticCategory",
+    "SemanticState",
+    "SemanticValue",
+    "build_retrieval_criteria",
+    "parse_intent_node",
 ]
