@@ -25,6 +25,9 @@ Gate A 冻结（TASK-0034 十三节 方案 2，固定原则）：
 - 未映射的 semantic ref / category → ValueError：source vocabulary 缺口是
   integration gap，必须显式设计，不得静默跳过（fail-fast at adapter
   boundary，与 T03 的 source-boundary 校验哲学一致）
+- **候选集不丢失**：RESOLVE_AMBIGUITY 按 category 映射 ambiguous fixture key，
+  但 requirement 中的结构化候选 tuple（`semantic_refs`）原样保留——
+  adapter 只消费它需要的映射信息，不修改 / 不降级 requirements
 """
 
 from __future__ import annotations
@@ -60,9 +63,14 @@ def build_retrieval_criteria(
     """把 source-agnostic retrieval requirements 映射为 T03 RetrievalCriteria。
 
     - 空 requirements → None（无检索需求；UNSUPPORTED 不会得到普通 criteria）
-    - 每个 requirement 按 purpose + semantic_ref / category 映射到 fake
-      source lookup key；去重 + 排序保证确定性（criteria 排列顺序无业务
-      语义——T03 以排列无关方式消费）
+    - VERIFY_DEFINITION：用唯一 semantic ref 映射 source key
+      （`semantic_refs[0]`；shape invariant 保证恰好 1 个）
+    - RESOLVE_AMBIGUITY：按 category 映射 ambiguous fixture key；
+      候选集保留在 requirement 内（本函数不修改 requirements）
+    - COMPLETE_INTERPRETATION：按 category 映射（unresolved 类别由
+      `category` 表达，不伪造 semantic ref）
+    - 去重 + 排序保证确定性（criteria 排列顺序无业务语义——
+      T03 以排列无关方式消费）
     - 未映射 ref / category → ValueError（integration gap，fail-fast）
 
     Returns:
@@ -73,11 +81,12 @@ def build_retrieval_criteria(
     keys: list[str] = []
     for requirement in requirements:
         if requirement.purpose is RetrievalPurpose.VERIFY_DEFINITION:
-            key = _VERIFY_DEFINITION_KEYS.get(requirement.semantic_ref)
+            ref = requirement.semantic_refs[0]
+            key = _VERIFY_DEFINITION_KEYS.get(ref)
             if key is None:
                 raise ValueError(
                     "no source key vocabulary for semantic ref "
-                    f"{requirement.semantic_ref!r} (VERIFY_DEFINITION)"
+                    f"{ref!r} (VERIFY_DEFINITION)"
                 )
         elif requirement.purpose is RetrievalPurpose.RESOLVE_AMBIGUITY:
             key = _RESOLVE_AMBIGUITY_KEYS.get(requirement.category)

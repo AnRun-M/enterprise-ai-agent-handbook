@@ -32,9 +32,21 @@ Gate A 冻结（TASK-0034）：
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, Protocol
 
 from .semantic_types import IntentResult, SemanticValue
+
+
+class SemanticParser(Protocol):
+    """T02 semantic parser 接口（Node 依赖语义契约，不依赖 fake implementation）。
+
+    极薄 Protocol（不引入 ABC / framework）：
+    - Node adapter 依赖本接口注入 parser（ch18 add_node-DI 边界）
+    - FakeSemanticParser 作为当前 implementation 结构上满足本 Protocol
+    - 未来接真实 LLM parser 时同样只需实现 `parse(normalized_question) -> IntentResult`
+    """
+
+    def parse(self, normalized_question: str) -> IntentResult: ...
 
 
 class FakeSemanticParser:

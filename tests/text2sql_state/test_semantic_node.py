@@ -7,7 +7,7 @@ import pytest
 from examples.manual_agent_loop.types import AgentStatus
 from examples.text2sql_state.semantic_node import parse_intent_node
 from examples.text2sql_state.semantic_parser import FakeSemanticParser
-from examples.text2sql_state.semantic_types import IntentOutcome
+from examples.text2sql_state.semantic_types import IntentOutcome, IntentResult
 from examples.text2sql_state.state import Text2SQLState
 
 PARSER = FakeSemanticParser()
@@ -85,6 +85,24 @@ def test_node_signature_has_no_t03_dependency() -> None:
     assert set(params) == {"state", "parser"}
     update = parse_intent_node(make_state(), PARSER)
     assert "retrieval_result" not in update
+
+
+# ---------------------------------------------------------------- SemanticParser Protocol 依赖（Review 加固九）
+
+def test_node_depends_on_semantic_parser_protocol_not_fake() -> None:
+    # Node 依赖 SemanticParser 语义契约（Protocol），不依赖 FakeSemanticParser
+    # fake implementation——任何满足契约的 parser 都可注入（ch18 DI 边界）
+
+    class StubParser:
+        """最小 Protocol 实现（无 FakeSemanticParser 依赖）。"""
+
+        def parse(self, normalized_question: str) -> IntentResult:
+            return IntentResult.unsupported("stub parser")
+
+    state = make_state("查询昨天的GMV")
+    update = parse_intent_node(state, StubParser())
+    assert update["intent_result"].outcome is IntentOutcome.UNSUPPORTED
+    assert set(update) == {"intent_result"}
 
 
 # ---------------------------------------------------------------- consumed-contract violation

@@ -121,6 +121,15 @@ class SemanticValue:
         return cls(state=SemanticState.NOT_APPLICABLE, resolved=None, candidates=())
 
     def __post_init__(self) -> None:
+        # 第一步：runtime contract validation——type annotation 不等于运行时校验。
+        # malformed state（如 str）不得落入下方 REQUIRED_UNRESOLVED /
+        # NOT_APPLICABLE 共用的 else 分支（固定原则："Static type annotation
+        # ≠ runtime contract validation."）。
+        if not isinstance(self.state, SemanticState):
+            raise TypeError(
+                "SemanticValue.state must be a SemanticState, got "
+                f"{type(self.state).__name__}"
+            )
         if self.state is SemanticState.RESOLVED:
             if not self.resolved or self.resolved != self.resolved.strip():
                 raise ValueError(
@@ -164,9 +173,20 @@ class RetrievalRequirement:
     """source-agnostic retrieval requirement（逻辑契约层）。
 
     - `category`：哪个语义类别需要权威事实
-    - `semantic_ref`：语义引用（resolved 值 / 候选集 / 类别标签）——
-      **不是 source lookup key**（fake source key vocabulary 不得进入本层）
     - `purpose`：为什么需要（verify / resolve ambiguity / complete interpretation）
+    - `semantic_refs`：结构化语义引用集合（tuple）——**保持结构化，不降级
+      成人类展示字符串**（固定原则："Structured candidate semantics must
+      remain structured across contract boundaries."）；
+      **不是 source lookup key**（fake source key vocabulary 不得进入本层）
+
+    **Shape invariant（__post_init__ 冻结，purpose + payload 形状不产生
+    非法组合）**：
+    - VERIFY_DEFINITION：恰好 1 个 non-empty trimmed ref
+    - RESOLVE_AMBIGUITY：至少 2 个 distinct non-empty trimmed refs
+    - COMPLETE_INTERPRETATION：semantic_refs 必须为空——unresolved 的语义
+      类别已由 `category` 表达，不得再用 "metric" / "time_range" 伪装成
+      semantic ref
+    - category / purpose 运行时类型校验（禁止 type hint-only contract）
 
     固定原则："Semantic interpretation ≠ retrieval requirement ≠
     source-specific retrieval criteria."——本对象只表达逻辑需求，
@@ -174,8 +194,51 @@ class RetrievalRequirement:
     """
 
     category: SemanticCategory
-    semantic_ref: str
     purpose: RetrievalPurpose
+    semantic_refs: tuple[str, ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.category, SemanticCategory):
+            raise TypeError(
+                "RetrievalRequirement.category must be a SemanticCategory, got "
+                f"{type(self.category).__name__}"
+            )
+        if not isinstance(self.purpose, RetrievalPurpose):
+            raise TypeError(
+                "RetrievalRequirement.purpose must be a RetrievalPurpose, got "
+                f"{type(self.purpose).__name__}"
+            )
+        for ref in self.semantic_refs:
+            if not isinstance(ref, str) or not ref or ref != ref.strip():
+                raise ValueError(
+                    "semantic refs must be non-empty trimmed text, got "
+                    f"{ref!r}"
+                )
+        if self.purpose is RetrievalPurpose.VERIFY_DEFINITION:
+            if len(self.semantic_refs) != 1:
+                raise ValueError(
+                    "VERIFY_DEFINITION requires exactly one semantic ref, got "
+                    f"{len(self.semantic_refs)}"
+                )
+        elif self.purpose is RetrievalPurpose.RESOLVE_AMBIGUITY:
+            if len(self.semantic_refs) < 2:
+                raise ValueError(
+                    "RESOLVE_AMBIGUITY requires at least two semantic refs, got "
+                    f"{len(self.semantic_refs)}"
+                )
+            if len(set(self.semantic_refs)) != len(self.semantic_refs):
+                raise ValueError(
+                    "RESOLVE_AMBIGUITY semantic refs must be distinct"
+                )
+        elif self.purpose is RetrievalPurpose.COMPLETE_INTERPRETATION:
+            if self.semantic_refs:
+                raise ValueError(
+                    "COMPLETE_INTERPRETATION must not carry semantic refs "
+                    "(the unresolved category is expressed by `category`)"
+                )
+        else:
+            # Enum 已封顶；防御性 impossible-branch protection
+            raise ValueError(f"unknown retrieval purpose: {self.purpose}")
 
 
 @dataclass(frozen=True)
@@ -212,9 +275,13 @@ class IntentResult:
 
     @classmethod
     def unsupported(cls, reason: str) -> IntentResult:
-        """构造 UNSUPPORTED 结果：不携带任何类别语义（唯一合法路径）。"""
-        if not reason or reason != reason.strip():
-            raise ValueError("unsupported reason must be non-empty trimmed text")
+        """构造 UNSUPPORTED 结果（convenience）：不携带任何类别语义。
+
+        contract enforcement 在 `__post_init__`（unsupported_reason 必须
+        non-empty / trimmed；UNSUPPORTED 不得携带类别语义）——factory 只是
+        convenience，不是唯一 contract enforcement（固定原则："Factory
+        convenience must not be the only thing enforcing a domain invariant."）。
+        """
         not_applicable = SemanticValue.make_not_applicable()
         return cls(
             metric=not_applicable,
@@ -228,6 +295,33 @@ class IntentResult:
         )
 
     def __post_init__(self) -> None:
+        # 1) 七个 category 必须是 SemanticValue——str / None / dict 等不得
+        #    进入 IntentResult 后延迟到 outcome / retrieval_requirements
+        #    才 AttributeError（source/domain construction boundary fail fast）
+        for field_name, value in (
+            ("metric", self.metric),
+            ("dimension", self.dimension),
+            ("entity", self.entity),
+            ("time_range", self.time_range),
+            ("filters", self.filters),
+            ("aggregation_intent", self.aggregation_intent),
+            ("query_intent", self.query_intent),
+        ):
+            if not isinstance(value, SemanticValue):
+                raise TypeError(
+                    f"IntentResult.{field_name} must be a SemanticValue, got "
+                    f"{type(value).__name__}"
+                )
+        # 2) unsupported_reason invariant（不依赖 factory）：None 或 non-empty trimmed
+        if self.unsupported_reason is not None and (
+            not self.unsupported_reason
+            or self.unsupported_reason != self.unsupported_reason.strip()
+        ):
+            raise ValueError(
+                "unsupported_reason must be None or non-empty trimmed text, got "
+                f"{self.unsupported_reason!r}"
+            )
+        # 3) UNSUPPORTED 不得携带 category semantics（在 1) 校验通过后安全访问 state）
         if self.unsupported_reason is not None:
             for _category, value in self._category_values():
                 if value.state is not SemanticState.NOT_APPLICABLE:
@@ -280,12 +374,13 @@ class IntentResult:
         - UNSUPPORTED → 恒为空（不得自动生成普通 downstream retrieval
           requirements；Gate A 八节 eligibility 冻结）
         - RESOLVED（metric/dimension/entity/filter）→ VERIFY_DEFINITION
+          （`semantic_refs = (resolved,)`，恰好 1 个 ref）
           （time/aggregation/query intent 的 resolved 解释视为完整 interpretation，
           日历等外部事实裁决留 integration 边界）
-        - AMBIGUOUS_CANDIDATES → RESOLVE_AMBIGUITY（candidate-scoped：
-          "需要验证哪些候选是正式企业指标"）
-        - REQUIRED_UNRESOLVED → COMPLETE_INTERPRETATION（补齐 unresolved
-          required semantics 所需权威事实；不假装 interpretation 已 complete）
+        - AMBIGUOUS_CANDIDATES → RESOLVE_AMBIGUITY（`semantic_refs` 原样保留
+          结构化候选 tuple——不降级成 join 字符串）
+        - REQUIRED_UNRESOLVED → COMPLETE_INTERPRETATION（`semantic_refs` 为空，
+          unresolved 的类别由 `category` 表达；不假装 interpretation 已 complete）
         - NOT_APPLICABLE → 无
 
         固定原则："Retrieval requirement is data, not routing."——本属性只是
@@ -303,7 +398,7 @@ class IntentResult:
                     requirements.append(
                         RetrievalRequirement(
                             category=category,
-                            semantic_ref=value.resolved,
+                            semantic_refs=(value.resolved,),
                             purpose=RetrievalPurpose.VERIFY_DEFINITION,
                         )
                     )
@@ -311,7 +406,7 @@ class IntentResult:
                 requirements.append(
                     RetrievalRequirement(
                         category=category,
-                        semantic_ref=", ".join(value.candidates),
+                        semantic_refs=value.candidates,
                         purpose=RetrievalPurpose.RESOLVE_AMBIGUITY,
                     )
                 )
@@ -319,7 +414,7 @@ class IntentResult:
                 requirements.append(
                     RetrievalRequirement(
                         category=category,
-                        semantic_ref=category.value,
+                        semantic_refs=(),
                         purpose=RetrievalPurpose.COMPLETE_INTERPRETATION,
                     )
                 )

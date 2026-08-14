@@ -30,12 +30,17 @@
 
 from __future__ import annotations
 
-from .semantic_parser import FakeSemanticParser
+from .semantic_parser import SemanticParser
 from .state import Text2SQLState
 
 
-def parse_intent_node(state: Text2SQLState, parser: FakeSemanticParser) -> dict:
-    """读 normalized_question → 调 fake parser → 返回 partial State Update。
+def parse_intent_node(state: Text2SQLState, parser: SemanticParser) -> dict:
+    """读 normalized_question → 调 parser → 返回 partial State Update。
+
+    Node 依赖 **SemanticParser 语义契约**（Protocol），不依赖 FakeSemanticParser
+    fake implementation——FakeSemanticParser 是当前注入的 implementation，
+    未来真实 LLM parser 只要实现 `parse(str) -> IntentResult` 即可替换
+    （ch18 add_node-DI 边界）。
 
     返回：{"intent_result": IntentResult}
     - 只写 T02-owned derived field（intent_result）

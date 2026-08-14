@@ -22,6 +22,7 @@ T02 意图与语义解析（TASK-0034，Gate B/C 本分支）：
   RetrievalRequirement（semantic contract 类型：outcome 派生、四语义状态
   可区分、retrieval requirements 为 source-agnostic 逻辑契约层）
 - FakeSemanticParser（deterministic fake semantic parser，不接真实 LLM）
+- SemanticParser（极薄 Protocol：Node 依赖语义契约，不依赖 fake implementation）
 - parse_intent_node（Graph Node adapter：只写 intent_result，不触碰
   shared lifecycle，不调用 / 路由 T03）
 - build_retrieval_criteria（source-specific adapter：source-agnostic
@@ -42,7 +43,7 @@ from .retrieval_types import (
     RetrievalResult,
 )
 from .semantic_node import parse_intent_node
-from .semantic_parser import FakeSemanticParser
+from .semantic_parser import FakeSemanticParser, SemanticParser
 from .semantic_types import (
     IntentOutcome,
     IntentResult,
@@ -70,6 +71,7 @@ __all__ = [
     "RetrievalResult",
     "RuleBasedSQLValidator",
     "SemanticCategory",
+    "SemanticParser",
     "SemanticState",
     "SemanticValue",
     "build_fixture_source",

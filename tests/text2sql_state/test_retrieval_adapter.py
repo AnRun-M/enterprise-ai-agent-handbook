@@ -20,9 +20,11 @@ from examples.text2sql_state.retrieval_types import RetrievalCriteria, Retrieval
 from examples.text2sql_state.semantic_parser import FakeSemanticParser
 from examples.text2sql_state.semantic_types import (
     IntentOutcome,
+    IntentResult,
     RetrievalPurpose,
     RetrievalRequirement,
     SemanticCategory,
+    SemanticValue,
 )
 
 PARSER = FakeSemanticParser()
@@ -43,7 +45,7 @@ def test_complete_result_produces_verify_definition_requirement() -> None:
     assert result.retrieval_requirements == (
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
-            semantic_ref="GMV",
+            semantic_refs=("GMV",),
             purpose=RetrievalPurpose.VERIFY_DEFINITION,
         ),
     )
@@ -55,7 +57,7 @@ def test_ambiguous_result_produces_candidate_scoped_requirement() -> None:
     assert result.retrieval_requirements == (
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
-            semantic_ref="GMV, paid_amount, net_revenue",
+            semantic_refs=("GMV", "paid_amount", "net_revenue"),
             purpose=RetrievalPurpose.RESOLVE_AMBIGUITY,
         ),
     )
@@ -106,17 +108,17 @@ def test_adapter_deterministic_and_dedup() -> None:
     requirements = (
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
-            semantic_ref="GMV",
+            semantic_refs=("GMV",),
             purpose=RetrievalPurpose.VERIFY_DEFINITION,
         ),
         RetrievalRequirement(
             category=SemanticCategory.ENTITY,
-            semantic_ref="华东",
+            semantic_refs=("华东",),
             purpose=RetrievalPurpose.VERIFY_DEFINITION,
         ),
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
-            semantic_ref="GMV",
+            semantic_refs=("GMV",),
             purpose=RetrievalPurpose.VERIFY_DEFINITION,
         ),
     )
@@ -151,7 +153,7 @@ def test_unmapped_verify_definition_ref_raises() -> None:
     requirements = (
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
-            semantic_ref="unknown_metric",
+            semantic_refs=("unknown_metric",),
             purpose=RetrievalPurpose.VERIFY_DEFINITION,
         ),
     )
@@ -163,7 +165,7 @@ def test_unmapped_ambiguity_category_raises() -> None:
     requirements = (
         RetrievalRequirement(
             category=SemanticCategory.TIME_RANGE,
-            semantic_ref="yesterday, today",
+            semantic_refs=("yesterday", "today"),
             purpose=RetrievalPurpose.RESOLVE_AMBIGUITY,
         ),
     )
@@ -175,12 +177,56 @@ def test_unmapped_complete_interpretation_category_raises() -> None:
     requirements = (
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
-            semantic_ref="metric",
+            semantic_refs=(),
             purpose=RetrievalPurpose.COMPLETE_INTERPRETATION,
         ),
     )
     with pytest.raises(ValueError, match="no source key vocabulary"):
         build_retrieval_criteria(requirements)
+
+
+# ---------------------------------------------------------------- candidate 结构化保持（Review 加固八）
+
+def test_ambiguous_candidates_preserved_through_adapter() -> None:
+    # adapter 按 category 映射 ambiguous fixture key，但不得把候选集丢掉
+    result = PARSER.parse("查询销售额")
+    requirements = result.retrieval_requirements
+    (requirement,) = requirements
+    assert requirement.purpose is RetrievalPurpose.RESOLVE_AMBIGUITY
+    assert requirement.semantic_refs == ("GMV", "paid_amount", "net_revenue")
+    criteria = build_retrieval_criteria(requirements)
+    assert criteria == RetrievalCriteria(keys=("ambiguous_metric",))
+    # adapter 之后 requirement 中的候选仍然完整
+    assert requirement.semantic_refs == ("GMV", "paid_amount", "net_revenue")
+
+
+def test_candidates_with_commas_keep_structure() -> None:
+    # 候选文本即使包含逗号，结构仍不丢失——不得因 join 变成无法区分的字符串
+    candidates = ("gross, tax included", "net revenue")
+    na = SemanticValue.make_not_applicable()
+    structured = IntentResult(
+        metric=SemanticValue.make_ambiguous(*candidates),
+        dimension=na,
+        entity=na,
+        time_range=na,
+        filters=na,
+        aggregation_intent=na,
+        query_intent=SemanticValue.make_resolved("query"),
+    )
+    (requirement,) = structured.retrieval_requirements
+    assert requirement.semantic_refs == candidates
+    assert requirement.semantic_refs == ("gross, tax included", "net revenue")
+    # adapter 仍按 category 映射，不因候选文本含逗号而失败
+    criteria = build_retrieval_criteria(structured.retrieval_requirements)
+    assert criteria == RetrievalCriteria(keys=("ambiguous_metric",))
+
+
+def test_adapter_does_not_modify_requirements() -> None:
+    result = PARSER.parse("查询华东的GMV")
+    requirements = result.retrieval_requirements
+    before = requirements
+    build_retrieval_criteria(requirements)
+    assert requirements == before  # 输入 requirements 未被修改（frozen + 无副作用）
 
 
 # ---------------------------------------------------------------- edge-scoped：RetrievalCriteria → T03 RetrievalResult
