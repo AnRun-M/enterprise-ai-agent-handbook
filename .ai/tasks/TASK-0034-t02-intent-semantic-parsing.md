@@ -19,9 +19,17 @@
 
 ## 一、固定主线（逐字冻结）
 
-> **"T02 将 T01 产生的 normalized_question 解释为后续 Runtime 可以显式消费的结构化语义事实；它负责 semantic interpretation，但不负责生成 SQL、不读取权威 metadata、不做权限风险裁决，也不把模型推断结果伪装成外部事实。"**
+> **"T02 将 T01 产生的 normalized_question 解释为后续 Runtime 可以显式消费的结构化语义解释与意图；它负责 semantic interpretation，但不负责生成 SQL、不读取权威 metadata、不做权限风险裁决，也不把模型推断结果伪装成外部事实。"**
+
+固定原则（Review 修正新增）：
+
+> **"Semantic interpretation is structured inference, not authoritative fact."**
+
+（结构化语义解释仍然是推断结果，不因结构化而获得事实地位。）
 
 输入：`normalized_question`（T01 产物）。输出：semantic / intent contract（**IntentResult**）。下游：T03 retrieval criteria、T04 SQL generation、可能的 clarification / failure control flow。本轮只冻结 contract。
+
+**术语约定（Review 修正）**：T02 的产出（IntentResult / semantic candidates / semantic interpretation）**不得称为 fact / semantic fact / structured fact**——除非在否定或对比上下文（如"不是 authoritative fact"）。"fact" 表述只属于 T03 的 authoritative facts。
 
 ## 二、T01 / T02 边界
 
@@ -111,6 +119,8 @@ T02 不能只有 success / failure。例："销售额"可能对应 GMV / paid am
 
 > **"T02 exposes ambiguity; it does not unilaterally resolve it."**
 
+**AMBIGUOUS 后续边界（Review 修正新增）**：AMBIGUOUS 可以产生 candidate-scoped retrieval requirements（如"需要验证哪些候选是正式企业指标"），但**不能因此自动进入 T03**。后续 policy 可选择：① clarification ② human input ③ deterministic domain rule ④ T03-assisted disambiguation——因此 **ambiguous outcome ≠ routing decision**。
+
 ## 八、Failure / Outcome Contract
 
 **不机械复制 T03 五态**——T02 是 semantic interpretation，T03 是 authoritative retrieval，Outcome taxonomy 可以不同。
@@ -143,6 +153,26 @@ T02 不能只有 success / failure。例："销售额"可能对应 GMV / paid am
 > **"Optional semantic field absence is not automatically partial interpretation."**
 
 （可选语义字段缺省 ≠ 自动 partial interpretation。）
+
+**Resolved / Candidate / Unresolved / Not-applicable 语义状态（Review 修正新增）：** Gate A 不冻结具体 Python 字段，但 IntentResult 必须能够表达四种**可区分**的语义状态：
+
+1. **resolved interpretation**——语义已唯一确定（如 metric 已确定）
+2. **ambiguous candidates**——存在多个合理候选
+3. **required but unresolved**——当前请求需要，但尚未解析
+4. **not applicable**——当前 query intent 根本不需要该 semantic category
+
+否则 COMPLETE / PARTIAL / AMBIGUOUS 无法可靠判定。**语义类别统一表述为 `semantic interpretations（resolved or candidate）`** 或 `semantic selections / candidates`——**不要让 Gate B 误以为所有已解析语义永远只是 candidates**；具体 Python 字段名留 Gate B，Gate A 只冻结四种语义状态可表达。
+
+**Outcome → Retrieval Requirement Eligibility（Review 修正冻结）：** 不同 outcome 是否允许产生 retrieval requirements、是否自动进入 T03，Gate A 现在冻结：
+
+| Outcome | Retrieval requirement eligibility | 是否自动进入 T03 |
+|---|---|---|
+| COMPLETE | 可表达当前请求需要的 source-agnostic retrieval requirements | **否**——由 application policy 决定 |
+| PARTIAL | 可表达：① 已识别出的 retrieval needs ② 为补齐 unresolved required semantics 所需的 authoritative facts；**不得假装 interpretation 已 complete** | **否**——由 application policy 决定 |
+| AMBIGUOUS | 可表达 candidate-scoped / disambiguation-oriented retrieval requirements（例："需要验证 GMV / paid amount / net revenue 哪些是正式企业指标"） | **否**——是否调用 T03 由 application policy 决定（见第七节） |
+| UNSUPPORTED | **默认不产生普通 downstream retrieval requirements**（请求不属于当前支持的 semantic capability）；若未来某类 unsupported request 需要事实辅助重新分类，必须**单独设计**，不要在 Gate B 自动生成 | 否 |
+
+**"retrieval requirements exists" ≠ "routing to T03 verified"。**
 
 ## 九、Original / Derived ownership
 
@@ -224,6 +254,15 @@ T03 RetrievalCriteria（Proposed fixture / source-specific query representation�
 - **RetrievalCriteria 继续保持 fixture 身份**（Proposed / source-specific query representation），**不升级为 T02 final semantic contract**；T03 fake source key vocabulary **不得进入 IntentResult**
 - **Gate A 不强制创建 `RetrievalRequirement` Python DTO**——source-agnostic retrieval requirement 是**逻辑 contract layer**：Gate B 决定它作为 IntentResult 内部字段 / 独立 typed value / adapter 输入 view，但 **Gate B 不得删除这一层**
 
+**Retrieval Requirement ≠ Routing（Review 修正新增）：**
+
+> **"Retrieval requirement is data, not routing."**
+> **"Having retrieval requirements does not authorize T02 to invoke T03."**
+
+（检索需求是数据契约，不是路由指令；T02 能描述需要哪些权威事实，不等于 T02 决定现在执行 T03。）
+
+T02 只产生 IntentResult / retrieval requirement data。T02 **不负责**：调用 T03 / route 到 T03 / retry T03 / clarification routing / terminate graph——这些由 **application control flow / Node / Edge / Command / Runtime** 表达。
+
 ## 十四、T02 → T04 边界
 
 T04 SQL Generation 未来需要 **semantic intent + T03 trusted facts**：
@@ -253,12 +292,13 @@ T04 SQL Generation 未来需要 **semantic intent + T03 trusted facts**：
 T02 进 main 后，**不要笼统宣布 T01 / T03 Integration closed**。按 capability edge 记录：
 
 ```
-T01 → T02                                      （edge-scoped：deferred / closed）
-T02 semantic result → retrieval requirements   （edge-scoped：deferred / closed）
-retrieval requirements → T03 RetrievalCriteria （edge-scoped：deferred / closed）
-T03 → T04                                      （edge-scoped：deferred / closed）
-compiled graph                                 （edge-scoped：deferred / closed）
-real source                                    （edge-scoped：deferred / closed）
+T01 → T02 IntentResult                                   （edge-scoped：deferred / closed）
+IntentResult → source-agnostic retrieval requirements    （edge-scoped：deferred / closed）
+retrieval requirements → source-specific RetrievalCriteria（edge-scoped：deferred / closed）
+RetrievalCriteria → T03 RetrievalResult                  （edge-scoped：deferred / closed）
+T03 RetrievalResult → T04                                （edge-scoped：deferred / closed）
+compiled graph                                           （edge-scoped：deferred / closed）
+real source                                              （edge-scoped：deferred / closed）
 ```
 
 固定表述（加入本文件与 current.md planning）：
@@ -267,22 +307,24 @@ real source                                    （edge-scoped：deferred / close
 
 （Integration 证据按 capability edge 记录，不是 task 级整体声明。）
 
-**不要用一句 "T02 → T03 closed" 掩盖中间的 adapter contract**——未来 closure 必须按逻辑 edge 逐条记录（T02 result → retrieval requirements；retrieval requirements → T03 RetrievalCriteria 各占一条）。Gate A 只记录逻辑 edge，**不创建额外 TASK**。
+**不要用一句 "T02 → T03 closed" 掩盖中间的 adapter contract**——未来 closure 必须按逻辑 edge 逐条记录。Gate A 只记录逻辑 edge，**不创建额外 TASK**。
+
+**data edge ≠ routing edge（Review 修正新增）**：**"retrieval requirements exists" 不代表 "routing to T03 verified"**——edge 记录的是数据契约连接（IntentResult → requirements → RetrievalCriteria → RetrievalResult），不是 T02 拥有调用 / 路由 T03 的权限（第十三节 Retrieval Requirement ≠ Routing）。
 
 ## 十八、Gate A 最终决策（10 项，不得留"Implementation 时再看"）
 
 | # | 决策 | 结论 |
 |---|---|---|
-| 1 | T02 最终 semantic contract 形态 | **typed semantic contract（方案 C）保持**：IntentResult（TASK-0029 Proposed 命名），语义类别 = metric candidates / dimensions / entities / time range（semantic time expression）/ filters / aggregation intent / query intent；字段结构 Gate B 落地，语义边界冻结 |
+| 1 | T02 output 的性质 | **IntentResult = structured semantic interpretation，不是 authoritative fact**——"Semantic interpretation is structured inference, not authoritative fact."；T02 产出（IntentResult / semantic candidates / interpretation）不得称为 fact（除否定 / 对比上下文） |
 | 2 | Expected outcomes 是否都返回 IntentResult | **是**——COMPLETE / PARTIAL / AMBIGUOUS / UNSUPPORTED 四者都产生**完整** IntentResult（outcome 承载于对象内）；None 只表示"不存在合法 T02 semantic result"，**不是 UNSUPPORTED 的表示**；"Expected semantic outcomes always produce an IntentResult." |
 | 3 | COMPLETE / PARTIAL 判定 | **基于当前请求 required semantic requirements**：COMPLETE = required 均已充分表达（**不要求所有可选类别有值**）；PARTIAL = 至少一个 required requirement 未解析；"Optional semantic field absence is not automatically partial interpretation." |
-| 4 | applicability vs unresolved | **可区分**：IntentResult 必须能区分 ① semantic category 不适用（not applicable）② required 但未解析（required but unresolved）；Gate A 只冻结语义能力，不强行设计所有 Optional 字段 |
-| 5 | IntentResult 与 RetrievalCriteria 关系 | **三层**：IntentResult → source-agnostic retrieval requirements → integration / source-specific adapter → T03 RetrievalCriteria；"Semantic interpretation ≠ retrieval requirement ≠ source-specific retrieval criteria."；RetrievalCriteria 保持 fixture / source-specific 身份，不升级为 T02 contract；fake source key vocabulary 不得进入 IntentResult；retrieval requirements 是逻辑层，Gate B 决定形态但**不得删除** |
-| 6 | semantic ambiguity contract | **双层 + 暴露不消歧**：interpretation ambiguity（T02，AMBIGUOUS + 对象内候选）+ authoritative-source ambiguity（T03 五态 AMBIGUOUS）；**T02 暴露 ambiguity，不单方面消歧**——后续 application policy 决定 clarification / human input / domain rule / T03 facts 验证消歧；"T02 exposes ambiguity; it does not unilaterally resolve it." |
-| 7 | model failure 边界 | **不属于 semantic outcome taxonomy**（transport / provider / auth / config / malformed typed output / refusal）；failure classification / retryability / retry policy 留后续 failure / retry contract；**不默认所有 model failure 都 transient** |
-| 8 | stale semantic state invalidation | **整体对象 overwrite**（单 channel 天然失效全部旧子值，无需逐字段 contract）；每次正常 interpretation（含 UNSUPPORTED）返回新完整 IntentResult 整体替换；None 仅限无合法 result 的 failure path——具体 path 与 Node 是否写 None 留 **Gate B failure-boundary Review** |
-| 9 | shared lifecycle authority | T02 Node **默认不写 status / failure_reason**（Outcome ≠ Agent lifecycle，同 T03 连续，不复制 T01 RUNNING→FAILED）；若未来需要生命周期转换，必须单独 transition-authority Review |
-| 10 | Integration evidence edge-scoped 模型 | **"Integration evidence is edge-scoped, not task-wide."**——T01→T02 / T02 result→retrieval requirements / retrieval requirements→T03 RetrievalCriteria / T03→T04 / compiled graph / real source 各自 deferred / closed；不用一句 "T02→T03 closed" 掩盖中间 adapter edge |
+| 4 | 语义状态可区分性 | **resolved / ambiguous candidates / required but unresolved / not applicable 四态可区分**——否则 COMPLETE / PARTIAL / AMBIGUOUS 无法可靠判定；语义类别表述为 semantic interpretations（resolved or candidate），不暗示"所有已解析语义永远只是 candidates"；字段名 Gate B |
+| 5 | IntentResult 与 RetrievalCriteria 关系 | **三层**：IntentResult → source-agnostic retrieval requirements → source-specific RetrievalCriteria；"Semantic interpretation ≠ retrieval requirement ≠ source-specific retrieval criteria."；RetrievalCriteria 保持 fixture / source-specific 身份，不升级为 T02 contract；fake source key vocabulary 不得进入 IntentResult；retrieval requirements 是逻辑层，Gate B 决定形态但**不得删除** |
+| 6 | Outcome → retrieval eligibility | **已冻结**：COMPLETE 可表达所需 requirements；PARTIAL 可表达已识别 needs + 补齐 unresolved 所需 facts（不假装 complete）；AMBIGUOUS 可表达 candidate-scoped / disambiguation-oriented requirements；**UNSUPPORTED 默认不产生普通 downstream retrieval requirements**（未来需要必须单独设计，不在 Gate B 自动生成）；"retrieval requirements exists" ≠ "routing to T03 verified" |
+| 7 | retrieval requirement 的性质 | **data，not routing**——"Retrieval requirement is data, not routing." / "Having retrieval requirements does not authorize T02 to invoke T03."；T02 不调用 / route / retry T03、不 clarification routing、不 terminate graph |
+| 8 | ambiguity 的后续 | **暴露不消歧**："T02 exposes ambiguity; it does not unilaterally resolve it."；AMBIGUOUS 可产生 candidate-scoped requirements 但**不自动进入 T03**；downstream policy 决定 clarification / human input / domain rule / T03-assisted disambiguation；ambiguous outcome ≠ routing decision |
+| 9 | lifecycle / routing authority | **T02 默认都不拥有**——不写 status / failure_reason（Outcome ≠ Agent lifecycle，同 T03，不复制 T01 RUNNING→FAILED）；不拥有 routing authority（调用 / 路由 T03 属 application control flow / Node / Edge / Command / Runtime）；未来需要 lifecycle transition 必须单独 transition-authority Review |
+| 10 | Integration evidence edge-scoped | **"Integration evidence is edge-scoped, not task-wide."**——T01→IntentResult / IntentResult→retrieval requirements / requirements→RetrievalCriteria / RetrievalCriteria→T03 RetrievalResult / RetrievalResult→T04 / compiled graph / real source 各自 deferred / closed；**data edge ≠ routing edge**（"retrieval requirements exists" ≠ "routing to T03 verified"） |
 
 ## 十九、禁止事项（本轮）
 
@@ -297,7 +339,8 @@ real source                                    （edge-scoped：deferred / close
 
 ## 二十、验收标准（Gate A 阶段）
 
-- [x] 固定主线逐字冻结（semantic interpretation / 不生成 SQL / 不读权威 metadata / 不做权限裁决 / 不伪装事实）
+- [x] 固定主线逐字冻结（**结构化语义解释与意图**，非"结构化语义事实"；不生成 SQL / 不读权威 metadata / 不做权限裁决 / 不伪装事实；"Semantic interpretation is structured inference, not authoritative fact."）
+- [x] 术语约定（T02 产出不得称为 fact / semantic fact / structured fact，除非否定 / 对比上下文；"fact" 表述只属 T03 authoritative facts）
 - [x] T01 / T02 边界（representation vs interpretation；"Normalization changes representation; semantic parsing interprets meaning."）
 - [x] T02 / T03 边界（semantic requirements vs authoritative facts；"must not manufacture authoritative facts"）
 - [x] LLM 角色（Model-derived interpretation ≠ Authoritative business fact；candidate 性质显式）
@@ -307,6 +350,10 @@ real source                                    （edge-scoped：deferred / close
 - [x] **UNSUPPORTED 不以 None 表达**（四态都返回完整 IntentResult；"Expected semantic outcomes always produce an IntentResult."；"None means no valid T02 semantic result exists; it is not the representation of UNSUPPORTED."）
 - [x] **COMPLETE / PARTIAL 基于 required semantics**（COMPLETE 不要求所有可选类别有值；PARTIAL = 至少一个 required requirement 未解析；"Optional semantic field absence is not automatically partial interpretation."）
 - [x] **applicability / unresolved 可区分**（not applicable vs required but unresolved；Gate A 只冻结语义能力，字段 Gate B 落地）
+- [x] **resolved / candidate / unresolved / not-applicable 四语义状态可区分**（否则 COMPLETE / PARTIAL / AMBIGUOUS 不可靠；语义类别表述为 semantic interpretations（resolved or candidate），不暗示"永远只是 candidates"）
+- [x] **Outcome → Retrieval Requirement Eligibility 冻结**（COMPLETE / PARTIAL / AMBIGUOUS 各自 eligibility；UNSUPPORTED 默认不产生普通 downstream retrieval requirements；"retrieval requirements exists" ≠ "routing to T03 verified"）
+- [x] **Retrieval Requirement ≠ Routing**（"Retrieval requirement is data, not routing."；T02 不调用 / route / retry T03、不 clarification routing、不 terminate graph——属 application control flow / Node / Edge / Command / Runtime）
+- [x] **AMBIGUOUS 后续边界**（可产生 candidate-scoped requirements 但不自动进 T03；policy 四选项；ambiguous outcome ≠ routing decision）
 - [x] Ownership（IntentResult = T02-owned derived；Field write capability ≠ ownership）
 - [x] Stale semantic state（整体 overwrite；每次正常 interpretation 含 UNSUPPORTED 都整体替换；None 仅限无合法 result 的 failure path，留 Gate B failure-boundary Review）
 - [x] Time / Filter / Entity 边界（semantic token vs external facts；推荐链路）
@@ -321,18 +368,18 @@ real source                                    （edge-scoped：deferred / close
 - [x] Gate A 决策 10 项全部给出明确结论
 - [ ] 等待 Architecture Review（Gate A Review PR）
 
-## Review Focus（等待 Gate A Architecture Review 复审）
+## Review Focus（等待 T02 Gate A 最终 Architecture Review）
 
-1. UNSUPPORTED 是否仍被错误表示成 None
-2. COMPLETE 是否错误要求所有 semantic slots 非空
-3. PARTIAL 是否区分 not-applicable vs unresolved
-4. IntentResult 是否仍被 fake source key 反向绑定
-5. retrieval requirements 是否 source-agnostic
-6. RetrievalCriteria 是否保持 T03 fixture / source-specific representation
-7. ambiguity 是否被 T02 静默消解
-8. model failure 是否被误写成一律 transient
-9. Outcome ≠ lifecycle（T02 Node 默认不写 status / failure_reason）
-10. Integration 是否 edge-scoped（含 adapter edge，不用一句 T02→T03 closed 掩盖）
+1. T02 output 是否仍被称为 fact（语义解释 ≠ authoritative fact）
+2. IntentResult 是否明确属于 structured inference（"Semantic interpretation is structured inference, not authoritative fact."）
+3. UNSUPPORTED 是否仍返回完整 IntentResult
+4. COMPLETE / PARTIAL 是否基于 required semantics
+5. resolved / candidate / unresolved / not-applicable 是否可区分
+6. retrieval requirements 是否 source-agnostic
+7. retrieval requirements 是否被错误当成 routing（"Retrieval requirement is data, not routing."）
+8. AMBIGUOUS 是否自动调用 T03（应否：由 application policy 决定）
+9. UNSUPPORTED 是否错误生成普通 RetrievalCriteria（应否：默认不产生普通 downstream retrieval requirements）
+10. Integration 是否真正 edge-scoped（data edge ≠ routing edge；不用一句 "T02→T03 closed" 掩盖 adapter contract）
 
 ## 完成记录
 
@@ -349,3 +396,14 @@ real source                                    （edge-scoped：deferred / close
   - **Integration edge 细化**：T02→T03 拆为两条逻辑 edge（T02 result → retrieval requirements；retrieval requirements → T03 RetrievalCriteria），不用一句 T02→T03 closed 掩盖 adapter contract
   - Gate A 决策表重写为 10 项最终结论（含 expected outcomes 全返 IntentResult / required-based 判定 / 三层接口 / model failure 边界）
   - 等待复审；Status 仍 in_progress；不得进入 Gate B。
+- 2026-08-14：**Gate A 最终 Architecture Review 修正已应用（planning/t02-intent-semantic-contract，等待最终复审）**：
+  - **固定主线术语修正**："结构化语义事实" → "**结构化语义解释与意图**"（消除与 Model-derived interpretation ≠ Authoritative business fact 的术语冲突）；固定原则："Semantic interpretation is structured inference, not authoritative fact."；术语约定：T02 产出不得称为 fact / semantic fact / structured fact（除否定 / 对比上下文），"fact" 表述只属 T03 authoritative facts
+  - **Outcome → Retrieval Requirement Eligibility 冻结**：COMPLETE 可表达所需 requirements；PARTIAL 可表达已识别 needs + 补齐 unresolved 所需 facts（不假装 complete）；AMBIGUOUS 可表达 candidate-scoped / disambiguation-oriented requirements（例："需要验证哪些候选是正式企业指标"）；**UNSUPPORTED 默认不产生普通 downstream retrieval requirements**（未来需要单独设计，不在 Gate B 自动生成）；"retrieval requirements exists" ≠ "routing to T03 verified"
+  - **Retrieval Requirement ≠ Routing**：固定原则 "Retrieval requirement is data, not routing." / "Having retrieval requirements does not authorize T02 to invoke T03."——T02 只产生 IntentResult / retrieval requirement data，不调用 / route / retry T03、不 clarification routing、不 terminate graph（属 application control flow / Node / Edge / Command / Runtime）
+  - **AMBIGUOUS 后续边界**：可产生 candidate-scoped requirements 但不自动进 T03；policy 四选项（clarification / human input / domain rule / T03-assisted disambiguation）；ambiguous outcome ≠ routing decision
+  - **UNSUPPORTED 边界补全**：expected outcome + 完整 IntentResult；UNSUPPORTED → RetrievalCriteria 不作为默认 adapter 行为；≠ None ≠ Runtime exception ≠ T03 NOT_FOUND
+  - **resolved / candidate / unresolved / not-applicable 四语义状态**：IntentResult 必须可区分（否则四态 outcome 不可靠）；语义类别统一表述为 semantic interpretations（resolved or candidate），不暗示"所有已解析语义永远只是 candidates"；字段名 Gate B
+  - **Integration edge 再细化**：T01→IntentResult / IntentResult→retrieval requirements / requirements→RetrievalCriteria / RetrievalCriteria→T03 RetrievalResult / RetrievalResult→T04 / compiled graph / real source——**data edge ≠ routing edge**
+  - Gate A 决策表重写为 10 项最终结论（第 1 项 = interpretation not fact；第 6 项 = eligibility；第 7 项 = requirement data not routing；第 9 项 = lifecycle / routing authority 都不拥有；第 10 项 = edge-scoped + data edge ≠ routing edge）
+  - Review Focus 更新为 10 项最终清单
+  - 等待最终复审；Status 仍 in_progress；不得进入 Gate B。
