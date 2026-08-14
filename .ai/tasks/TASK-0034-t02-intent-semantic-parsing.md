@@ -103,7 +103,13 @@ T02 不能只有 success / failure。例："销售额"可能对应 GMV / paid am
 | **interpretation ambiguity** | T02 | 用户话语存在多个合理解读（同一话语 → 多个语义候选） | T02 outcome（AMBIGUOUS）+ 对象内候选表示 |
 | **authoritative-source ambiguity** | T03 | 已解析 key 在权威源中有多个合法候选 | T03 现有 AMBIGUOUS 五态（保持不变） |
 
-边界例：interpretation 无歧义（"查询 GMV"）但 source 有多候选 → 这是 **T03 AMBIGUOUS**；interpretation 本身有歧义（"销售额"）→ **T02 层先暴露**，不提前进 T03 检索。T02 不得把 interpretation ambiguity 映射为 T03 的 NOT_FOUND / UNAVAILABLE，也不得静默取第一个候选。
+边界例：interpretation 无歧义（"查询 GMV"）但 source 有多候选 → 这是 **T03 AMBIGUOUS**；interpretation 本身有歧义（"销售额"）→ **T02 必须显式暴露**，不得静默选择候选。
+
+**T02 自己不得把 ambiguity 伪装成 resolved fact**。后续 **application policy** 可以选择：clarification / human input / deterministic domain rule / 在适用场景通过 T03 authoritative facts 对候选做验证与消歧——但这是 policy 决策，不是 T02 的自动行为。T02 不得把 interpretation ambiguity 映射为 T03 的 NOT_FOUND / UNAVAILABLE。
+
+固定原则：
+
+> **"T02 exposes ambiguity; it does not unilaterally resolve it."**
 
 ## 八、Failure / Outcome Contract
 
@@ -111,15 +117,32 @@ T02 不能只有 success / failure。例："销售额"可能对应 GMV / paid am
 
 | 情况 | 类别 | 表达 |
 |---|---|---|
-| complete interpretation（全部语义类别解析） | **expected application outcome** | COMPLETE |
-| partial interpretation（部分类别可解析，如 metric 已定、time expression 不明） | **expected application outcome** | PARTIAL |
-| ambiguous interpretation | **expected application outcome**（语义层） | AMBIGUOUS |
-| unsupported request（无法映射任何语义类别 / 域外，如"帮我删除数据"） | **expected application outcome**（→ clarification control flow） | UNSUPPORTED |
-| invalid semantic input（normalized_question 为 None / 契约外输入） | **consumed-contract violation** | ValueError（不进入 outcome taxonomy） |
-| model failure（LLM 调用失败 / malformed output 无法按 typed contract 解析） | **model failure**（infrastructure / transient） | 不属 outcome；应用 failure boundary 处理；retry 属 Part 05 |
+| complete interpretation（**当前 query intent 所需 semantic requirements 均已充分表达——不要求所有可选语义类别都有值**） | **expected application outcome** | COMPLETE |
+| partial interpretation（已有部分有效 interpretation，但**至少一个当前请求所需**的 semantic requirement 未解析完成，如 metric 已定、time expression 未解析） | **expected application outcome** | PARTIAL |
+| ambiguous interpretation（存在多个合理 interpretation candidates，T02 不静默选择） | **expected application outcome**（语义层） | AMBIGUOUS |
+| unsupported request（请求不属于当前 T02 支持的 semantic capability，如"帮我删除数据"） | **expected application outcome**（→ clarification control flow） | UNSUPPORTED |
+| invalid semantic input（normalized_question 为 None / 契约外输入） | **consumed-contract violation** | ValueError（不进入 outcome taxonomy）；normalized_question=None 可作为 T02 Node / parser 的 consumed-contract violation 代表，但 **pure parser 可接收 `str`，由 Node adapter 保证输入满足契约**——不强制所有内部函数接受 Optional[str] 再检查 None |
+| model invocation / output-contract failure（transport / provider / authentication / configuration / malformed typed output / model refusal / unavailable output） | **不属于 semantic outcome taxonomy** | 不属四态；具体 failure classification / retryability / retry policy 留后续 failure / retry contract；**不在 Gate A 默认所有 model failure 都 transient** |
 | runtime exception | **programming error** | 异常传播 |
 
-**冻结：T02 outcome taxonomy = COMPLETE / PARTIAL / AMBIGUOUS / UNSUPPORTED 四态**（教学规模）。**不要全塞 failure_reason**——四类 expected outcome 各自表达语义，只有 consumed-contract violation 抛 ValueError。
+**冻结：T02 outcome taxonomy = COMPLETE / PARTIAL / AMBIGUOUS / UNSUPPORTED 四态**（教学规模）。**不要全塞 failure_reason**——四类 expected outcome 各自表达语义，只有 consumed-contract violation 抛 ValueError。**invalid consumed input ≠ semantic outcome。**
+
+**Outcome taxonomy 最终定义（Review 修正冻结）：**
+
+- **COMPLETE**：当前请求所需 semantic requirements 已完整表达
+- **PARTIAL**：有有效 interpretation，但至少一个 required semantic requirement 未解析
+- **AMBIGUOUS**：存在多个合理 interpretation candidates，T02 不静默选择
+- **UNSUPPORTED**：请求不属于当前 T02 支持的 semantic capability，但这是 expected application outcome
+
+**四者都必须产生完整 IntentResult。** None 不表示任何 expected outcome。
+
+**Applicability / unresolved 语义边界（Review 修正新增）：** IntentResult 必须能够区分：① semantic category **不适用于当前请求**（not applicable）② semantic category 对当前请求 **required 但尚未解析完成**（required but unresolved）——否则 PARTIAL 无法可靠判断。Gate A **不强行设计所有 Optional 字段**，只冻结语义能力；具体 Python representation 在 Gate B 落地。
+
+固定原则：
+
+> **"Optional semantic field absence is not automatically partial interpretation."**
+
+（可选语义字段缺省 ≠ 自动 partial interpretation。）
 
 ## 九、Original / Derived ownership
 
@@ -140,8 +163,16 @@ T02 不能只有 success / failure。例："销售额"可能对应 GMV / paid am
 
 **Gate A 决策：T02 拥有整体 IntentResult，以整体 overwrite 天然避免多字段 stale state**（LangGraph 默认 overwrite 语义：不在 update 中返回字段 = 保留旧值；返回完整新 IntentResult = 整体替换所有旧子值）。**不需要逐字段 invalidation contract**——这是方案 C 相比方案 A 的决定性优势。
 
-- success：返回**完整**新 IntentResult（整体替换）
-- failure / unsupported：显式写 `intent_result: None`（失效 stale derived，同 T01 failure 显式 `normalized_question: None` 模式——**failure 显式 invalidates derived intent，防止旧派生值在 State merge 后残留**）
+**每次正常完成 semantic interpretation——无论 outcome 是 COMPLETE / PARTIAL / AMBIGUOUS / UNSUPPORTED——都返回新的完整 IntentResult，整体 overwrite 上一轮 IntentResult**（上一轮 COMPLETE → 本轮 UNSUPPORTED：新 UNSUPPORTED IntentResult 整体替换旧结果，**不通过 `intent_result: None` 表达 expected outcome**）。
+
+固定原则：
+
+> **"Expected semantic outcomes always produce an IntentResult."**
+> **"None means no valid T02 semantic result exists; it is not the representation of UNSUPPORTED."**
+
+（expected semantic outcomes 总是产生 IntentResult；None 表示不存在合法 T02 semantic result，不是 UNSUPPORTED 的表示。）
+
+`None` 只可能在**根本没有合法 semantic result** 时出现——具体包括哪些 failure path、Node 是否写 None，留 **Gate B failure-boundary Review**；不得把 infrastructure / model failure 混进 expected outcome。与 T01 的 stale-invalidation 模式（failure 显式失效 derived）保持同构，但**只适用于真正的 None path，不适用于四态 expected outcomes**。
 
 ## 十一、Time semantics 边界
 
@@ -174,7 +205,24 @@ T03 当前 `RetrievalCriteria` 明确是 **Proposed fixture**。本轮决策：
 | 方案 1 | T02 最终直接产 RetrievalCriteria | ❌ T02 被 T03 当前 fake source key 反向绑定；T03 fixture 演化会反向改变 T02 contract |
 | 方案 2（推荐） | T02 产 **IntentResult**；另有 **deterministic adapter：IntentResult → RetrievalCriteria**（由 metric / dimension / entity / filter intent tokens 推导检索 keys） | ✅ semantic interpretation ≠ retrieval query representation；T02 不被 fixture 反向绑定；adapter 可独立单测 |
 
-**Gate A 决策：方案 2。** 固定原则：**"Semantic interpretation ≠ retrieval query representation."**（语义解释不等于检索查询表示——IntentResult 承载用户语义意图，RetrievalCriteria 承载对权威源的检索查询，两者由确定性 adapter 连接。）RetrievalCriteria **保持 fixture 身份不变**（T03 侧不修改）；具体 adapter 实现属 Gate B/C。
+**Gate A 决策：方案 2，并细化为三层**（Review 修正）。固定原则升级为：
+
+> **"Semantic interpretation ≠ retrieval requirement ≠ source-specific retrieval criteria."**
+
+```
+IntentResult（semantic interpretation）
+    ↓
+source-agnostic retrieval requirements（逻辑契约层，不绑定任何 source vocabulary）
+    ↓
+integration / source-specific adapter
+    ↓
+T03 RetrievalCriteria（Proposed fixture / source-specific query representation）
+```
+
+示例：IntentResult（metric candidate = GMV；region intent = 华东）→ source-agnostic requirement（need metric definition for GMV；need region mapping for 华东）→ 最后一层才落到具体 fake source lookup keys（`gmv` / `region.east_china`）。**最后一层属于 integration / source-specific adapter，不是 T02 semantic parser 自己的业务语义。**
+
+- **RetrievalCriteria 继续保持 fixture 身份**（Proposed / source-specific query representation），**不升级为 T02 final semantic contract**；T03 fake source key vocabulary **不得进入 IntentResult**
+- **Gate A 不强制创建 `RetrievalRequirement` Python DTO**——source-agnostic retrieval requirement 是**逻辑 contract layer**：Gate B 决定它作为 IntentResult 内部字段 / 独立 typed value / adapter 输入 view，但 **Gate B 不得删除这一层**
 
 ## 十四、T02 → T04 边界
 
@@ -205,11 +253,12 @@ T04 SQL Generation 未来需要 **semantic intent + T03 trusted facts**：
 T02 进 main 后，**不要笼统宣布 T01 / T03 Integration closed**。按 capability edge 记录：
 
 ```
-T01 → T02   （edge-scoped：deferred / closed）
-T02 → T03   （edge-scoped：deferred / closed）
-T03 → T04   （edge-scoped：deferred / closed）
-compiled graph（edge-scoped：deferred / closed）
-real source （edge-scoped：deferred / closed）
+T01 → T02                                      （edge-scoped：deferred / closed）
+T02 semantic result → retrieval requirements   （edge-scoped：deferred / closed）
+retrieval requirements → T03 RetrievalCriteria （edge-scoped：deferred / closed）
+T03 → T04                                      （edge-scoped：deferred / closed）
+compiled graph                                 （edge-scoped：deferred / closed）
+real source                                    （edge-scoped：deferred / closed）
 ```
 
 固定表述（加入本文件与 current.md planning）：
@@ -218,20 +267,22 @@ real source （edge-scoped：deferred / closed）
 
 （Integration 证据按 capability edge 记录，不是 task 级整体声明。）
 
+**不要用一句 "T02 → T03 closed" 掩盖中间的 adapter contract**——未来 closure 必须按逻辑 edge 逐条记录（T02 result → retrieval requirements；retrieval requirements → T03 RetrievalCriteria 各占一条）。Gate A 只记录逻辑 edge，**不创建额外 TASK**。
+
 ## 十八、Gate A 最终决策（10 项，不得留"Implementation 时再看"）
 
 | # | 决策 | 结论 |
 |---|---|---|
-| 1 | T02 最终 semantic contract 形态 | **typed semantic contract（方案 C）**：IntentResult，语义类别 = metric candidates / dimensions / entities / time range（semantic time expression）/ filters / aggregation intent / query intent；字段结构 Gate B 落地，语义边界冻结 |
-| 2 | 是否独立 IntentResult | **是**——T02-owned derived state，单个对象 |
-| 3 | IntentResult 与 RetrievalCriteria 关系 | **方案 2**：IntentResult + deterministic adapter（IntentResult → RetrievalCriteria）；RetrievalCriteria 保持 T03 fixture 身份；"Semantic interpretation ≠ retrieval query representation." |
-| 4 | semantic ambiguity contract | **双层**：interpretation ambiguity（T02，AMBIGUOUS 四态之一 + 对象内候选）+ authoritative-source ambiguity（T03 五态 AMBIGUOUS）；不混成一个字段 |
-| 5 | stale semantic state invalidation | **整体对象 overwrite**（单 channel 天然失效全部旧子值，无需逐字段 contract）；failure / unsupported 显式写 `None`（同 T01 failure None 模式） |
-| 6 | time semantics 边界 | T02 只输出 **semantic time expression token**；timezone / business / fiscal calendar / data freshness cutoff = 外部事实，T02 不静默猜 |
-| 7 | authoritative fact boundary | T02 只 identify needed facts（candidate），**不 manufacture facts**（metric 定义 / region mapping / VIP rule / paid-status canonical rule 需 T03）；"Semantic interpretation may identify what facts are needed; it must not manufacture authoritative facts." |
-| 8 | T04 consumption boundary | T04 未来消费 **semantic intent（IntentResult）+ T03 trusted facts**；T02 contract 不只服务 T03；T04 仅接口位置 |
+| 1 | T02 最终 semantic contract 形态 | **typed semantic contract（方案 C）保持**：IntentResult（TASK-0029 Proposed 命名），语义类别 = metric candidates / dimensions / entities / time range（semantic time expression）/ filters / aggregation intent / query intent；字段结构 Gate B 落地，语义边界冻结 |
+| 2 | Expected outcomes 是否都返回 IntentResult | **是**——COMPLETE / PARTIAL / AMBIGUOUS / UNSUPPORTED 四者都产生**完整** IntentResult（outcome 承载于对象内）；None 只表示"不存在合法 T02 semantic result"，**不是 UNSUPPORTED 的表示**；"Expected semantic outcomes always produce an IntentResult." |
+| 3 | COMPLETE / PARTIAL 判定 | **基于当前请求 required semantic requirements**：COMPLETE = required 均已充分表达（**不要求所有可选类别有值**）；PARTIAL = 至少一个 required requirement 未解析；"Optional semantic field absence is not automatically partial interpretation." |
+| 4 | applicability vs unresolved | **可区分**：IntentResult 必须能区分 ① semantic category 不适用（not applicable）② required 但未解析（required but unresolved）；Gate A 只冻结语义能力，不强行设计所有 Optional 字段 |
+| 5 | IntentResult 与 RetrievalCriteria 关系 | **三层**：IntentResult → source-agnostic retrieval requirements → integration / source-specific adapter → T03 RetrievalCriteria；"Semantic interpretation ≠ retrieval requirement ≠ source-specific retrieval criteria."；RetrievalCriteria 保持 fixture / source-specific 身份，不升级为 T02 contract；fake source key vocabulary 不得进入 IntentResult；retrieval requirements 是逻辑层，Gate B 决定形态但**不得删除** |
+| 6 | semantic ambiguity contract | **双层 + 暴露不消歧**：interpretation ambiguity（T02，AMBIGUOUS + 对象内候选）+ authoritative-source ambiguity（T03 五态 AMBIGUOUS）；**T02 暴露 ambiguity，不单方面消歧**——后续 application policy 决定 clarification / human input / domain rule / T03 facts 验证消歧；"T02 exposes ambiguity; it does not unilaterally resolve it." |
+| 7 | model failure 边界 | **不属于 semantic outcome taxonomy**（transport / provider / auth / config / malformed typed output / refusal）；failure classification / retryability / retry policy 留后续 failure / retry contract；**不默认所有 model failure 都 transient** |
+| 8 | stale semantic state invalidation | **整体对象 overwrite**（单 channel 天然失效全部旧子值，无需逐字段 contract）；每次正常 interpretation（含 UNSUPPORTED）返回新完整 IntentResult 整体替换；None 仅限无合法 result 的 failure path——具体 path 与 Node 是否写 None 留 **Gate B failure-boundary Review** |
 | 9 | shared lifecycle authority | T02 Node **默认不写 status / failure_reason**（Outcome ≠ Agent lifecycle，同 T03 连续，不复制 T01 RUNNING→FAILED）；若未来需要生命周期转换，必须单独 transition-authority Review |
-| 10 | Integration evidence edge-scoped 模型 | **"Integration evidence is edge-scoped, not task-wide."**——T01→T02 / T02→T03 / T03→T04 / compiled graph / real source 各自 deferred / closed |
+| 10 | Integration evidence edge-scoped 模型 | **"Integration evidence is edge-scoped, not task-wide."**——T01→T02 / T02 result→retrieval requirements / retrieval requirements→T03 RetrievalCriteria / T03→T04 / compiled graph / real source 各自 deferred / closed；不用一句 "T02→T03 closed" 掩盖中间 adapter edge |
 
 ## 十九、禁止事项（本轮）
 
@@ -253,10 +304,16 @@ real source （edge-scoped：deferred / closed）
 - [x] Contract 方案比较（A / B / C × 11 维度）→ 方案 C 决策
 - [x] Ambiguity 双层（interpretation vs authoritative-source，不混字段）
 - [x] Outcome taxonomy（四态 expected outcomes / consumed-contract violation / model failure / runtime exception 分类明确；不机械复制 T03 五态）
+- [x] **UNSUPPORTED 不以 None 表达**（四态都返回完整 IntentResult；"Expected semantic outcomes always produce an IntentResult."；"None means no valid T02 semantic result exists; it is not the representation of UNSUPPORTED."）
+- [x] **COMPLETE / PARTIAL 基于 required semantics**（COMPLETE 不要求所有可选类别有值；PARTIAL = 至少一个 required requirement 未解析；"Optional semantic field absence is not automatically partial interpretation."）
+- [x] **applicability / unresolved 可区分**（not applicable vs required but unresolved；Gate A 只冻结语义能力，字段 Gate B 落地）
 - [x] Ownership（IntentResult = T02-owned derived；Field write capability ≠ ownership）
-- [x] Stale semantic state（整体 overwrite + failure None，Gate A 预先回答）
+- [x] Stale semantic state（整体 overwrite；每次正常 interpretation 含 UNSUPPORTED 都整体替换；None 仅限无合法 result 的 failure path，留 Gate B failure-boundary Review）
 - [x] Time / Filter / Entity 边界（semantic token vs external facts；推荐链路）
-- [x] T02 → T03 接口（方案 2 adapter；RetrievalCriteria 保持 fixture）
+- [x] T02 → T03 **三层接口**（IntentResult → source-agnostic retrieval requirements → source-specific adapter → RetrievalCriteria；"Semantic interpretation ≠ retrieval requirement ≠ source-specific retrieval criteria."；RetrievalCriteria 保持 fixture；不强制 RetrievalRequirement DTO，Gate B 不得删除逻辑层）
+- [x] **ambiguity 暴露不消歧**（"T02 exposes ambiguity; it does not unilaterally resolve it."；后续 application policy 决定 clarification / human input / domain rule / T03 facts 验证）
+- [x] **model failure 收窄**（不属于 semantic outcome taxonomy；retryability / retry policy 未冻结；不默认全部 transient）
+- [x] **consumed-contract violation 边界**（pure parser 可接收 str，Node adapter 保证输入契约；invalid consumed input ≠ semantic outcome）
 - [x] T02 → T04 边界（IntentResult 不只服务 T03）
 - [x] 确定性策略（fake parser 优先；typed contract + bounded taxonomy；第一版不接真实 LLM）
 - [x] Evidence Planning 四列制（已有 / 需新增 / 尚不能验证）
@@ -264,6 +321,31 @@ real source （edge-scoped：deferred / closed）
 - [x] Gate A 决策 10 项全部给出明确结论
 - [ ] 等待 Architecture Review（Gate A Review PR）
 
+## Review Focus（等待 Gate A Architecture Review 复审）
+
+1. UNSUPPORTED 是否仍被错误表示成 None
+2. COMPLETE 是否错误要求所有 semantic slots 非空
+3. PARTIAL 是否区分 not-applicable vs unresolved
+4. IntentResult 是否仍被 fake source key 反向绑定
+5. retrieval requirements 是否 source-agnostic
+6. RetrievalCriteria 是否保持 T03 fixture / source-specific representation
+7. ambiguity 是否被 T02 静默消解
+8. model failure 是否被误写成一律 transient
+9. Outcome ≠ lifecycle（T02 Node 默认不写 status / failure_reason）
+10. Integration 是否 edge-scoped（含 adapter edge，不用一句 T02→T03 closed 掩盖）
+
 ## 完成记录
 
 - 2026-08-13：任务创建（in_progress，planning/t02-intent-semantic-contract 分支）。Gate A 草案完成：固定主线 / T01-T02 / T02-T03 边界 / LLM 角色 / Contract 方案比较（A/B/C × 11 维度）→ 方案 C / Ambiguity 双层 / Outcome taxonomy 四态 / Ownership 与 stale-state / Time-Filter-Entity 边界 / T02→T03 方案 2 adapter / T02→T04 边界 / 确定性策略 / Evidence 四列 / Integration edge-scoped / Gate A 决策 10 项。等待 Architecture Review（规划 PR）。
+- 2026-08-14：**Gate A Architecture Review 修正已应用（planning/t02-intent-semantic-contract，等待复审）**：
+  - **UNSUPPORTED ≠ None**：修复 stale-state 与 outcome taxonomy 冲突——四态 expected outcomes（COMPLETE / PARTIAL / AMBIGUOUS / UNSUPPORTED）都必须产生**完整 IntentResult**；固定原则："Expected semantic outcomes always produce an IntentResult." / "None means no valid T02 semantic result exists; it is not the representation of UNSUPPORTED."
+  - **stale-state 重新冻结**：每次正常完成 interpretation（无论 outcome）都返回新完整 IntentResult 整体 overwrite 上一轮（上一轮 COMPLETE → 本轮 UNSUPPORTED 整体替换）；None 仅限无合法 semantic result 的 failure path——具体 path 与 Node 是否写 None 留 Gate B failure-boundary Review，不把 infrastructure / model failure 混进 expected outcome
+  - **COMPLETE / PARTIAL 基于 required semantics**：COMPLETE = 当前 query intent 所需 semantic requirements 均已充分表达（不要求所有可选类别有值）；PARTIAL = 至少一个 required requirement 未解析；固定原则："Optional semantic field absence is not automatically partial interpretation."
+  - **applicability / unresolved 边界**：IntentResult 必须能区分 not applicable vs required but unresolved（否则 PARTIAL 不可靠）；Gate A 只冻结语义能力，不强行设计所有 Optional 字段
+  - **T02→T03 三层接口**：IntentResult → source-agnostic retrieval requirements → integration / source-specific adapter → T03 RetrievalCriteria；固定原则升级："Semantic interpretation ≠ retrieval requirement ≠ source-specific retrieval criteria."；RetrievalCriteria 保持 fixture / source-specific；fake source key vocabulary 不得进入 IntentResult；不强制创建 RetrievalRequirement DTO，Gate B 决定形态但不得删除逻辑层
+  - **ambiguity 暴露不消歧**：删除"T02 ambiguity 不提前进入 T03"绝对表述——T02 必须显式暴露 interpretation ambiguity，不得静默选择；后续 application policy 可选 clarification / human input / domain rule / T03 facts 验证消歧；固定原则："T02 exposes ambiguity; it does not unilaterally resolve it."
+  - **model failure 收窄**：不统一写 transient——transport / provider / auth / config / malformed typed output / model refusal 均属 model invocation / output-contract failure，**不属于 semantic outcome taxonomy**；failure classification / retryability / retry policy 留后续 failure / retry contract
+  - **consumed-contract violation 边界**：normalized_question=None 可作为 Node / parser violation 代表，但 pure parser 可接收 `str`，Node adapter 保证输入契约（不强制所有内部函数 Optional[str] 检查）
+  - **Integration edge 细化**：T02→T03 拆为两条逻辑 edge（T02 result → retrieval requirements；retrieval requirements → T03 RetrievalCriteria），不用一句 T02→T03 closed 掩盖 adapter contract
+  - Gate A 决策表重写为 10 项最终结论（含 expected outcomes 全返 IntentResult / required-based 判定 / 三层接口 / model failure 边界）
+  - 等待复审；Status 仍 in_progress；不得进入 Gate B。
