@@ -51,6 +51,15 @@ pip install -e ".[docs]"
 mkdocs serve
 ```
 
+## 本地验证（统一入口）
+
+推送前运行唯一本地验证入口（TASK-0035）：
+
+```powershell
+python scripts/verify.py            # pytest + ruff check + mkdocs build --strict + git diff --check
+python scripts/verify.py --typing   # 额外运行 mypy（optional）
+```
+
 ## 当前状态
 
 版本：`v0.2.0`
