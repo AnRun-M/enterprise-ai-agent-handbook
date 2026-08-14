@@ -32,47 +32,49 @@ Gate A 冻结（TASK-0034）：
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from .semantic_types import IntentResult, SemanticValue
 
 
 class FakeSemanticParser:
     """deterministic rule-based fake semantic parser（无状态，无 LLM）。"""
 
-    _QUERY_VERBS: tuple[str, ...] = ("查询", "统计", "看看", "计算", "汇总", "分析")
-    _UNSUPPORTED_VERBS: tuple[str, ...] = ("删除", "删掉", "修改", "更新", "写入", "导出")
+    _QUERY_VERBS: ClassVar[tuple[str, ...]] = ("查询", "统计", "看看", "计算", "汇总", "分析")
+    _UNSUPPORTED_VERBS: ClassVar[tuple[str, ...]] = ("删除", "删掉", "修改", "更新", "写入", "导出")
 
-    _METRIC_AMBIGUOUS: dict[str, tuple[str, ...]] = {
+    _METRIC_AMBIGUOUS: ClassVar[dict[str, tuple[str, ...]]] = {
         "销售额": ("GMV", "paid_amount", "net_revenue"),
     }
-    _METRIC_RESOLVED: dict[str, str] = {
+    _METRIC_RESOLVED: ClassVar[dict[str, str]] = {
         "GMV": "GMV",
         "gmv": "GMV",
         "订单数": "订单数",
     }
-    _REGION_ENTITY: dict[str, str] = {
+    _REGION_ENTITY: ClassVar[dict[str, str]] = {
         "华东": "华东",
         "华南": "华南",
     }
-    _TIME_TOKENS: dict[str, str] = {
+    _TIME_TOKENS: ClassVar[dict[str, str]] = {
         "昨天": "yesterday",
         "今日": "today",
         "上个月": "last_month",
         "最近7天": "last_7_days",
         "近7天": "last_7_days",
     }
-    _TIME_REFERENCE_MARKERS: tuple[str, ...] = ("上周", "本周", "下个月", "去年", "今年")
-    _FILTER_TOKENS: dict[str, str] = {
+    _TIME_REFERENCE_MARKERS: ClassVar[tuple[str, ...]] = ("上周", "本周", "下个月", "去年", "今年")
+    _FILTER_TOKENS: ClassVar[dict[str, str]] = {
         "已支付": "已支付",
         "未支付": "未支付",
         "VIP用户": "VIP用户",
         "VIP": "VIP",
     }
-    _DIMENSION_PATTERNS: tuple[tuple[str, str], ...] = (
+    _DIMENSION_PATTERNS: ClassVar[tuple[tuple[str, str], ...]] = (
         ("按区域", "区域"),
         ("按日期", "日期"),
         ("按时间", "日期"),
     )
-    _AGGREGATION_TOKENS: dict[str, str] = {
+    _AGGREGATION_TOKENS: ClassVar[dict[str, str]] = {
         "总计": "total",
         "合计": "total",
         "总共": "total",
@@ -121,51 +123,51 @@ class FakeSemanticParser:
     def _parse_query_intent(self, text: str) -> SemanticValue:
         verb = self._match_first(text, self._QUERY_VERBS)
         if verb is not None:
-            return SemanticValue.resolved("query")
-        return SemanticValue.required_unresolved()
+            return SemanticValue.make_resolved("query")
+        return SemanticValue.make_required_unresolved()
 
     def _parse_metric(self, text: str) -> SemanticValue:
         # 歧义表优先（"销售额" 是 canonical ambiguity 例）
         for keyword in sorted(self._METRIC_AMBIGUOUS, key=len, reverse=True):
             if keyword in text:
-                return SemanticValue.ambiguous(*self._METRIC_AMBIGUOUS[keyword])
+                return SemanticValue.make_ambiguous(*self._METRIC_AMBIGUOUS[keyword])
         for keyword in sorted(self._METRIC_RESOLVED, key=len, reverse=True):
             if keyword in text:
-                return SemanticValue.resolved(self._METRIC_RESOLVED[keyword])
-        return SemanticValue.required_unresolved()
+                return SemanticValue.make_resolved(self._METRIC_RESOLVED[keyword])
+        return SemanticValue.make_required_unresolved()
 
     def _parse_time_range(self, text: str) -> SemanticValue:
         keyword = self._match_first(text, tuple(self._TIME_TOKENS))
         if keyword is not None:
-            return SemanticValue.resolved(self._TIME_TOKENS[keyword])
+            return SemanticValue.make_resolved(self._TIME_TOKENS[keyword])
         # 识别到时间引用但无法映射 semantic token → required-unresolved
         marker = self._match_first(text, self._TIME_REFERENCE_MARKERS)
         if marker is not None:
-            return SemanticValue.required_unresolved()
-        return SemanticValue.not_applicable()
+            return SemanticValue.make_required_unresolved()
+        return SemanticValue.make_not_applicable()
 
     def _parse_entity(self, text: str) -> SemanticValue:
         keyword = self._match_first(text, tuple(self._REGION_ENTITY))
         if keyword is not None:
-            return SemanticValue.resolved(self._REGION_ENTITY[keyword])
-        return SemanticValue.not_applicable()
+            return SemanticValue.make_resolved(self._REGION_ENTITY[keyword])
+        return SemanticValue.make_not_applicable()
 
     def _parse_filters(self, text: str) -> SemanticValue:
         keyword = self._match_first(text, tuple(self._FILTER_TOKENS))
         if keyword is not None:
-            return SemanticValue.resolved(self._FILTER_TOKENS[keyword])
-        return SemanticValue.not_applicable()
+            return SemanticValue.make_resolved(self._FILTER_TOKENS[keyword])
+        return SemanticValue.make_not_applicable()
 
     def _parse_dimension(self, text: str) -> SemanticValue:
         for pattern, ref in sorted(
             self._DIMENSION_PATTERNS, key=lambda item: len(item[0]), reverse=True
         ):
             if pattern in text:
-                return SemanticValue.resolved(ref)
-        return SemanticValue.not_applicable()
+                return SemanticValue.make_resolved(ref)
+        return SemanticValue.make_not_applicable()
 
     def _parse_aggregation(self, text: str) -> SemanticValue:
         keyword = self._match_first(text, tuple(self._AGGREGATION_TOKENS))
         if keyword is not None:
-            return SemanticValue.resolved(self._AGGREGATION_TOKENS[keyword])
-        return SemanticValue.not_applicable()
+            return SemanticValue.make_resolved(self._AGGREGATION_TOKENS[keyword])
+        return SemanticValue.make_not_applicable()

@@ -88,10 +88,10 @@ class SemanticValue:
     """一个语义类别的 interpretation 值（四种语义状态之一）。
 
     构造契约（classmethod 是推荐路径，直接构造由 `__post_init__` 兜底）：
-    - `SemanticValue.resolved(value)`：唯一确定语义
-    - `SemanticValue.ambiguous(*candidates)`：≥2 个合理候选，无单一 resolved 值
-    - `SemanticValue.required_unresolved()`：当前请求需要但未解析
-    - `SemanticValue.not_applicable()`：当前请求不需要
+    - `SemanticValue.make_resolved(value)`：唯一确定语义
+    - `SemanticValue.make_ambiguous(*candidates)`：≥2 个合理候选，无单一 resolved 值
+    - `SemanticValue.make_required_unresolved()`：当前请求需要但未解析
+    - `SemanticValue.make_not_applicable()`：当前请求不需要
 
     自然防止：AMBIGUOUS_CANDIDATES 永远没有可被静默选择的 resolved 值。
     """
@@ -101,11 +101,11 @@ class SemanticValue:
     candidates: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
-    def resolved(cls, value: str) -> SemanticValue:
+    def make_resolved(cls, value: str) -> SemanticValue:
         return cls(state=SemanticState.RESOLVED, resolved=value, candidates=())
 
     @classmethod
-    def ambiguous(cls, *candidates: str) -> SemanticValue:
+    def make_ambiguous(cls, *candidates: str) -> SemanticValue:
         return cls(
             state=SemanticState.AMBIGUOUS_CANDIDATES,
             resolved=None,
@@ -113,11 +113,11 @@ class SemanticValue:
         )
 
     @classmethod
-    def required_unresolved(cls) -> SemanticValue:
+    def make_required_unresolved(cls) -> SemanticValue:
         return cls(state=SemanticState.REQUIRED_UNRESOLVED, resolved=None, candidates=())
 
     @classmethod
-    def not_applicable(cls) -> SemanticValue:
+    def make_not_applicable(cls) -> SemanticValue:
         return cls(state=SemanticState.NOT_APPLICABLE, resolved=None, candidates=())
 
     def __post_init__(self) -> None:
@@ -215,7 +215,7 @@ class IntentResult:
         """构造 UNSUPPORTED 结果：不携带任何类别语义（唯一合法路径）。"""
         if not reason or reason != reason.strip():
             raise ValueError("unsupported reason must be non-empty trimmed text")
-        not_applicable = SemanticValue.not_applicable()
+        not_applicable = SemanticValue.make_not_applicable()
         return cls(
             metric=not_applicable,
             dimension=not_applicable,

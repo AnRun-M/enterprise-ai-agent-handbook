@@ -26,13 +26,13 @@ from examples.text2sql_state.semantic_types import (
 def make_result(**overrides: SemanticValue) -> IntentResult:
     """构造一个"全部 resolved / not-applicable"的基准 IntentResult。"""
     defaults = {
-        "metric": SemanticValue.resolved("GMV"),
-        "dimension": SemanticValue.not_applicable(),
-        "entity": SemanticValue.not_applicable(),
-        "time_range": SemanticValue.resolved("yesterday"),
-        "filters": SemanticValue.not_applicable(),
-        "aggregation_intent": SemanticValue.not_applicable(),
-        "query_intent": SemanticValue.resolved("query"),
+        "metric": SemanticValue.make_resolved("GMV"),
+        "dimension": SemanticValue.make_not_applicable(),
+        "entity": SemanticValue.make_not_applicable(),
+        "time_range": SemanticValue.make_resolved("yesterday"),
+        "filters": SemanticValue.make_not_applicable(),
+        "aggregation_intent": SemanticValue.make_not_applicable(),
+        "query_intent": SemanticValue.make_resolved("query"),
     }
     defaults.update(overrides)
     return IntentResult(**defaults)
@@ -43,7 +43,7 @@ def make_result(**overrides: SemanticValue) -> IntentResult:
 def test_outcome_is_derived_not_a_storable_field() -> None:
     # IntentResult 构造参数中没有 outcome——它由类别语义状态推导。
     # 因此 "outcome=COMPLETE 但存在 required-unresolved" 无法被构造出来。
-    result = make_result(metric=SemanticValue.required_unresolved())
+    result = make_result(metric=SemanticValue.make_required_unresolved())
     assert result.outcome is IntentOutcome.PARTIAL
 
 
@@ -58,7 +58,7 @@ def test_any_required_unresolved_forces_partial() -> None:
         "aggregation_intent",
         "query_intent",
     ):
-        result = make_result(**{category_field: SemanticValue.required_unresolved()})
+        result = make_result(**{category_field: SemanticValue.make_required_unresolved()})
         assert result.outcome is IntentOutcome.PARTIAL
 
 
@@ -70,14 +70,14 @@ def test_complete_only_when_nothing_unresolved() -> None:
 # ------------------------------------------------ 禁止组合 2：AMBIGUOUS 静默选择 resolved candidate
 
 def test_ambiguous_candidates_carry_no_resolved_value() -> None:
-    value = SemanticValue.ambiguous("GMV", "paid_amount")
+    value = SemanticValue.make_ambiguous("GMV", "paid_amount")
     assert value.state is SemanticState.AMBIGUOUS_CANDIDATES
     assert value.resolved is None  # 没有单一 resolved 值 → 无从"静默选择"
     assert len(value.candidates) >= 2
 
 
 def test_ambiguous_category_forces_ambiguous_outcome() -> None:
-    result = make_result(metric=SemanticValue.ambiguous("GMV", "paid_amount"))
+    result = make_result(metric=SemanticValue.make_ambiguous("GMV", "paid_amount"))
     assert result.outcome is IntentOutcome.AMBIGUOUS
     # AMBIGUOUS 时类别上仍无 resolved 值
     assert result.metric.resolved is None
@@ -104,13 +104,13 @@ def test_unsupported_must_not_carry_category_semantics() -> None:
     # 构造边界 fail-fast：UNSUPPORTED + 携带已解析语义 → ValueError
     with pytest.raises(ValueError):
         IntentResult(
-            metric=SemanticValue.resolved("GMV"),
-            dimension=SemanticValue.not_applicable(),
-            entity=SemanticValue.not_applicable(),
-            time_range=SemanticValue.not_applicable(),
-            filters=SemanticValue.not_applicable(),
-            aggregation_intent=SemanticValue.not_applicable(),
-            query_intent=SemanticValue.not_applicable(),
+            metric=SemanticValue.make_resolved("GMV"),
+            dimension=SemanticValue.make_not_applicable(),
+            entity=SemanticValue.make_not_applicable(),
+            time_range=SemanticValue.make_not_applicable(),
+            filters=SemanticValue.make_not_applicable(),
+            aggregation_intent=SemanticValue.make_not_applicable(),
+            query_intent=SemanticValue.make_not_applicable(),
             unsupported_reason="delete request",
         )
 
@@ -119,16 +119,16 @@ def test_unsupported_must_not_carry_category_semantics() -> None:
 
 def test_resolved_requires_non_empty_value() -> None:
     with pytest.raises(ValueError):
-        SemanticValue.resolved("")
+        SemanticValue.make_resolved("")
     with pytest.raises(ValueError):
-        SemanticValue.resolved("  ")
+        SemanticValue.make_resolved("  ")
 
 
 def test_ambiguous_requires_at_least_two_distinct_candidates() -> None:
     with pytest.raises(ValueError):
-        SemanticValue.ambiguous("GMV")
+        SemanticValue.make_ambiguous("GMV")
     with pytest.raises(ValueError):
-        SemanticValue.ambiguous("GMV", "GMV")
+        SemanticValue.make_ambiguous("GMV", "GMV")
 
 
 def test_ambiguous_must_not_carry_resolved() -> None:
@@ -155,8 +155,8 @@ def test_resolved_must_not_carry_candidates() -> None:
 def test_outcome_priority_ambiguous_over_partial() -> None:
     # 同时存在 AMBIGUOUS_CANDIDATES 与 REQUIRED_UNRESOLVED → AMBIGUOUS
     result = make_result(
-        metric=SemanticValue.ambiguous("GMV", "paid_amount"),
-        time_range=SemanticValue.required_unresolved(),
+        metric=SemanticValue.make_ambiguous("GMV", "paid_amount"),
+        time_range=SemanticValue.make_required_unresolved(),
     )
     assert result.outcome is IntentOutcome.AMBIGUOUS
 
@@ -191,7 +191,7 @@ def test_time_resolved_does_not_produce_requirement() -> None:
 
 
 def test_ambiguous_produces_candidate_scoped_requirement() -> None:
-    result = make_result(metric=SemanticValue.ambiguous("GMV", "paid_amount"))
+    result = make_result(metric=SemanticValue.make_ambiguous("GMV", "paid_amount"))
     assert result.retrieval_requirements == (
         RetrievalRequirement(
             category=SemanticCategory.METRIC,
@@ -202,7 +202,7 @@ def test_ambiguous_produces_candidate_scoped_requirement() -> None:
 
 
 def test_unresolved_produces_complete_interpretation_requirement() -> None:
-    result = make_result(time_range=SemanticValue.required_unresolved())
+    result = make_result(time_range=SemanticValue.make_required_unresolved())
     assert any(
         r.purpose is RetrievalPurpose.COMPLETE_INTERPRETATION
         and r.category is SemanticCategory.TIME_RANGE
